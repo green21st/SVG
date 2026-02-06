@@ -169,9 +169,13 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
     const targetW = 800;
     const targetH = 600;
-    const scale = Math.min(targetW / viewBox[2], targetH / viewBox[3]) * 0.8; // Use 80% of canvas
-    const offsetX = (targetW - viewBox[2] * scale) / 2 - viewBox[0] * scale;
-    const offsetY = (targetH - viewBox[3] * scale) / 2 - viewBox[1] * scale;
+
+    // IMPORTANT: If this is our own SVG, do NOT re-scale or it will shrink every time
+    const isNative = viewBox[0] === 0 && viewBox[1] === 0 && viewBox[2] === 800 && viewBox[3] === 600;
+
+    const scale = isNative ? 1 : Math.min(targetW / viewBox[2], targetH / viewBox[3]) * 0.9;
+    const offsetX = isNative ? 0 : (targetW - viewBox[2] * scale) / 2 - viewBox[0] * scale;
+    const offsetY = isNative ? 0 : (targetH - viewBox[3] * scale) / 2 - viewBox[1] * scale;
 
     const newPaths: PathLayer[] = [];
 
@@ -187,7 +191,6 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const cy = parseFloat(el.getAttribute('cy') || '0');
         const r = parseFloat(el.getAttribute('r') || '0');
 
-        // Convert circle to hex-point polygon
         const points = [];
         for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
             points.push(transform(cx + Math.cos(a) * r, cy + Math.sin(a) * r));
@@ -199,7 +202,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             color: el.getAttribute('stroke') || '#ffffff',
             fill: el.getAttribute('fill') || 'none',
             width: parseInt(el.getAttribute('stroke-width') || '2'),
-            tension: 1,
+            tension: 0,
             closed: true,
             symmetry: { horizontal: false, vertical: false, center: false }
         });
@@ -223,7 +226,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                     color,
                     fill,
                     width,
-                    tension: 0, // Force linear after curve sampling
+                    tension: 0,
                     closed: d.toLowerCase().includes('z'),
                     symmetry: { horizontal: false, vertical: false, center: false }
                 });
@@ -254,30 +257,45 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                 case 'h': curX += val; break;
                 case 'V': curY = val; break;
                 case 'v': curY += val; break;
-                case 'C': { // Cubic Sampling
-                    const cp1x = val, cp1y = parseFloat(tokens[++j]);
-                    const cp2x = parseFloat(tokens[++j]), cp2y = parseFloat(tokens[++j]);
-                    const endX = parseFloat(tokens[++j]), endY = parseFloat(tokens[++j]);
-                    const midX = 0.125 * curX + 0.375 * cp1x + 0.375 * cp2x + 0.125 * endX;
-                    const midY = 0.125 * curY + 0.375 * cp1y + 0.375 * cp2y + 0.125 * endY;
-                    points.push(transform(midX, midY));
+                case 'C':
+                    // CRITICAL: Stop sampling mid-points for C commands to prevent point bloat and freezing.
+                    // The end-point of a C command in our app is exactly the original vertex.
+                    j += 4;
+                    curX = parseFloat(tokens[j]); curY = parseFloat(tokens[++j]);
+                    break;
+                case 'c':
+                    j += 4;
+                    curX += parseFloat(tokens[j]); curY += parseFloat(tokens[++j]);
+                    break;
+                case 'A':
+                case 'a': {
+                    const rx = val;
+                    j += 3;
+                    const sweep = parseFloat(tokens[j]);
+                    const endX = cmd === 'A' ? parseFloat(tokens[++j]) : curX + parseFloat(tokens[++j]);
+                    const endY = cmd === 'A' ? parseFloat(tokens[++j]) : curY + parseFloat(tokens[++j]);
+
+                    // Add mid-point only for arcs to maintain shape without excessive points
+                    const midX = (curX + endX) / 2;
+                    const midY = (curY + endY) / 2;
+                    const bulge = (sweep ? 1 : -1) * rx * 0.4;
+                    const dx = endX - curX; const dy = endY - curY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0) {
+                        points.push(transform(midX - (dy / dist) * bulge, midY + (dx / dist) * bulge));
+                    }
                     curX = endX; curY = endY;
                     break;
                 }
-                case 'c': {
-                    const cp1x = curX + val, cp1y = curY + parseFloat(tokens[++j]);
-                    const cp2x = curX + parseFloat(tokens[++j]), cp2y = curY + parseFloat(tokens[++j]);
-                    const endX = curX + parseFloat(tokens[++j]), endY = curY + parseFloat(tokens[++j]);
-                    const midX = 0.125 * curX + 0.375 * cp1x + 0.375 * cp2x + 0.125 * endX;
-                    const midY = 0.125 * curY + 0.375 * cp1y + 0.375 * cp2y + 0.125 * endY;
-                    points.push(transform(midX, midY));
-                    curX = endX; curY = endY;
+                case 'S': case 'Q': case 's': case 'q': {
+                    const isRel = cmd.toLowerCase() === cmd;
+                    const nx = parseFloat(tokens[j + 2]);
+                    const ny = parseFloat(tokens[j + 3]);
+                    curX = isRel ? curX + nx : nx;
+                    curY = isRel ? curY + ny : ny;
+                    j += 3;
                     break;
                 }
-                case 'S': case 'Q':
-                    j += 2; curX = parseFloat(tokens[j]); curY = parseFloat(tokens[++j]); break;
-                case 's': case 'q':
-                    j += 2; curX += parseFloat(tokens[j]); curY += parseFloat(tokens[++j]); break;
             }
             points.push(transform(curX, curY));
         }
