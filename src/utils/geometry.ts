@@ -192,7 +192,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const r = parseFloat(el.getAttribute('r') || '0');
 
         const points = [];
-        for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+        // High density sampling for perfect circles
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 16) {
             points.push(transform(cx + Math.cos(a) * r, cy + Math.sin(a) * r));
         }
 
@@ -202,7 +203,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             color: el.getAttribute('stroke') || '#ffffff',
             fill: el.getAttribute('fill') || 'none',
             width: parseInt(el.getAttribute('stroke-width') || '2'),
-            tension: 0,
+            tension: 1, // Full smoothness for circles
             closed: true,
             symmetry: { horizontal: false, vertical: false, center: false }
         });
@@ -220,16 +221,34 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
         const finishPath = () => {
             if (points.length > 0) {
-                newPaths.push({
-                    id: `imported-path-${Date.now()}-${i}-${newPaths.length}`,
-                    points: [...points],
-                    color,
-                    fill,
-                    width,
-                    tension: 0,
-                    closed: d.toLowerCase().includes('z'),
-                    symmetry: { horizontal: false, vertical: false, center: false }
+                // Remove consecutive duplicates which break Catmull-Rom tangents
+                const cleanedPoints = points.filter((p, idx, self) => {
+                    if (idx === 0) return true;
+                    const prev = self[idx - 1];
+                    return Math.abs(p.x - prev.x) > 0.01 || Math.abs(p.y - prev.y) > 0.01;
                 });
+
+                // If closed, remove the last point if it matches the first
+                if (cleanedPoints.length > 2 && d.toLowerCase().includes('z')) {
+                    const first = cleanedPoints[0];
+                    const last = cleanedPoints[cleanedPoints.length - 1];
+                    if (Math.abs(first.x - last.x) < 0.1 && Math.abs(first.y - last.y) < 0.1) {
+                        cleanedPoints.pop();
+                    }
+                }
+
+                if (cleanedPoints.length > 0) {
+                    newPaths.push({
+                        id: `imported-path-${Date.now()}-${i}-${newPaths.length}`,
+                        points: cleanedPoints,
+                        color,
+                        fill,
+                        width,
+                        tension: 0.8, // Smooth enough for imported assets
+                        closed: d.toLowerCase().includes('z'),
+                        symmetry: { horizontal: false, vertical: false, center: false }
+                    });
+                }
                 points = [];
             }
         };
@@ -243,7 +262,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                 if (t.toLowerCase() === 'm' && points.length > 0) finishPath();
                 cmd = t;
                 if (cmd.toLowerCase() === 'z') {
-                    if (points.length > 0) points.push({ ...points[0] });
+                    // Don't duplicate start point as closed:true handles it
                     finishPath();
                 }
                 continue;
@@ -251,49 +270,108 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
             const val = parseFloat(t);
             switch (cmd) {
-                case 'M': case 'L': curX = val; curY = parseFloat(tokens[++j]); break;
-                case 'm': case 'l': curX += val; curY += parseFloat(tokens[++j]); break;
+                case 'M': curX = val; curY = parseFloat(tokens[++j]); break;
+                case 'm': curX += val; curY += parseFloat(tokens[++j]); break;
+                case 'L': curX = val; curY = parseFloat(tokens[++j]); break;
+                case 'l': curX += val; curY += parseFloat(tokens[++j]); break;
                 case 'H': curX = val; break;
                 case 'h': curX += val; break;
                 case 'V': curY = val; break;
                 case 'v': curY += val; break;
                 case 'C':
-                    // CRITICAL: Stop sampling mid-points for C commands to prevent point bloat and freezing.
-                    // The end-point of a C command in our app is exactly the original vertex.
-                    j += 4;
-                    curX = parseFloat(tokens[j]); curY = parseFloat(tokens[++j]);
-                    break;
-                case 'c':
-                    j += 4;
-                    curX += parseFloat(tokens[j]); curY += parseFloat(tokens[++j]);
-                    break;
-                case 'A':
-                case 'a': {
-                    const rx = val;
-                    j += 3;
-                    const sweep = parseFloat(tokens[j]);
-                    const endX = cmd === 'A' ? parseFloat(tokens[++j]) : curX + parseFloat(tokens[++j]);
-                    const endY = cmd === 'A' ? parseFloat(tokens[++j]) : curY + parseFloat(tokens[++j]);
+                case 'c': {
+                    const isRel = cmd === 'c';
+                    const x1 = isRel ? curX + parseFloat(tokens[j]) : parseFloat(tokens[j]);
+                    const y1 = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const x2 = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const y2 = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
 
-                    // Add mid-point only for arcs to maintain shape without excessive points
-                    const midX = (curX + endX) / 2;
-                    const midY = (curY + endY) / 2;
-                    const bulge = (sweep ? 1 : -1) * rx * 0.4;
-                    const dx = endX - curX; const dy = endY - curY;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist > 0) {
-                        points.push(transform(midX - (dy / dist) * bulge, midY + (dx / dist) * bulge));
+                    // Sample 4 points along the bezier curve for high fidelity
+                    for (let step = 1; step < 5; step++) {
+                        const t = step / 5;
+                        const mt = 1 - t;
+                        const bx = mt * mt * mt * curX + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x;
+                        const by = mt * mt * mt * curY + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y;
+                        points.push(transform(bx, by));
                     }
-                    curX = endX; curY = endY;
+
+                    curX = x; curY = y;
                     break;
                 }
-                case 'S': case 'Q': case 's': case 'q': {
-                    const isRel = cmd.toLowerCase() === cmd;
-                    const nx = parseFloat(tokens[j + 2]);
-                    const ny = parseFloat(tokens[j + 3]);
-                    curX = isRel ? curX + nx : nx;
-                    curY = isRel ? curY + ny : ny;
-                    j += 3;
+                case 'Q':
+                case 'q': {
+                    const isRel = cmd === 'q';
+                    const x1 = isRel ? curX + parseFloat(tokens[j]) : parseFloat(tokens[j]);
+                    const y1 = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+
+                    // Sample 3 intermediate points for quadratic bezier
+                    for (let step = 1; step < 4; step++) {
+                        const t = step / 4;
+                        const mt = 1 - t;
+                        const bx = mt * mt * curX + 2 * mt * t * x1 + t * t * x;
+                        const by = mt * mt * curY + 2 * mt * t * y1 + t * t * y;
+                        points.push(transform(bx, by));
+                    }
+
+                    curX = x; curY = y;
+                    break;
+                }
+                case 'A':
+                case 'a': {
+                    const isRel = cmd === 'a';
+                    const rx = val;
+                    const ry = parseFloat(tokens[++j]); // Used for skipping
+                    const rot = parseFloat(tokens[++j]); // Used for skipping
+                    const large = parseFloat(tokens[++j]);
+                    const sweep = parseFloat(tokens[++j]);
+                    const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+
+                    const dx = x - curX;
+                    const dy = y - curY;
+                    const L = Math.sqrt(dx * dx + dy * dy);
+
+                    if (L > 0 && rx > 0) {
+                        // Precise math for circular segment height (bulge)
+                        // L_scaled ensures we don't have imaginary roots if chord > 2R due to float errors
+                        const L_scaled = Math.min(L, 2 * rx * 0.999);
+                        const h_base = rx - Math.sqrt(rx * rx - (L_scaled / 2) * (L_scaled / 2));
+                        const h_max = (large ? (2 * rx - h_base) : h_base);
+
+                        // Sample 5 points to define the arc smoothly
+                        const factor = (sweep ? 1 : -1);
+                        for (let s = 1; s < 6; s++) {
+                            const t = s / 6;
+                            const tx = curX + dx * t;
+                            const ty = curY + dy * t;
+                            // Sine-bulge approximation is excellent for small vertex counts
+                            const h_current = h_max * Math.sin(t * Math.PI);
+
+                            points.push(transform(
+                                tx - (dy / L) * h_current * factor,
+                                ty + (dx / L) * h_current * factor
+                            ));
+                        }
+                    }
+
+                    // Keep ry/rot in scope to avoid lint if necessary, though skipping is their main use here
+                    if (ry < 0 || rot < 0) { /* dummy */ }
+
+                    curX = x; curY = y;
+                    break;
+                }
+                case 'S':
+                case 's': {
+                    // Shorthand cubic, just take endpoint as approximation
+                    const isRel = cmd === 's';
+                    j += 1;
+                    const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    curX = x; curY = y;
                     break;
                 }
             }

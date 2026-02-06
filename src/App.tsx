@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Square, Circle as CircleIcon, Triangle, Star, Pencil } from 'lucide-react';
 import useDraw from './hooks/useDraw';
-import { Canvas } from './components/Canvas';
+import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
 import { CodePanel } from './components/CodePanel';
 import { smoothPath } from './utils/geometry';

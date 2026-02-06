@@ -102,7 +102,7 @@ interface CanvasProps {
     activeTool: 'pen' | 'square' | 'circle' | 'triangle' | 'star';
 }
 
-export const Canvas: React.FC<CanvasProps> = ({
+const Canvas: React.FC<CanvasProps> = ({
     paths,
     currentPoints,
     cursorPos,
@@ -281,3 +281,5 @@ export const Canvas: React.FC<CanvasProps> = ({
         </div>
     );
 };
+
+export default Canvas;
