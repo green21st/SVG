@@ -237,7 +237,7 @@ function App() {
 
         {/* Right Sidebar: Code Panel */}
         <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col overflow-hidden">
-          <CodePanel paths={paths} tension={tension} isDragging={isDragging} />
+          <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} />
         </aside>
       </main>
     </div>

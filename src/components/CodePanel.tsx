@@ -1,20 +1,23 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Copy, Check } from 'lucide-react';
-import { smoothPath } from '../utils/geometry';
+import { Copy, Check, Import, Save } from 'lucide-react';
+import { smoothPath, parseSVGToPaths } from '../utils/geometry';
 import type { PathLayer } from '../types';
 
 interface CodePanelProps {
     paths: PathLayer[];
     tension: number;
     isDragging?: boolean;
+    onApplyCode?: (newPaths: PathLayer[]) => void;
 }
 
-export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging }) => {
+export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging, onApplyCode }) => {
     const [copied, setCopied] = useState(false);
+    const [localCode, setLocalCode] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
     const lastCodeRef = useRef('');
 
-    const code = useMemo(() => {
-        // If dragging, return the last generated code to avoid expensive smoothPath calls for all paths
+    // Update localCode when paths change, but only if not currently editing
+    const generatedCode = useMemo(() => {
         if (isDragging && lastCodeRef.current) {
             return lastCodeRef.current;
         }
@@ -35,28 +38,83 @@ ${pathsCode}
         return result;
     }, [paths, tension, isDragging]);
 
+    // Sync generated code to local code when not editing
+    useEffect(() => {
+        if (!isEditing) {
+            setLocalCode(generatedCode);
+        }
+    }, [generatedCode, isEditing]);
+
     const handleCopy = () => {
-        navigator.clipboard.writeText(code);
+        navigator.clipboard.writeText(localCode);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleApply = () => {
+        if (onApplyCode) {
+            const importedPaths = parseSVGToPaths(localCode);
+            if (importedPaths.length > 0) {
+                onApplyCode(importedPaths);
+                setIsEditing(false);
+            } else {
+                alert('No valid paths found in the SVG code.');
+            }
+        }
     };
 
     return (
         <div className="bg-surface rounded-xl border border-border shadow-lg flex flex-col h-full overflow-hidden">
             <div className="flex items-center justify-between p-3 border-b border-border bg-slate-950/50">
-                <h3 className="text-secondary text-xs uppercase tracking-wider font-semibold">SVG Code</h3>
-                <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded transition-colors"
-                >
-                    {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
-                    <span>{copied ? 'Copied' : 'Copy'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                    <h3 className="text-secondary text-xs uppercase tracking-wider font-semibold">SVG Code</h3>
+                    {isEditing && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold uppercase animate-pulse">
+                            Editing
+                        </span>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {isEditing ? (
+                        <button
+                            onClick={handleApply}
+                            className="flex items-center gap-1.5 text-xs bg-primary text-background hover:bg-primary/90 px-2 py-1 rounded transition-colors font-bold"
+                            title="Apply manual edits to canvas"
+                        >
+                            <Save size={12} />
+                            <span>Apply</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setIsEditing(true)}
+                            className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded transition-colors"
+                            title="Edit code manually"
+                        >
+                            <Import size={12} />
+                            <span>Edit</span>
+                        </button>
+                    )}
+                    <button
+                        onClick={handleCopy}
+                        className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded transition-colors"
+                    >
+                        {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                        <span>{copied ? 'Copy' : 'Copy'}</span>
+                    </button>
+                </div>
             </div>
-            <div className="flex-1 overflow-auto p-3 bg-[#020617]">
-                <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap break-all">
-                    {code}
-                </pre>
+            <div className="flex-1 overflow-hidden bg-[#020617] relative">
+                <textarea
+                    value={localCode}
+                    onChange={(e) => {
+                        setLocalCode(e.target.value);
+                        setIsEditing(true);
+                    }}
+                    onFocus={() => setIsEditing(true)}
+                    className="w-full h-full p-3 bg-transparent text-xs font-mono text-slate-300 resize-none outline-none focus:ring-1 focus:ring-primary/30 transition-all border-none"
+                    spellCheck={false}
+                    placeholder="Paste SVG code here..."
+                />
             </div>
         </div>
     );
