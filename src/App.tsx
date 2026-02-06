@@ -269,6 +269,7 @@ function App() {
               selectedPathId={selectedPathId}
               onPathSelect={setSelectedPathId}
               isDragging={isDragging}
+              activeTool={activeTool}
             />
           </div>
         </section>

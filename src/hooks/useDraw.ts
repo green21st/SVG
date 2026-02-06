@@ -339,7 +339,7 @@ function useDraw() {
                 color: strokeColor,
                 fill: fillColor,
                 width: strokeWidth,
-                tension: activeTool === 'circle' ? 1 : 0,
+                tension: tension,
                 closed: true,
                 symmetry: { ...symmetry }
             };

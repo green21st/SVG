@@ -99,6 +99,7 @@ interface CanvasProps {
     selectedPathId: string | null;
     onPathSelect: (id: string | null) => void;
     isDragging: boolean;
+    activeTool: 'pen' | 'square' | 'circle' | 'triangle' | 'star';
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -121,7 +122,8 @@ export const Canvas: React.FC<CanvasProps> = ({
     mode,
     selectedPathId,
     onPathSelect,
-    isDragging
+    isDragging,
+    activeTool
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -225,7 +227,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 {/* Render Smoothed Preview */}
                 {currentPoints.length > 1 && (
                     <path
-                        d={smoothPath(currentPoints, tension, isClosed)}
+                        d={smoothPath(currentPoints, tension, activeTool !== 'pen' ? true : isClosed)}
                         stroke="#22d3ee"
                         strokeWidth={2}
                         fill="none"
@@ -238,7 +240,7 @@ export const Canvas: React.FC<CanvasProps> = ({
                 {symmetricCurrentPaths.map((points, idx) => points.length > 1 && (
                     <path
                         key={`sym-smooth-${idx}`}
-                        d={smoothPath(points, tension, isClosed)}
+                        d={smoothPath(points, tension, activeTool !== 'pen' ? true : isClosed)}
                         stroke="#22d3ee"
                         strokeWidth={2}
                         fill="none"
