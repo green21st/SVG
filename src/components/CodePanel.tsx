@@ -42,7 +42,7 @@ ${pathsCode}
     };
 
     return (
-        <div className="bg-surface rounded-xl border border-border shadow-lg flex flex-col h-80 overflow-hidden mb-6">
+        <div className="bg-surface rounded-xl border border-border shadow-lg flex flex-col h-full overflow-hidden">
             <div className="flex items-center justify-between p-3 border-b border-border bg-slate-950/50">
                 <h3 className="text-secondary text-xs uppercase tracking-wider font-semibold">SVG Code</h3>
                 <button
@@ -53,8 +53,8 @@ ${pathsCode}
                     <span>{copied ? 'Copied' : 'Copy'}</span>
                 </button>
             </div>
-            <div className="flex-1 overflow-auto p-4 bg-[#020617] custom-scrollbar">
-                <pre className="text-[11px] font-mono text-slate-300 whitespace-pre-wrap break-all leading-relaxed">
+            <div className="flex-1 overflow-auto p-3 bg-[#020617]">
+                <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap break-all">
                     {code}
                 </pre>
             </div>

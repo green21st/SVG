@@ -207,10 +207,6 @@ function App() {
             onChange={handleBgFileChange}
           />
 
-          {/* Code Preview in Sidebar for compactness */}
-          <div className="mt-4">
-            <CodePanel paths={paths} tension={tension} isDragging={isDragging} />
-          </div>
         </aside>
 
         {/* Center: Canvas */}
@@ -236,11 +232,13 @@ function App() {
               onPathSelect={setSelectedPathId}
               isDragging={isDragging}
             />
-            <div className="absolute top-4 right-4 text-xs text-slate-500 font-mono pointer-events-none">
-              800 x 600
-            </div>
           </div>
         </section>
+
+        {/* Right Sidebar: Code Panel */}
+        <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col overflow-hidden">
+          <CodePanel paths={paths} tension={tension} isDragging={isDragging} />
+        </aside>
       </main>
     </div>
   );
