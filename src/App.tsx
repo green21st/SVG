@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { Square, Circle as CircleIcon, Triangle, Star, Pencil } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import { Canvas } from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -38,7 +39,10 @@ function App() {
     setMode,
     selectedPathId,
     setSelectedPathId,
-    isDragging
+    isDragging,
+    handleAddShape,
+    activeTool,
+    setActiveTool
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +63,7 @@ function App() {
     const reader = new FileReader();
     reader.onload = (event) => {
       setBackgroundImage(event.target?.result as string);
-      setBgVisible(true); // Default to visible on new upload
+      setBgVisible(true);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -83,7 +87,6 @@ function App() {
         const json = event.target?.result as string;
         const data = JSON.parse(json);
         if (Array.isArray(data)) {
-          // Basic validation
           const valid = data.every((item: any) => item.points && Array.isArray(item.points));
           if (valid) {
             setPaths(data);
@@ -97,7 +100,7 @@ function App() {
       }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset
+    e.target.value = '';
   };
 
   const handleSaveJson = () => {
@@ -113,7 +116,7 @@ function App() {
 
   const handleExportSvg = () => {
     if (!canvasRef.current) return;
-    const width = 800; // Fixed for now
+    const width = 800;
     const height = 600;
 
     const pathsCode = paths.map(path => {
@@ -134,7 +137,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30">
-      {/* Header */}
       <header className="h-14 border-b border-border bg-slate-950/80 backdrop-blur-md flex items-center px-6 justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-gradient-to-br from-primary to-blue-600 rounded-md flex items-center justify-center shadow-lg shadow-primary/20">
@@ -157,9 +159,7 @@ function App() {
         </div>
       </header>
 
-      {/* Main Workspace */}
       <main className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar: Toolbar */}
         <aside className="w-72 p-4 border-r border-border bg-slate-950 overflow-y-auto">
           <Toolbar
             tension={tension}
@@ -206,11 +206,49 @@ function App() {
             accept="image/*"
             onChange={handleBgFileChange}
           />
-
         </aside>
 
-        {/* Center: Canvas */}
-        <section className="flex-1 bg-[#020617] p-8 overflow-hidden relative flex items-center justify-center">
+        <section className="flex-1 bg-[#020617] p-8 overflow-hidden relative flex flex-col items-center justify-center gap-4">
+          {/* Shapes Bar */}
+          <div className="flex bg-slate-900/50 backdrop-blur-sm p-1.5 rounded-xl border border-white/5 shadow-xl gap-1">
+            <button
+              onClick={() => setActiveTool('pen')}
+              className={`p-2.5 rounded-lg transition-all active:scale-95 ${activeTool === 'pen' ? 'bg-primary text-background' : 'text-secondary hover:text-white hover:bg-slate-800'}`}
+              title="Pen Tool"
+            >
+              <Pencil size={20} />
+            </button>
+            <div className="w-px h-6 bg-white/10 mx-1 self-center" />
+            <button
+              onClick={() => handleAddShape('square')}
+              className={`p-2.5 rounded-lg transition-all active:scale-95 ${activeTool === 'square' ? 'bg-primary text-background' : 'text-secondary hover:text-white hover:bg-slate-800'}`}
+              title="Square Tool"
+            >
+              <Square size={20} />
+            </button>
+            <button
+              onClick={() => handleAddShape('circle')}
+              className={`p-2.5 rounded-lg transition-all active:scale-95 ${activeTool === 'circle' ? 'bg-primary text-background' : 'text-secondary hover:text-white hover:bg-slate-800'}`}
+              title="Circle Tool"
+            >
+              <CircleIcon size={20} />
+            </button>
+            <button
+              onClick={() => handleAddShape('triangle')}
+              className={`p-2.5 rounded-lg transition-all active:scale-95 ${activeTool === 'triangle' ? 'bg-primary text-background' : 'text-secondary hover:text-white hover:bg-slate-800'}`}
+              title="Triangle Tool"
+            >
+              <Triangle size={20} />
+            </button>
+            <button
+              onClick={() => handleAddShape('star')}
+              className={`p-2.5 rounded-lg transition-all active:scale-95 ${activeTool === 'star' ? 'bg-primary text-background' : 'text-secondary hover:text-white hover:bg-slate-800'}`}
+              title="Star Tool"
+            >
+              <Star size={20} />
+            </button>
+          </div>
+
           <div className="w-[800px] h-[600px] shadow-2xl shadow-black/50 rounded-xl relative">
             <Canvas
               paths={paths}
@@ -235,7 +273,6 @@ function App() {
           </div>
         </section>
 
-        {/* Right Sidebar: Code Panel */}
         <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col overflow-hidden">
           <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} />
         </aside>

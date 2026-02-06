@@ -86,134 +86,175 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 </button>
             </div>
 
-            <div className="h-px bg-border/50" />
-
-            <div>
-                <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold">Line Style</h3>
-
-                <div className="mb-3">
-                    <div className="flex justify-between text-[10px] text-secondary mb-1">
-                        <span>Tension</span>
-                        <span>{tension.toFixed(2)}</span>
-                    </div>
-                    <input
-                        type="range"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        value={tension}
-                        onChange={(e) => setTension(parseFloat(e.target.value))}
-                        className="w-full accent-primary h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
-                    />
+            {/* History Controls */}
+            <div className="flex items-center justify-between gap-2 p-1 bg-slate-950 rounded-lg border border-slate-800">
+                <div className="flex gap-1">
+                    <button
+                        onClick={undo}
+                        disabled={!canUndo}
+                        className="p-2 rounded bg-slate-800 text-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:text-white hover:bg-slate-700 transition-colors"
+                        title="Undo (Ctrl+Z)"
+                    >
+                        <Undo2 size={16} />
+                    </button>
+                    <button
+                        onClick={redo}
+                        disabled={!canRedo}
+                        className="p-2 rounded bg-slate-800 text-secondary disabled:opacity-30 disabled:cursor-not-allowed hover:text-white hover:bg-slate-700 transition-colors"
+                        title="Redo (Ctrl+Y)"
+                    >
+                        <Redo2 size={16} />
+                    </button>
                 </div>
-
-                <div className="mb-3">
-                    <div className="flex justify-between text-[10px] text-secondary mb-1">
-                        <span>Stroke Width</span>
-                        <span>{strokeWidth}px</span>
-                    </div>
-                    <input
-                        type="range"
-                        min="1"
-                        max="20"
-                        step="1"
-                        value={strokeWidth}
-                        onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
-                        className="w-full accent-primary h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
-                    />
-                </div>
-
-                <label className="flex items-center gap-2 text-xs text-secondary cursor-pointer hover:text-white">
-                    <input
-                        type="checkbox"
-                        checked={isClosed}
-                        onChange={(e) => setIsClosed(e.target.checked)}
-                        className="rounded border-slate-700 bg-slate-800 accent-primary"
-                    />
-                    Auto Close Path
-                </label>
+                <button
+                    onClick={clear}
+                    className="p-2 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors border border-red-500/20"
+                    title="Clear Canvas"
+                >
+                    <Trash2 size={16} />
+                </button>
             </div>
 
             <div className="h-px bg-border/50" />
 
-            {/* Colors */}
-            <div className="space-y-3">
+            {/* Appearance Controls */}
+            <div className="flex flex-col gap-4">
+                {/* Stroke Color */}
                 <div>
-                    <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold">Stroke Color</h3>
-                    <div className="flex items-center gap-2">
+                    <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold flex items-center justify-between">
+                        Stroke
+                        <span className="text-[10px] opacity-50 font-normal">{strokeColor}</span>
+                    </h3>
+                    <div className="flex gap-2">
                         <input
                             type="color"
                             value={strokeColor}
                             onChange={(e) => setStrokeColor(e.target.value)}
-                            className="w-8 h-8 rounded cursor-pointer bg-transparent border border-gray-600"
+                            className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border-none outline-none"
                         />
-                        <span className="text-xs text-secondary font-mono">{strokeColor}</span>
+                        <div className="flex-1 grid grid-cols-4 gap-1">
+                            {['#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#f87171', '#ffffff', '#000000'].map(c => (
+                                <button
+                                    key={c}
+                                    onClick={() => setStrokeColor(c)}
+                                    className={`w-full h-4 rounded-sm border ${strokeColor === c ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:scale-110'}`}
+                                    style={{ backgroundColor: c }}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
 
+                {/* Fill Color */}
                 <div>
-                    <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold">Fill Color</h3>
-                    <div className="flex items-center gap-2">
-                        <div className="relative">
-                            <input
-                                type="color"
-                                value={fillColor === 'none' ? '#000000' : fillColor} // Default to black for picker if none
-                                onChange={(e) => setFillColor(e.target.value)}
-                                className="w-8 h-8 rounded cursor-pointer bg-transparent border border-gray-600"
-                                disabled={fillColor === 'none'}
-                            />
-                            {fillColor === 'none' && (
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="w-full h-px bg-red-500 rotate-45 transform" />
-                                </div>
-                            )}
+                    <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold flex items-center justify-between">
+                        Fill
+                        <span className="text-[10px] opacity-50 font-normal">{fillColor === 'none' ? 'Transparent' : fillColor}</span>
+                    </h3>
+                    <div className="flex gap-2">
+                        <div className="flex flex-col gap-1 w-10">
+                            <button
+                                onClick={() => setFillColor('none')}
+                                className={`w-10 h-10 rounded-lg flex items-center justify-center border-2 border-dashed ${fillColor === 'none' ? 'border-primary bg-primary/10' : 'border-slate-700 text-slate-700 hover:border-slate-500 hover:text-slate-500'}`}
+                                title="No Fill"
+                            >
+                                <EyeOff size={16} />
+                            </button>
                         </div>
-
-                        <label className="flex items-center gap-2 text-xs text-secondary cursor-pointer hover:text-white">
-                            <input
-                                type="checkbox"
-                                checked={fillColor !== 'none'}
-                                onChange={(e) => setFillColor(e.target.checked ? '#22d3ee' : 'none')}
-                                className="rounded border-slate-700 bg-slate-800 accent-primary"
-                            />
-                            Enable Fill
-                        </label>
+                        <div className="flex-1">
+                            <div className="flex gap-2 mb-2">
+                                <input
+                                    type="color"
+                                    value={fillColor === 'none' ? '#ffffff' : fillColor}
+                                    onChange={(e) => setFillColor(e.target.value)}
+                                    className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border-none outline-none"
+                                />
+                                <div className="flex-1 grid grid-cols-4 gap-1">
+                                    {['#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#f87171', '#ffffff', '#000000'].map(c => (
+                                        <button
+                                            key={c}
+                                            onClick={() => setFillColor(c)}
+                                            className={`w-full h-4 rounded-sm border ${fillColor === c ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:scale-110'}`}
+                                            style={{ backgroundColor: c }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                {/* Width & Tension */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold flex items-center justify-between">
+                            Width
+                            <span className="text-[10px] font-normal">{strokeWidth}px</span>
+                        </h3>
+                        <input
+                            type="range"
+                            min="1"
+                            max="20"
+                            value={strokeWidth}
+                            onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
+                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                    </div>
+                    <div>
+                        <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold flex items-center justify-between">
+                            Curve
+                            <span className="text-[10px] font-normal">{tension.toFixed(1)}</span>
+                        </h3>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1.5"
+                            step="0.1"
+                            value={tension}
+                            onChange={(e) => setTension(parseFloat(e.target.value))}
+                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                    </div>
+                </div>
+
+                {/* Closed Loop Toggle */}
+                <div className="flex items-center gap-2 mt-2">
+                    <button
+                        onClick={() => setIsClosed(!isClosed)}
+                        className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md border text-xs font-semibold transition-all ${isClosed
+                            ? 'bg-primary/20 text-primary border-primary/50 shadow-[0_0_15px_rgba(34,211,238,0.2)]'
+                            : 'bg-slate-800/50 text-secondary border-slate-700 hover:text-white hover:border-slate-500'
+                            }`}
+                    >
+                        {isClosed ? 'Closed Loop' : 'Open Path'}
+                    </button>
                 </div>
             </div>
 
             <div className="h-px bg-border/50" />
 
+            {/* Symmetry Controls */}
             <div>
                 <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold">Symmetry</h3>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex gap-2 p-1 bg-slate-950 rounded-lg border border-slate-800">
                     <button
                         onClick={() => toggleSymmetry('horizontal')}
+                        className={`flex-1 flex items-center justify-center py-2 px-1 rounded transition-all font-bold text-base ${symmetry.horizontal ? 'bg-primary text-background' : 'text-secondary hover:bg-slate-800 hover:text-white'}`}
                         title="Horizontal Symmetry"
-                        className={`text-xs py-1.5 px-2 rounded-md transition-colors border font-bold ${symmetry.horizontal
-                            ? 'bg-primary/20 border-primary text-primary'
-                            : 'bg-slate-800 border-transparent text-secondary hover:bg-slate-700'
-                            }`}
                     >
                         H
                     </button>
                     <button
                         onClick={() => toggleSymmetry('vertical')}
+                        className={`flex-1 flex items-center justify-center py-2 px-1 rounded transition-all font-bold text-base ${symmetry.vertical ? 'bg-primary text-background' : 'text-secondary hover:bg-slate-800 hover:text-white'}`}
                         title="Vertical Symmetry"
-                        className={`text-xs py-1.5 px-2 rounded-md transition-colors border font-bold ${symmetry.vertical
-                            ? 'bg-primary/20 border-primary text-primary'
-                            : 'bg-slate-800 border-transparent text-secondary hover:bg-slate-700'
-                            }`}
                     >
                         V
                     </button>
                     <button
                         onClick={() => toggleSymmetry('center')}
+                        className={`flex-1 flex items-center justify-center py-2 px-1 rounded transition-all font-bold text-base ${symmetry.center ? 'bg-primary text-background' : 'text-secondary hover:bg-slate-800 hover:text-white'}`}
                         title="Center Symmetry"
-                        className={`text-xs py-1.5 px-2 rounded-md transition-colors border font-bold ${symmetry.center
-                            ? 'bg-primary/20 border-primary text-primary'
-                            : 'bg-slate-800 border-transparent text-secondary hover:bg-slate-700'
-                            }`}
                     >
                         C
                     </button>
@@ -222,60 +263,36 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
             <div className="h-px bg-border/50" />
 
-            <div>
-                <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold">Actions</h3>
-                <div className="flex gap-2 mb-2">
-                    <button
-                        onClick={undo} disabled={!canUndo}
-                        className="flex-1 flex items-center justify-center p-2 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
-                        title="Undo"
-                    >
-                        <Undo2 size={16} />
-                    </button>
-                    <button
-                        onClick={redo} disabled={!canRedo}
-                        className="flex-1 flex items-center justify-center p-2 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
-                        title="Redo"
-                    >
-                        <Redo2 size={16} />
-                    </button>
-                </div>
-
-                <button
-                    onClick={clear}
-                    className="w-full flex items-center justify-center gap-2 p-2 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors mb-2"
-                >
-                    <Trash2 size={16} />
-                    <span className="text-xs font-semibold">Clear Canvas</span>
-                </button>
-
+            {/* Output Controls */}
+            <div className="flex flex-col gap-2">
                 <button
                     onClick={onSave}
-                    className="w-full flex items-center justify-center gap-2 p-2 rounded bg-primary text-background hover:bg-primary/90 font-semibold transition-colors shadow-[0_0_15px_rgba(34,211,238,0.3)] mb-2"
-                >
-                    <Download size={16} />
-                    <span className="text-xs">Export SVG</span>
-                </button>
-
-                <button
-                    onClick={onSaveJson}
-                    className="w-full flex items-center justify-center gap-2 p-2 rounded bg-slate-800 text-secondary hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors mb-2"
+                    className="w-full flex items-center justify-center gap-2 p-2 rounded bg-primary text-background font-bold hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-all hover:-translate-y-0.5"
                 >
                     <Save size={16} />
-                    <span className="text-xs">Save JSON</span>
+                    <span className="text-xs">Download SVG</span>
                 </button>
-
-                <button
-                    onClick={onLoad}
-                    className="w-full flex items-center justify-center gap-2 p-2 rounded bg-slate-800 text-secondary hover:text-white hover:bg-slate-700 border border-slate-700 transition-colors mb-2"
-                >
-                    <Upload size={16} />
-                    <span className="text-xs">Load JSON</span>
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={onSaveJson}
+                        className="flex-1 flex items-center justify-center gap-2 p-1.5 rounded bg-slate-800 text-secondary hover:text-white hover:bg-slate-700 transition-colors"
+                    >
+                        <Download size={14} />
+                        <span className="text-[10px]">Save JSON</span>
+                    </button>
+                    <button
+                        onClick={onLoad}
+                        className="flex-1 flex items-center justify-center gap-2 p-1.5 rounded bg-slate-800 text-secondary hover:text-white hover:bg-slate-700 transition-colors"
+                    >
+                        <Upload size={14} />
+                        <span className="text-[10px]">Load JSON</span>
+                    </button>
+                </div>
             </div>
 
             <div className="h-px bg-border/50" />
 
+            {/* Reference Image Controls */}
             <div>
                 <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold">Reference Image</h3>
                 <div className="flex gap-2">
@@ -290,8 +307,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             <button
                                 onClick={() => setBgVisible(!bgVisible)}
                                 className={`flex items-center justify-center p-2 rounded border transition-colors ${bgVisible
-                                        ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20'
-                                        : 'bg-slate-800 text-secondary border-slate-700 hover:bg-slate-700'
+                                    ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20'
+                                    : 'bg-slate-800 text-secondary border-slate-700 hover:bg-slate-700'
                                     }`}
                                 title={bgVisible ? "Hide Reference" : "Show Reference"}
                             >

@@ -35,6 +35,9 @@ function useDraw() {
     const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
     const isDraggingRef = useRef(false);
 
+    const [activeTool, setActiveTool] = useState<'pen' | 'square' | 'circle' | 'triangle' | 'star'>('pen');
+    const [shapeStartPoint, setShapeStartPoint] = useState<Point | null>(null);
+
     const canvasRef = useRef<HTMLDivElement>(null);
 
     // 1. Sync settings when selectedPathId changes, with guards to prevent infinite loops
@@ -181,7 +184,12 @@ function useDraw() {
         if (!point) return;
 
         if (mode === 'draw') {
-            setCurrentPoints(prev => [...prev, point]);
+            if (activeTool === 'pen') {
+                setCurrentPoints(prev => [...prev, point]);
+            } else {
+                setShapeStartPoint(point);
+                setCurrentPoints([point, point]); // Initial two points for shape
+            }
         } else if (mode === 'edit') {
             if (selectedPathId) {
                 const path = paths.find(p => p.id === selectedPathId);
@@ -253,7 +261,54 @@ function useDraw() {
         if (point) {
             setCursorPos(point);
 
-            if (mode === 'edit' && draggingPointIndex !== null && selectedPathId) {
+            if (mode === 'draw' && shapeStartPoint) {
+                // Generate shape points based on drag
+                const dx = point.x - shapeStartPoint.x;
+                const dy = point.y - shapeStartPoint.y;
+                let newPoints: Point[] = [];
+
+                switch (activeTool) {
+                    case 'square':
+                        newPoints = [
+                            { x: shapeStartPoint.x, y: shapeStartPoint.y },
+                            { x: point.x, y: shapeStartPoint.y },
+                            { x: point.x, y: point.y },
+                            { x: shapeStartPoint.x, y: point.y }
+                        ];
+                        break;
+                    case 'circle': {
+                        const r = Math.sqrt(dx * dx + dy * dy);
+                        for (let i = 0; i < 16; i++) {
+                            const angle = (i / 16) * Math.PI * 2;
+                            newPoints.push({
+                                x: shapeStartPoint.x + Math.cos(angle) * r,
+                                y: shapeStartPoint.y + Math.sin(angle) * r
+                            });
+                        }
+                        break;
+                    }
+                    case 'triangle':
+                        newPoints = [
+                            { x: shapeStartPoint.x + dx / 2, y: shapeStartPoint.y },
+                            { x: point.x, y: point.y },
+                            { x: shapeStartPoint.x, y: point.y }
+                        ];
+                        break;
+                    case 'star': {
+                        const r = Math.sqrt(dx * dx + dy * dy);
+                        for (let i = 0; i < 10; i++) {
+                            const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+                            const currentR = i % 2 === 0 ? r : r * 0.4;
+                            newPoints.push({
+                                x: shapeStartPoint.x + Math.cos(angle) * currentR,
+                                y: shapeStartPoint.y + Math.sin(angle) * currentR
+                            });
+                        }
+                        break;
+                    }
+                }
+                setCurrentPoints(newPoints);
+            } else if (mode === 'edit' && draggingPointIndex !== null && selectedPathId) {
                 const updateFn = (prev: PathLayer[]) => prev.map(p => {
                     if (p.id === selectedPathId) {
                         const newPoints = [...p.points];
@@ -275,20 +330,45 @@ function useDraw() {
         }
     }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState]);
 
+    const handlePointerUp = useCallback(() => {
+        if (mode === 'draw' && shapeStartPoint && currentPoints.length > 2) {
+            const timestamp = Date.now();
+            const newPath: PathLayer = {
+                id: `shape-${timestamp}`,
+                points: [...currentPoints],
+                color: strokeColor,
+                fill: fillColor,
+                width: strokeWidth,
+                tension: activeTool === 'circle' ? 1 : 0,
+                closed: true,
+                symmetry: { ...symmetry }
+            };
+            setPaths(prev => [...prev, newPath]);
+            setCurrentPoints([]);
+            setShapeStartPoint(null);
+            // Optionally switch back to pen or keep tool
+        }
+
+        setCursorPos(null);
+        setDraggingPointIndex(null);
+        isDraggingRef.current = false;
+        setShapeStartPoint(null);
+    }, [mode, shapeStartPoint, currentPoints, activeTool, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths]);
+
     const handlePointerLeave = useCallback(() => {
         setCursorPos(null);
         setDraggingPointIndex(null);
         isDraggingRef.current = false;
+        setShapeStartPoint(null);
     }, []);
 
     useEffect(() => {
         const handleUp = () => {
-            setDraggingPointIndex(null);
-            isDraggingRef.current = false;
+            handlePointerUp();
         };
         window.addEventListener('mouseup', handleUp);
         return () => window.removeEventListener('mouseup', handleUp);
-    }, []);
+    }, [handlePointerUp]);
 
     const handleDoubleClick = useCallback((e: React.MouseEvent) => {
         if (mode !== 'edit' || !selectedPathId) return;
@@ -334,6 +414,12 @@ function useDraw() {
         setCurrentPoints([]);
     }, [setPaths]);
 
+    const handleAddShape = useCallback((type: 'square' | 'circle' | 'triangle' | 'star') => {
+        setActiveTool(type);
+        setMode('draw');
+        setCurrentPoints([]);
+    }, []);
+
     return {
         paths,
         currentPoints,
@@ -366,6 +452,10 @@ function useDraw() {
         canUndo,
         canRedo,
         clearCanvas,
+        handleAddShape,
+        activeTool,
+        setActiveTool,
+        handlePointerUp,
         setPaths,
         isDragging: draggingPointIndex !== null
     };
