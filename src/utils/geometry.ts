@@ -5,34 +5,16 @@ export interface Point {
 
 // Convert a set of points to a Catmull-Rom spline path
 // k is tension: 1 is standard, 0 is sharp
-// Convert a set of points to a Catmull-Rom spline path
-// k is tension: 1 is standard, 0 is sharp
 export const smoothPath = (points: Point[], k: number = 1, closed: boolean = false): string => {
     if (points.length === 0) return '';
     if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
 
-    // If only 2 points, just draw a line (unless closed, then line back? no, 2 pts closed is flat)
+    // If only 2 points, just draw a line
     if (points.length === 2 && !closed) {
         return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
     }
 
-    // Prepare points array for loop
     const pts = [...points];
-    if (closed) {
-        // If closed, we wrap around.
-        // We effectively simulate p[-1] as p[last], and we go up to p[last] connecting to p[0]
-        // But the loop below logic assumes p0, p1, p2, p3 where p1->p2 is drawn.
-        // For a closed loop of N points (0..N-1):
-        // Segments: 0->1, 1->2, ..., (N-2)->(N-1), (N-1)->0.
-        // Total N segments.
-        // We can just append the first few points to the end to let the generic loop handle it, 
-        // or rewrite logic. The generic loop is simple.
-        // Loop runs for points.length - 1 times normally.
-
-        // Let's use a robust approach for closed loop Catmull-Rom.
-        // We need D for start M..
-        // Then loop through each point as a start point of a segment.
-    }
 
     if (closed) {
         let d = `M ${pts[0].x} ${pts[0].y}`;
@@ -54,17 +36,13 @@ export const smoothPath = (points: Point[], k: number = 1, closed: boolean = fal
         d += ' Z';
         return d;
     } else {
-        // Open logic
         let d = `M ${points[0].x} ${points[0].y}`;
 
         for (let i = 0; i < points.length - 1; i++) {
             const p0 = points[i - 1] || points[i];
             const p1 = points[i];
-            const p2 = points[i + 1] || points[i + 1]; // Handle end: duplicate last
-            const p3 = points[i + 2] || p2; // Handle end
-
-            // Note: classic Catmull-Rom for open curve ends usually involves duplicating end points or reflection.
-            // Using clamp here.
+            const p2 = points[i + 1];
+            const p3 = points[i + 2] || p2;
 
             const cp1x = p1.x + (p2.x - p0.x) / 6 * k;
             const cp1y = p1.y + (p2.y - p0.y) / 6 * k;
@@ -92,46 +70,23 @@ export const applySymmetry = (
     centerX: number,
     centerY: number
 ): Point[][] => {
-    // Transformations
     const flipH = (p: Point) => ({ x: centerX + (centerX - p.x), y: p.y });
     const flipV = (p: Point) => ({ x: p.x, y: centerY + (centerY - p.y) });
     const flipC = (p: Point) => ({ x: centerX + (centerX - p.x), y: centerY + (centerY - p.y) });
 
-    // Generate set of transformation functions to apply
-    // We compute the closure of the group actions.
-    // For D2 (Klein four-group subset), we have I, H, V, C.
-    // H*V = C. H*C = V. V*C = H.
-
-    // We can just check which fundamental symmetries are reachable.
-    const hasH = settings.horizontal;
-    const hasV = settings.vertical;
-    const hasC = settings.center;
-
-    // Determine implied symmetries
-    // If H and V, then C is implied.
-    // If H and C, then V is implied.
-    // If V and C, then H is implied.
-    const activeH = hasH || (hasV && hasC);
-    const activeV = hasV || (hasH && hasC);
-    const activeC = hasC || (hasH && hasV);
+    const activeH = settings.horizontal || (settings.vertical && settings.center);
+    const activeV = settings.vertical || (settings.horizontal && settings.center);
+    const activeC = settings.center || (settings.horizontal && settings.vertical);
 
     const variants: { [key: string]: Point[] } = {};
 
-    // Helper to add variant
     const add = (pts: Point[], key: string) => {
         if (!variants[key]) variants[key] = pts;
     };
 
-    // 0. Identity
     add(points, 'I');
-
-    // 1. Horizontal
     if (activeH) add(points.map(flipH), 'H');
-
-    // 2. Vertical
     if (activeV) add(points.map(flipV), 'V');
-
-    // 3. Center
     if (activeC) add(points.map(flipC), 'C');
 
     return Object.values(variants);
@@ -160,7 +115,6 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
     const svgEl = doc.querySelector('svg');
     if (!svgEl) return [];
 
-    // 1. Calculate Scaling
     let viewBox = svgEl.getAttribute('viewBox')?.split(/[\s,]+/).map(parseFloat);
     const svgW = parseFloat(svgEl.getAttribute('width') || '0') || (viewBox ? viewBox[2] : 800);
     const svgH = parseFloat(svgEl.getAttribute('height') || '0') || (viewBox ? viewBox[3] : 600);
@@ -170,7 +124,6 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
     const targetW = 800;
     const targetH = 600;
 
-    // IMPORTANT: If this is our own SVG, do NOT re-scale or it will shrink every time
     const isNative = viewBox[0] === 0 && viewBox[1] === 0 && viewBox[2] === 800 && viewBox[3] === 600;
 
     const scale = isNative ? 1 : Math.min(targetW / viewBox[2], targetH / viewBox[3]) * 0.9;
@@ -179,7 +132,6 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
     const newPaths: PathLayer[] = [];
 
-    // Helper to process points
     const transform = (x: number, y: number) => ({
         x: x * scale + offsetX,
         y: y * scale + offsetY
@@ -192,7 +144,6 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const r = parseFloat(el.getAttribute('r') || '0');
 
         const points = [];
-        // High density sampling for perfect circles
         for (let a = 0; a < Math.PI * 2; a += Math.PI / 16) {
             points.push(transform(cx + Math.cos(a) * r, cy + Math.sin(a) * r));
         }
@@ -203,7 +154,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             color: el.getAttribute('stroke') || '#ffffff',
             fill: el.getAttribute('fill') || 'none',
             width: parseInt(el.getAttribute('stroke-width') || '2'),
-            tension: 1, // Full smoothness for circles
+            tension: 1,
             closed: true,
             symmetry: { horizontal: false, vertical: false, center: false }
         });
@@ -217,18 +168,17 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const width = parseInt(el.getAttribute('stroke-width') || '2');
 
         let curX = 0, curY = 0;
+        let lastCPX = 0, lastCPY = 0; // Previous control point for shorthand bezier
         let points: Point[] = [];
 
         const finishPath = () => {
             if (points.length > 0) {
-                // Remove consecutive duplicates which break Catmull-Rom tangents
                 const cleanedPoints = points.filter((p, idx, self) => {
                     if (idx === 0) return true;
                     const prev = self[idx - 1];
                     return Math.abs(p.x - prev.x) > 0.01 || Math.abs(p.y - prev.y) > 0.01;
                 });
 
-                // If closed, remove the last point if it matches the first
                 if (cleanedPoints.length > 2 && d.toLowerCase().includes('z')) {
                     const first = cleanedPoints[0];
                     const last = cleanedPoints[cleanedPoints.length - 1];
@@ -244,7 +194,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         color,
                         fill,
                         width,
-                        tension: 0.8, // Smooth enough for imported assets
+                        tension: 0.8,
                         closed: d.toLowerCase().includes('z'),
                         symmetry: { horizontal: false, vertical: false, center: false }
                     });
@@ -255,14 +205,15 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
         const tokens = d.match(/[a-df-z]|[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/gi) || [];
         let cmd = '';
+        let prevCmd = '';
 
         for (let j = 0; j < tokens.length; j++) {
             const t = tokens[j];
             if (/[a-z]/i.test(t)) {
                 if (t.toLowerCase() === 'm' && points.length > 0) finishPath();
+                prevCmd = cmd;
                 cmd = t;
                 if (cmd.toLowerCase() === 'z') {
-                    // Don't duplicate start point as closed:true handles it
                     finishPath();
                 }
                 continue;
@@ -270,14 +221,14 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
             const val = parseFloat(t);
             switch (cmd) {
-                case 'M': curX = val; curY = parseFloat(tokens[++j]); break;
-                case 'm': curX += val; curY += parseFloat(tokens[++j]); break;
-                case 'L': curX = val; curY = parseFloat(tokens[++j]); break;
-                case 'l': curX += val; curY += parseFloat(tokens[++j]); break;
-                case 'H': curX = val; break;
-                case 'h': curX += val; break;
-                case 'V': curY = val; break;
-                case 'v': curY += val; break;
+                case 'M': curX = val; curY = parseFloat(tokens[++j]); lastCPX = curX; lastCPY = curY; break;
+                case 'm': curX += val; curY += parseFloat(tokens[++j]); lastCPX = curX; lastCPY = curY; break;
+                case 'L': curX = val; curY = parseFloat(tokens[++j]); lastCPX = curX; lastCPY = curY; break;
+                case 'l': curX += val; curY += parseFloat(tokens[++j]); lastCPX = curX; lastCPY = curY; break;
+                case 'H': curX = val; lastCPX = curX; break;
+                case 'h': curX += val; lastCPX = curX; break;
+                case 'V': curY = val; lastCPY = curY; break;
+                case 'v': curY += val; lastCPY = curY; break;
                 case 'C':
                 case 'c': {
                     const isRel = cmd === 'c';
@@ -288,15 +239,41 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                     const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
                     const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
 
-                    // Sample 4 points along the bezier curve for high fidelity
-                    for (let step = 1; step < 5; step++) {
-                        const t = step / 5;
+                    for (let step = 1; step < 7; step++) {
+                        const t = step / 7;
                         const mt = 1 - t;
                         const bx = mt * mt * mt * curX + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x;
                         const by = mt * mt * mt * curY + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y;
                         points.push(transform(bx, by));
                     }
+                    lastCPX = x2; lastCPY = y2;
+                    curX = x; curY = y;
+                    break;
+                }
+                case 'S':
+                case 's': {
+                    const isRel = cmd === 's';
+                    const x2 = isRel ? curX + parseFloat(tokens[j]) : parseFloat(tokens[j]);
+                    const y2 = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                    const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
 
+                    let x1, y1;
+                    if (/[cs]/i.test(prevCmd)) {
+                        x1 = 2 * curX - lastCPX;
+                        y1 = 2 * curY - lastCPY;
+                    } else {
+                        x1 = curX; y1 = curY;
+                    }
+
+                    for (let step = 1; step < 7; step++) {
+                        const t = step / 7;
+                        const mt = 1 - t;
+                        const bx = mt * mt * mt * curX + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x;
+                        const by = mt * mt * mt * curY + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y;
+                        points.push(transform(bx, by));
+                    }
+                    lastCPX = x2; lastCPY = y2;
                     curX = x; curY = y;
                     break;
                 }
@@ -308,72 +285,114 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                     const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
                     const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
 
-                    // Sample 3 intermediate points for quadratic bezier
-                    for (let step = 1; step < 4; step++) {
-                        const t = step / 4;
+                    for (let step = 1; step < 5; step++) {
+                        const t = step / 5;
                         const mt = 1 - t;
                         const bx = mt * mt * curX + 2 * mt * t * x1 + t * t * x;
                         const by = mt * mt * curY + 2 * mt * t * y1 + t * t * y;
                         points.push(transform(bx, by));
                     }
+                    lastCPX = x1; lastCPY = y1;
+                    curX = x; curY = y;
+                    break;
+                }
+                case 'T':
+                case 't': {
+                    const isRel = cmd === 't';
+                    const x = isRel ? curX + parseFloat(tokens[j]) : parseFloat(tokens[j]);
+                    const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
 
+                    let x1, y1;
+                    if (/[qt]/i.test(prevCmd)) {
+                        x1 = 2 * curX - lastCPX;
+                        y1 = 2 * curY - lastCPY;
+                    } else {
+                        x1 = curX; y1 = curY;
+                    }
+
+                    for (let step = 1; step < 5; step++) {
+                        const t = step / 5;
+                        const mt = 1 - t;
+                        const bx = mt * mt * curX + 2 * mt * t * x1 + t * t * x;
+                        const by = mt * mt * curY + 2 * mt * t * y1 + t * t * y;
+                        points.push(transform(bx, by));
+                    }
+                    lastCPX = x1; lastCPY = y1;
                     curX = x; curY = y;
                     break;
                 }
                 case 'A':
                 case 'a': {
                     const isRel = cmd === 'a';
-                    const rx = val;
-                    const ry = parseFloat(tokens[++j]); // Used for skipping
-                    const rot = parseFloat(tokens[++j]); // Used for skipping
-                    const large = parseFloat(tokens[++j]);
-                    const sweep = parseFloat(tokens[++j]);
+                    let rx = Math.abs(parseFloat(tokens[j]));
+                    let ry = Math.abs(parseFloat(tokens[++j]));
+                    const xAxisRotation = (parseFloat(tokens[++j]) * Math.PI) / 180;
+                    const largeArcFlag = parseFloat(tokens[++j]);
+                    const sweepFlag = parseFloat(tokens[++j]);
                     const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
                     const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
 
-                    const dx = x - curX;
-                    const dy = y - curY;
-                    const L = Math.sqrt(dx * dx + dy * dy);
-
-                    if (L > 0 && rx > 0) {
-                        // Precise math for circular segment height (bulge)
-                        // L_scaled ensures we don't have imaginary roots if chord > 2R due to float errors
-                        const L_scaled = Math.min(L, 2 * rx * 0.999);
-                        const h_base = rx - Math.sqrt(rx * rx - (L_scaled / 2) * (L_scaled / 2));
-                        const h_max = (large ? (2 * rx - h_base) : h_base);
-
-                        // Sample 5 points to define the arc smoothly
-                        const factor = (sweep ? 1 : -1);
-                        for (let s = 1; s < 6; s++) {
-                            const t = s / 6;
-                            const tx = curX + dx * t;
-                            const ty = curY + dy * t;
-                            // Sine-bulge approximation is excellent for small vertex counts
-                            const h_current = h_max * Math.sin(t * Math.PI);
-
-                            points.push(transform(
-                                tx - (dy / L) * h_current * factor,
-                                ty + (dx / L) * h_current * factor
-                            ));
-                        }
+                    if (curX === x && curY === y) break;
+                    if (rx === 0 || ry === 0) {
+                        points.push(transform(x, y));
+                        curX = x; curY = y;
+                        lastCPX = curX; lastCPY = curY;
+                        break;
                     }
 
-                    // Keep ry/rot in scope to avoid lint if necessary, though skipping is their main use here
-                    if (ry < 0 || rot < 0) { /* dummy */ }
+                    const cosPhi = Math.cos(xAxisRotation);
+                    const sinPhi = Math.sin(xAxisRotation);
+                    const x1p = (cosPhi * (curX - x)) / 2 + (sinPhi * (curY - y)) / 2;
+                    const y1p = (-sinPhi * (curX - x)) / 2 + (cosPhi * (curY - y)) / 2;
+
+                    let lambda = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+                    if (lambda > 1) {
+                        rx *= Math.sqrt(lambda);
+                        ry *= Math.sqrt(lambda);
+                    }
+
+                    const rx2 = rx * rx, ry2 = ry * ry;
+                    const x1p2 = x1p * x1p, y1p2 = y1p * y1p;
+
+                    let sign = (largeArcFlag === sweepFlag ? -1 : 1);
+                    let cScale = Math.sqrt(Math.max(0, (rx2 * ry2 - rx2 * y1p2 - ry2 * x1p2) / (rx2 * y1p2 + ry2 * x1p2)));
+                    let cxp = sign * cScale * (rx * y1p) / ry;
+                    let cyp = sign * cScale * -(ry * x1p) / rx;
+
+                    let cx = cosPhi * cxp - sinPhi * cyp + (curX + x) / 2;
+                    let cy = sinPhi * cxp + cosPhi * cyp + (curY + y) / 2;
+
+                    const vectorAngle = (ux: number, uy: number, vx: number, vy: number) => {
+                        const sign = (ux * vy - uy * vx < 0 ? -1 : 1);
+                        const dot = ux * vx + uy * vy;
+                        const magU = Math.sqrt(ux * ux + uy * uy);
+                        const magV = Math.sqrt(vx * vx + vy * vy);
+                        return sign * Math.acos(Math.max(-1, Math.min(1, dot / (magU * magV))));
+                    };
+
+                    let theta1 = vectorAngle(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry);
+                    let dTheta = vectorAngle((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+
+                    if (sweepFlag === 0 && dTheta > 0) dTheta -= 2 * Math.PI;
+                    if (sweepFlag === 1 && dTheta < 0) dTheta += 2 * Math.PI;
+
+                    const samples = 12;
+                    for (let s = 1; s <= samples; s++) {
+                        const angle = theta1 + dTheta * (s / (samples + 1));
+                        const sxp = rx * Math.cos(angle);
+                        const syp = ry * Math.sin(angle);
+                        const px = cosPhi * sxp - sinPhi * syp + cx;
+                        const py = sinPhi * sxp + cosPhi * syp + cy;
+                        points.push(transform(px, py));
+                    }
 
                     curX = x; curY = y;
+                    lastCPX = curX; lastCPY = curY;
                     break;
                 }
-                case 'S':
-                case 's': {
-                    // Shorthand cubic, just take endpoint as approximation
-                    const isRel = cmd === 's';
-                    j += 1;
-                    const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
-                    const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
-                    curX = x; curY = y;
-                    break;
-                }
+            }
+            if (!/[cqst]/i.test(cmd)) {
+                lastCPX = curX; lastCPY = curY;
             }
             points.push(transform(curX, curY));
         }
