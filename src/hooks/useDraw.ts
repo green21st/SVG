@@ -211,23 +211,29 @@ function useDraw() {
             let hasSnappedToPoint = false;
 
             if (pointSnappingEnabled) {
-                if (paths.length < 100) {
-                    for (const path of paths) {
-                        for (const p of path.points) {
-                            const dx = x - p.x;
-                            const dy = y - p.y;
-                            const distSq = dx * dx + dy * dy;
-                            if (distSq < closestDistSq) {
-                                closestDistSq = distSq;
-                                snapX = p.x;
-                                snapY = p.y;
-                                hasSnappedToPoint = true;
-                            }
+                // Iterate over all paths
+                for (const path of paths) {
+                    // Optimization: For brush paths, only snap to start/end points to avoid lag
+                    const pointsToCheck = path.id.startsWith('brush-')
+                        ? [path.points[0], path.points[path.points.length - 1]]
+                        : path.points;
+
+                    for (const p of pointsToCheck) {
+                        if (!p) continue;
+                        const dx = x - p.x;
+                        const dy = y - p.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < closestDistSq) {
+                            closestDistSq = distSq;
+                            snapX = p.x;
+                            snapY = p.y;
+                            hasSnappedToPoint = true;
                         }
                     }
                 }
 
-                if (mode === 'draw') {
+                // Snap to current drawing points (only for pen tool)
+                if (mode === 'draw' && activeTool === 'pen') {
                     for (const p of currentPoints) {
                         const dx = x - p.x;
                         const dy = y - p.y;
