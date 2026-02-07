@@ -239,7 +239,7 @@ ${pathsCode}
             </svg>
           </div>
           <h1 className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-            PolyCurve <span className="text-primary/50 font-normal">Studio</span>
+            Fantastic <span className="text-primary/50 font-normal">SVG</span>
           </h1>
         </div>
         <div className="flex items-center gap-4 bg-slate-900/50 px-3 py-1 rounded-full border border-white/5">

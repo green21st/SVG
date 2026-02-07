@@ -1,4 +1,4 @@
-# PolyCurve Studio
+# Fantastic SVG
 
 An interactive, web-based tool for drawing and smoothing SVG paths with real-time code generation.
 
