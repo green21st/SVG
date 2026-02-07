@@ -547,7 +547,7 @@ interface CanvasProps {
     selectedPathId: string | null;
     onPathSelect: (id: string | null) => void;
     isDragging: boolean;
-    activeTool: 'pen' | 'square' | 'circle' | 'triangle' | 'star';
+    activeTool: 'brush' | 'pen' | 'square' | 'circle' | 'triangle' | 'star';
     getBoundingBox: (points: Point[]) => any;
     animationPaused?: boolean;
 }
@@ -675,7 +675,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 ))}
 
                 {/* Render Smoothed Preview */}
-                {currentPoints.length > 1 && (
+                {currentPoints.length > 1 && activeTool !== 'brush' && (
                     <path
                         d={smoothPath(currentPoints, tension, activeTool !== 'pen' ? true : isClosed)}
                         stroke="#22d3ee"
@@ -687,7 +687,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 )}
 
                 {/* Render Real-time Symmetric Smoothed Preview */}
-                {symmetricCurrentPaths.map((points, idx) => points.length > 1 && (
+                {activeTool !== 'brush' && symmetricCurrentPaths.map((points, idx) => points.length > 1 && (
                     <path
                         key={`sym-smooth-${idx}`}
                         d={smoothPath(points, tension, activeTool !== 'pen' ? true : isClosed)}
@@ -700,7 +700,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 ))}
 
                 {/* Render Points for feedback */}
-                {currentPoints.map((p, i) => (
+                {activeTool !== 'brush' && currentPoints.map((p, i) => (
                     <circle
                         key={i}
                         cx={p.x}
@@ -713,19 +713,17 @@ const Canvas: React.FC<CanvasProps> = ({
                 ))}
 
                 {/* Render Rubber Band Line to Cursor */}
-                {currentPoints.length > 0 && cursorPos && (
-                    <>
-                        <line
-                            x1={currentPoints[currentPoints.length - 1].x}
-                            y1={currentPoints[currentPoints.length - 1].y}
-                            x2={cursorPos.x}
-                            y2={cursorPos.y}
-                            stroke="#94a3b8"
-                            strokeWidth={1}
-                            strokeDasharray="4,4"
-                            opacity={0.5}
-                        />
-                    </>
+                {activeTool !== 'brush' && currentPoints.length > 0 && cursorPos && (
+                    <line
+                        x1={currentPoints[currentPoints.length - 1].x}
+                        y1={currentPoints[currentPoints.length - 1].y}
+                        x2={cursorPos.x}
+                        y2={cursorPos.y}
+                        stroke="#94a3b8"
+                        strokeWidth={1}
+                        strokeDasharray="4,4"
+                        opacity={0.5}
+                    />
                 )}
             </svg>
 

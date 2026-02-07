@@ -402,3 +402,26 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
     return newPaths;
 };
+// Ramer-Douglas-Peucker algorithm to simplify path
+export const simplifyPath = (points: Point[], tolerance: number = 1): Point[] => {
+    if (points.length <= 2) return points;
+
+    let maxDist = 0;
+    let index = 0;
+
+    for (let i = 1; i < points.length - 1; i++) {
+        const d = distToSegment(points[i], points[0], points[points.length - 1]);
+        if (d > maxDist) {
+            maxDist = d;
+            index = i;
+        }
+    }
+
+    if (maxDist > tolerance) {
+        const left = simplifyPath(points.slice(0, index + 1), tolerance);
+        const right = simplifyPath(points.slice(index), tolerance);
+        return [...left.slice(0, left.length - 1), ...right];
+    } else {
+        return [points[0], points[points.length - 1]];
+    }
+};

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Point, PathLayer, SymmetrySettings, AnimationSettings } from '../types';
-import { applySymmetry, distToSegment } from '../utils/geometry';
+import { applySymmetry, distToSegment, simplifyPath } from '../utils/geometry';
 import useHistory from './useHistory';
 
 function useDraw() {
@@ -44,8 +44,9 @@ function useDraw() {
     const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
     const isDraggingRef = useRef(false);
 
-    const [activeTool, setActiveTool] = useState<'pen' | 'square' | 'circle' | 'triangle' | 'star'>('pen');
+    const [activeTool, setActiveTool] = useState<'brush' | 'pen' | 'square' | 'circle' | 'triangle' | 'star'>('brush');
     const [shapeStartPoint, setShapeStartPoint] = useState<Point | null>(null);
+    const isDrawingBrushRef = useRef(false);
 
     // Transformation State
     const [transformMode, setTransformMode] = useState<'none' | 'rotate' | 'scale' | 'translate'>('none');
@@ -296,7 +297,10 @@ function useDraw() {
         if (!point) return;
 
         if (mode === 'draw') {
-            if (activeTool === 'pen') {
+            if (activeTool === 'brush') {
+                isDrawingBrushRef.current = true;
+                setCurrentPoints([point]);
+            } else if (activeTool === 'pen') {
                 setCurrentPoints(prev => [...prev, point]);
             } else {
                 setShapeStartPoint(point);
@@ -393,7 +397,9 @@ function useDraw() {
         if (point) {
             setCursorPos(point);
 
-            if (mode === 'draw' && shapeStartPoint) {
+            if (mode === 'draw' && isDrawingBrushRef.current) {
+                setCurrentPoints(prev => [...prev, point]);
+            } else if (mode === 'draw' && shapeStartPoint) {
                 const dx = point.x - shapeStartPoint.x;
                 const dy = point.y - shapeStartPoint.y;
                 let newPoints: Point[] = [];
@@ -493,7 +499,33 @@ function useDraw() {
     }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState, transformMode, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool]);
 
     const handlePointerUp = useCallback(() => {
-        if (mode === 'draw' && shapeStartPoint && currentPoints.length > 2) {
+        if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
+            const timestamp = Date.now();
+            // Optimize points based on tension
+            // Higher tension = more smoothing desire? 
+            // Actually RDP tolerance: lower is closer to raw, higher is more simplified.
+            const tolerance = Math.max(0.5, tension * 5);
+            const optimizedPoints = simplifyPath(currentPoints, tolerance);
+
+            const newPath: PathLayer = {
+                id: `brush-${timestamp}`,
+                points: optimizedPoints,
+                color: strokeColor,
+                fill: fillColor,
+                width: strokeWidth,
+                tension: tension,
+                closed: false,
+                strokeOpacity,
+                fillOpacity,
+                animation: { ...animation },
+                symmetry: { ...symmetry },
+                visible: true,
+                name: `Brush ${paths.length + 1}`
+            };
+            setPaths(prev => [...prev, newPath]);
+            setCurrentPoints([]);
+            isDrawingBrushRef.current = false;
+        } else if (mode === 'draw' && shapeStartPoint && currentPoints.length > 2) {
             const timestamp = Date.now();
             const newPath: PathLayer = {
                 id: `shape-${timestamp}`,

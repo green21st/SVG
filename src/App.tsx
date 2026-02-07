@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Pencil, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause } from 'lucide-react';
+import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -278,9 +278,16 @@ ${pathsCode}
         <section className="flex-1 bg-[#020617] p-8 overflow-hidden relative flex flex-col items-center justify-center gap-4">
           <div className="flex bg-slate-900/50 backdrop-blur-sm p-1.5 rounded-xl border border-white/5 shadow-xl gap-1">
             <button
-              onClick={() => setActiveTool('pen')}
+              onClick={() => { setActiveTool('brush'); setMode('draw'); }}
+              className={`p-2.5 rounded-lg transition-all active:scale-95 ${activeTool === 'brush' ? 'bg-primary text-background' : 'text-secondary hover:text-white hover:bg-slate-800'}`}
+              title="Brush Tool (Freehand)"
+            >
+              <Brush size={20} />
+            </button>
+            <button
+              onClick={() => { setActiveTool('pen'); setMode('draw'); }}
               className={`p-2.5 rounded-lg transition-all active:scale-95 ${activeTool === 'pen' ? 'bg-primary text-background' : 'text-secondary hover:text-white hover:bg-slate-800'}`}
-              title="Pen Tool"
+              title="Pen Tool (Points)"
             >
               <Pencil size={20} />
             </button>
