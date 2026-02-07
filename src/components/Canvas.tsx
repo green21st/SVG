@@ -28,8 +28,63 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
         return getBoundingBox(path.points);
     }, [selected, path.points, getBoundingBox]);
 
+    const animationStyle = useMemo(() => {
+        if (!path.animation || path.animation.type === 'none') return {};
+        const { type, duration, delay, ease } = path.animation;
+        let animationName = '';
+        const style: React.CSSProperties = {
+            animationDuration: `${duration}s`,
+            animationDelay: `${delay}s`,
+            animationTimingFunction: ease,
+            animationIterationCount: 'infinite',
+            animationFillMode: 'forwards'
+        };
+
+        switch (type) {
+            case 'draw':
+                animationName = 'drawPath';
+                style.strokeDasharray = '1000';
+                style.strokeDashoffset = '1000';
+                break;
+            case 'pulse':
+                animationName = 'pulsePath';
+                break;
+            case 'float':
+                animationName = 'floatPath';
+                break;
+            case 'spin':
+                animationName = 'spinPath';
+                style.transformOrigin = 'center';
+                style.transformBox = 'fill-box';
+                break;
+        }
+
+        style.animationName = animationName;
+        return style;
+    }, [path.animation]);
+
     return (
         <g>
+            {/* Global Animation Keyframes */}
+            <style>
+                {`
+                    @keyframes drawPath {
+                        to { stroke-dashoffset: 0; }
+                    }
+                    @keyframes pulsePath {
+                        0%, 100% { opacity: 1; }
+                        50% { opacity: 0.3; }
+                    }
+                    @keyframes floatPath {
+                        0%, 100% { transform: translateY(0); }
+                        50% { transform: translateY(-10px); }
+                    }
+                    @keyframes spinPath {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                `}
+            </style>
             {variants.map((points, vIdx) => {
                 const d = smoothPath(points, path.tension, path.closed);
                 return (
@@ -47,7 +102,10 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                             className={cn(
                                 mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
                             )}
-                            style={{ pointerEvents: mode === 'edit' ? 'all' : 'none' }}
+                            style={{
+                                pointerEvents: mode === 'edit' ? 'all' : 'none',
+                                ...animationStyle
+                            }}
                         />
 
                         {/* Bounding Box & Handles - Only for the primary variant to avoid symmetry duplication conflicts */}

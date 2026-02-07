@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { Point, PathLayer, SymmetrySettings } from '../types';
+import type { Point, PathLayer, SymmetrySettings, AnimationSettings } from '../types';
 import { applySymmetry, distToSegment } from '../utils/geometry';
 import useHistory from './useHistory';
 
@@ -30,6 +30,12 @@ function useDraw() {
     const [isClosed, setIsClosed] = useState<boolean>(false);
     const [strokeOpacity, setStrokeOpacity] = useState<number>(1);
     const [fillOpacity, setFillOpacity] = useState<number>(1);
+    const [animation, setAnimation] = useState<AnimationSettings>({
+        type: 'none',
+        duration: 2,
+        delay: 0,
+        ease: 'ease-in-out'
+    });
 
     // Edit Mode State
     const [mode, setMode] = useState<'draw' | 'edit'>('draw');
@@ -85,6 +91,7 @@ function useDraw() {
                 const newClosed = path.closed ?? false;
                 const newStrokeOpacity = path.strokeOpacity ?? 1;
                 const newFillOpacity = path.fillOpacity ?? 1;
+                const newAnimation = path.animation ?? { type: 'none', duration: 2, delay: 0, ease: 'ease-in-out' };
 
                 // ONLY update if actually different to avoid "Maximum update depth exceeded"
                 if (strokeColor !== newColor) setStrokeColor(newColor);
@@ -94,9 +101,10 @@ function useDraw() {
                 if (isClosed !== newClosed) setIsClosed(newClosed);
                 if (strokeOpacity !== newStrokeOpacity) setStrokeOpacity(newStrokeOpacity);
                 if (fillOpacity !== newFillOpacity) setFillOpacity(newFillOpacity);
+                if (JSON.stringify(animation) !== JSON.stringify(newAnimation)) setAnimation(newAnimation);
             }
         }
-    }, [selectedPathId, mode, paths, strokeColor, fillColor, strokeWidth, tension, isClosed, strokeOpacity, fillOpacity]);
+    }, [selectedPathId, mode, paths, strokeColor, fillColor, strokeWidth, tension, isClosed, strokeOpacity, fillOpacity, animation]);
 
     // 2. Helper to update selected path property
     const updateSelectedPathProperty = useCallback((updater: (path: PathLayer) => PathLayer) => {
@@ -159,6 +167,11 @@ function useDraw() {
     const setFillOpacityEnhanced = useCallback((opacity: number) => {
         setFillOpacity(opacity);
         updateSelectedPathProperty(p => ({ ...p, fillOpacity: opacity }));
+    }, [updateSelectedPathProperty]);
+
+    const setAnimationEnhanced = useCallback((anim: AnimationSettings) => {
+        setAnimation(anim);
+        updateSelectedPathProperty(p => ({ ...p, animation: anim }));
     }, [updateSelectedPathProperty]);
 
     const toggleSymmetry = useCallback((key: keyof SymmetrySettings) => {
@@ -358,6 +371,7 @@ function useDraw() {
             closed: isClosed,
             strokeOpacity,
             fillOpacity,
+            animation: { ...animation },
             symmetry: { ...symmetry }
         };
 
@@ -484,6 +498,7 @@ function useDraw() {
                 closed: true,
                 strokeOpacity,
                 fillOpacity,
+                animation: { ...animation },
                 symmetry: { ...symmetry }
             };
             setPaths(prev => [...prev, newPath]);
@@ -608,7 +623,9 @@ function useDraw() {
         strokeOpacity,
         setStrokeOpacity: setStrokeOpacityEnhanced,
         fillOpacity,
-        setFillOpacity: setFillOpacityEnhanced
+        setFillOpacity: setFillOpacityEnhanced,
+        animation,
+        setAnimation: setAnimationEnhanced
     };
 }
 

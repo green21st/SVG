@@ -14,6 +14,14 @@ export interface PathLayer {
     symmetry: SymmetrySettings; // Embedded symmetry for dynamic editing
     strokeOpacity?: number;
     fillOpacity?: number;
+    animation?: AnimationSettings;
+}
+
+export interface AnimationSettings {
+    type: 'none' | 'draw' | 'pulse' | 'float' | 'spin';
+    duration: number; // in seconds
+    delay: number; // in seconds
+    ease: string;
 }
 
 export interface SymmetrySettings {

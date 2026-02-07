@@ -52,7 +52,9 @@ function App() {
     strokeOpacity,
     setStrokeOpacity,
     fillOpacity,
-    setFillOpacity
+    setFillOpacity,
+    animation,
+    setAnimation
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -267,6 +269,75 @@ function App() {
                 >
                   <Scissors size={20} />
                 </button>
+              </div>
+            )}
+          </div>
+
+          {/* Animation Controls Panel */}
+          <div className="w-[800px] mt-4 p-4 bg-slate-900/60 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-500/20 rounded-md text-indigo-400">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Motion Effects</h3>
+              </div>
+              <div className="flex gap-1.5 p-1 bg-black/40 rounded-lg border border-white/5">
+                {(['none', 'draw', 'pulse', 'float', 'spin'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setAnimation({ ...animation, type })}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${animation.type === type ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {animation.type !== 'none' && (
+              <div className="grid grid-cols-3 gap-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                    <span>Duration</span>
+                    <span className="text-indigo-400">{animation.duration}s</span>
+                  </div>
+                  <input
+                    type="range" min="0.5" max="10" step="0.1" value={animation.duration}
+                    onChange={(e) => setAnimation({ ...animation, duration: parseFloat(e.target.value) })}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                    <span>Delay</span>
+                    <span className="text-indigo-400">{animation.delay}s</span>
+                  </div>
+                  <input
+                    type="range" min="0" max="5" step="0.1" value={animation.delay}
+                    onChange={(e) => setAnimation({ ...animation, delay: parseFloat(e.target.value) })}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                    <span>Easing</span>
+                  </div>
+                  <select
+                    value={animation.ease}
+                    onChange={(e) => setAnimation({ ...animation, ease: e.target.value })}
+                    className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1 text-[11px] text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  >
+                    <option value="linear">Linear</option>
+                    <option value="ease">Ease</option>
+                    <option value="ease-in">Ease In</option>
+                    <option value="ease-out">Ease Out</option>
+                    <option value="ease-in-out">Ease In-Out</option>
+                    <option value="cubic-bezier(0.34, 1.56, 0.64, 1)">Elastic</option>
+                  </select>
+                </div>
               </div>
             )}
           </div>
