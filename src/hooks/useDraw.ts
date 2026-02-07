@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Point, PathLayer, SymmetrySettings, AnimationSettings } from '../types';
-import { applySymmetry, distToSegment, simplifyPath } from '../utils/geometry';
+import { applySymmetry, distToSegment, simplifyPath, smoothPath } from '../utils/geometry';
 import useHistory from './useHistory';
 
 function useDraw() {
@@ -152,13 +152,13 @@ function useDraw() {
     const setTensionEnhanced = useCallback((t: number, commit: boolean = true) => {
         setIsInteracting(!commit);
         setTension(t);
-        updateSelectedPathProperty(p => ({ ...p, tension: t }), commit);
+        updateSelectedPathProperty(p => ({ ...p, tension: t, d: undefined }), commit);
     }, [updateSelectedPathProperty]);
 
     const setIsClosedEnhanced = useCallback((closed: boolean, commit: boolean = true) => {
         setIsInteracting(!commit);
         setIsClosed(closed);
-        updateSelectedPathProperty(p => ({ ...p, closed }), commit);
+        updateSelectedPathProperty(p => ({ ...p, closed, d: undefined }), commit);
     }, [updateSelectedPathProperty]);
 
     const setStrokeOpacityEnhanced = useCallback((opacity: number, commit: boolean = true) => {
@@ -473,7 +473,7 @@ function useDraw() {
                                     y: pt.y + dy
                                 }));
                             }
-                            return { ...p, points: newPoints };
+                            return { ...p, points: newPoints, d: undefined };
                         }
                         return p;
                     });
@@ -489,7 +489,7 @@ function useDraw() {
                         if (p.id === selectedPathId) {
                             const newPoints = [...p.points];
                             newPoints[draggingPointIndex] = point;
-                            return { ...p, points: newPoints };
+                            return { ...p, points: newPoints, d: undefined };
                         }
                         return p;
                     });
@@ -508,8 +508,6 @@ function useDraw() {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
             const timestamp = Date.now();
             // Optimize points based on tension
-            // Higher tension = more smoothing desire? 
-            // Actually RDP tolerance: lower is closer to raw, higher is more simplified.
             const tolerance = Math.max(0.5, tension * 5);
             const optimizedPoints = simplifyPath(currentPoints, tolerance);
 
@@ -526,7 +524,8 @@ function useDraw() {
                 animation: { ...animation },
                 symmetry: { ...symmetry },
                 visible: true,
-                name: `Brush ${paths.length + 1}`
+                name: `Brush ${paths.length + 1}`,
+                d: smoothPath(optimizedPoints, tension, false)
             };
             setPaths(prev => [...prev, newPath]);
             setCurrentPoints([]);
@@ -546,7 +545,8 @@ function useDraw() {
                 animation: { ...animation },
                 symmetry: { ...symmetry },
                 visible: true,
-                name: `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} ${paths.length + 1}`
+                name: `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} ${paths.length + 1}`,
+                d: smoothPath(currentPoints, tension, true)
             };
             setPaths(prev => [...prev, newPath]);
             setCurrentPoints([]);

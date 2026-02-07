@@ -160,7 +160,9 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                 `}
             </style>
             {variantConfigs.map((config, vIdx) => {
-                const d = smoothPath(config.points, path.tension, path.closed);
+                const d = (config.variantType === 'I' && path.d)
+                    ? path.d
+                    : smoothPath(config.points, path.tension, path.closed);
 
                 // Helper to wrap content in nested animated groups
                 const wrapInAnimations = (content: React.ReactNode, styles: React.CSSProperties[], prefix: string = 'anim') => {

@@ -17,6 +17,7 @@ export interface PathLayer {
     animation?: AnimationSettings;
     visible?: boolean;
     name?: string;
+    d?: string; // Cache the smoothed path data to avoid re-calculation
 }
 
 export type AnimationType = 'none' | 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';
