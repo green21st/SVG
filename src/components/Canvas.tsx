@@ -10,9 +10,10 @@ interface PathItemProps {
     onSelect: (id: string) => void;
     isDragging: boolean;
     getBoundingBox: (points: Point[]) => any;
+    animationPaused: boolean;
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, getBoundingBox }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, getBoundingBox, animationPaused }) => {
     // Canvas dimensions for symmetry center
     const width = 800;
     const height = 600;
@@ -46,7 +47,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                     animationTimingFunction: ease,
                     animationIterationCount: 'infinite',
                     animationFillMode: 'forwards',
-                    animationPlayState: isDragging ? 'paused' : 'running'
+                    animationPlayState: (isDragging || animationPaused) ? 'paused' : 'running'
                 };
 
                 let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
@@ -108,7 +109,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
 
             return { points: v.points, pathStyles, groupAnimations, variantType: v.type };
         });
-    }, [path.animation, variants, path.color, isDragging]);
+    }, [path.animation, variants, path.color, isDragging, animationPaused]);
 
     return (
         <g>
@@ -548,6 +549,7 @@ interface CanvasProps {
     isDragging: boolean;
     activeTool: 'pen' | 'square' | 'circle' | 'triangle' | 'star';
     getBoundingBox: (points: Point[]) => any;
+    animationPaused?: boolean;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -572,7 +574,8 @@ const Canvas: React.FC<CanvasProps> = ({
     onPathSelect,
     isDragging,
     activeTool,
-    getBoundingBox
+    getBoundingBox,
+    animationPaused = false
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -643,6 +646,7 @@ const Canvas: React.FC<CanvasProps> = ({
                         onSelect={onPathSelectSafe}
                         isDragging={isDragging}
                         getBoundingBox={getBoundingBox}
+                        animationPaused={animationPaused}
                     />
                 ))}
 

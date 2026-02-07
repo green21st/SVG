@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Pencil, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors } from 'lucide-react';
+import { Pencil, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -64,6 +64,9 @@ function App() {
   const [backgroundImage, setBackgroundImage] = React.useState<string | null>(null);
   const [bgVisible, setBgVisible] = React.useState(true);
   const bgInputRef = useRef<HTMLInputElement>(null);
+
+  /* Animation Control */
+  const [animationPaused, setAnimationPaused] = React.useState(false);
 
   const handleBgUploadClick = () => {
     bgInputRef.current?.click();
@@ -304,6 +307,7 @@ ${pathsCode}
                 selectedPathId={selectedPathId} onPathSelect={setSelectedPathId}
                 isDragging={isDragging} activeTool={activeTool}
                 getBoundingBox={getBoundingBox}
+                animationPaused={animationPaused}
               />
             </div>
 
@@ -330,13 +334,22 @@ ${pathsCode}
           {/* Animation Controls Panel - Compact Version */}
           <div className="w-[800px] mt-4 p-3 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden">
             <div className="flex items-center gap-4">
-              {/* Type Switcher */}
+              {/* Animation Play/Pause Toggle */}
               <div className="flex items-center gap-2 border-r border-white/5 pr-4">
-                <div className="p-1.5 bg-indigo-500/20 rounded-md text-indigo-400">
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2 / 5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
+                <button
+                  onClick={() => setAnimationPaused(!animationPaused)}
+                  className={`p-1.5 rounded-md transition-all hover:scale-110 active:scale-95 ${animationPaused
+                    ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                    : 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
+                    }`}
+                  title={animationPaused ? '播放动画' : '暂停动画'}
+                >
+                  {animationPaused ? (
+                    <Play className="w-3.5 h-3.5" fill="currentColor" />
+                  ) : (
+                    <Pause className="w-3.5 h-3.5" fill="currentColor" />
+                  )}
+                </button>
                 <div className="grid grid-cols-5 bg-black/40 rounded-lg p-0.5 border border-white/5 gap-0.5">
                   {(['none', 'draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'] as const).map((type) => (
                     <button
