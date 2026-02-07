@@ -34,9 +34,6 @@ interface ToolbarProps {
     setPointSnappingEnabled: (val: boolean) => void;
     guideSnappingEnabled: boolean;
     setGuideSnappingEnabled: (val: boolean) => void;
-    selectedPathId: string | null;
-    deleteSelectedPath: () => void;
-    duplicateSelectedPath: () => void;
     strokeOpacity: number;
     setStrokeOpacity: (val: number, commit?: boolean) => void;
     fillOpacity: number;
@@ -75,9 +72,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     setPointSnappingEnabled,
     guideSnappingEnabled,
     setGuideSnappingEnabled,
-    selectedPathId,
-    deleteSelectedPath,
-    duplicateSelectedPath,
     strokeOpacity,
     setStrokeOpacity,
     fillOpacity,

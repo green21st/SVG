@@ -264,8 +264,6 @@ ${pathsCode}
             hasBg={!!backgroundImage} mode={mode} setMode={setMode}
             pointSnappingEnabled={pointSnappingEnabled} setPointSnappingEnabled={setPointSnappingEnabled}
             guideSnappingEnabled={guideSnappingEnabled} setGuideSnappingEnabled={setGuideSnappingEnabled}
-            deleteSelectedPath={deleteSelectedPath} duplicateSelectedPath={duplicateSelectedPath}
-            selectedPathId={selectedPathId}
             strokeOpacity={strokeOpacity}
             setStrokeOpacity={setStrokeOpacity}
             fillOpacity={fillOpacity}
