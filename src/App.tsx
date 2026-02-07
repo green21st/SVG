@@ -125,9 +125,10 @@ function App() {
 
     const keyframes = `
   @keyframes drawPath { to { stroke-dashoffset: 0; } }
-  @keyframes pulsePath { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-  @keyframes floatPath { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -10px)); } }
-  @keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color)) brightness(1.5); } }
+  @keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  @keyframes swingPath { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+  @keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }
     `.trim();
 
     const pathsCode = paths.map(path => {
@@ -144,7 +145,8 @@ function App() {
         if (direction === 'alternate') styleStr += ' animation-direction: alternate;';
 
         if (type === 'draw') styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
-        if (type === 'spin') styleStr += ' transform-origin: center; transform-box: fill-box;';
+        if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') styleStr += ' transform-origin: center; transform-box: fill-box;';
+        if (type === 'glow') styleStr += ` --glow-color: ${path.color || '#22d3ee'};`;
 
         animationAttrs = ` style="${styleStr}"`;
       }
@@ -313,12 +315,12 @@ ${pathsCode}
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2 / 5} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
-                <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/5">
-                  {(['none', 'draw', 'pulse', 'float', 'spin'] as const).map((type) => (
+                <div className="grid grid-cols-5 bg-black/40 rounded-lg p-0.5 border border-white/5 gap-0.5">
+                  {(['none', 'draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'] as const).map((type) => (
                     <button
                       key={type}
                       onClick={() => setAnimation({ ...animation, type })}
-                      className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${animation.type === type ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'}`}
+                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase transition-all ${animation.type === type ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'}`}
                     >
                       {type === 'none' ? 'OFF' : type}
                     </button>

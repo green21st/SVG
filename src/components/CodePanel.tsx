@@ -31,6 +31,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
   @keyframes pulsePath { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   @keyframes floatPath { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -10px)); } }
   @keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes bouncePath { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.15, 0.85); } 60% { transform: scale(0.9, 1.1); } 80% { transform: scale(1.05, 0.95); } }
+  @keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color)) brightness(1.5); } }
+  @keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  @keyframes swingPath { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+  @keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }
         `.trim();
 
         const pathsCode = paths.map(path => {
@@ -48,8 +53,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                 if (type === 'draw') {
                     styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
                 }
-                if (type === 'spin') {
+                if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') {
                     styleStr += ' transform-origin: center; transform-box: fill-box;';
+                }
+                if (type === 'glow') {
+                    styleStr += ` --glow-color: ${path.color || '#22d3ee'};`;
                 }
 
                 animationAttrs = ` style="${styleStr}"`;

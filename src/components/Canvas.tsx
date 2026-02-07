@@ -83,6 +83,34 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                     }
                     style.animationDirection = finalDirection;
                     break;
+                case 'bounce':
+                    style.animationName = 'bouncePath';
+                    style.transformOrigin = 'center';
+                    style.transformBox = 'fill-box';
+                    style.animationDirection = finalDirection;
+                    break;
+                case 'glow':
+                    style.animationName = 'glowPath';
+                    // @ts-ignore
+                    style['--glow-color'] = path.color || '#22d3ee';
+                    style.animationDirection = finalDirection;
+                    break;
+                case 'shake':
+                    style.animationName = 'shakePath';
+                    style.animationDirection = finalDirection;
+                    break;
+                case 'swing':
+                    style.animationName = 'swingPath';
+                    style.transformOrigin = 'center';
+                    style.transformBox = 'fill-box';
+                    style.animationDirection = finalDirection;
+                    break;
+                case 'tada':
+                    style.animationName = 'tadaPath';
+                    style.transformOrigin = 'center';
+                    style.transformBox = 'fill-box';
+                    style.animationDirection = finalDirection;
+                    break;
             }
             return { points: v.points, style, variantType: v.type };
         });
@@ -107,6 +135,32 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                     @keyframes spinPath {
                         from { transform: rotate(0deg); }
                         to { transform: rotate(360deg); }
+                    }
+                    @keyframes bouncePath {
+                        0%, 100% { transform: scale(1); }
+                        40% { transform: scale(1.15, 0.85); }
+                        60% { transform: scale(0.9, 1.1); }
+                        80% { transform: scale(1.05, 0.95); }
+                    }
+                    @keyframes glowPath {
+                        0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1); }
+                        50% { filter: drop-shadow(0 0 12px var(--glow-color)) brightness(1.5); }
+                    }
+                    @keyframes shakePath {
+                        0%, 100% { transform: translateX(0); }
+                        25% { transform: translateX(-4px); }
+                        75% { transform: translateX(4px); }
+                    }
+                    @keyframes swingPath {
+                        0%, 100% { transform: rotate(-10deg); }
+                        50% { transform: rotate(10deg); }
+                    }
+                    @keyframes tadaPath {
+                        0% { transform: scale(1); }
+                        10%, 20% { transform: scale(0.9) rotate(-3deg); }
+                        30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); }
+                        40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); }
+                        100% { transform: scale(1) rotate(0); }
                     }
                 `}
             </style>
