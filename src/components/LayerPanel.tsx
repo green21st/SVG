@@ -1,0 +1,171 @@
+import React from 'react';
+import { Reorder, useDragControls } from 'framer-motion';
+import { Eye, EyeOff, Trash2, GripVertical, Layers } from 'lucide-react';
+import type { PathLayer } from '../types';
+import { cn } from '../utils/cn';
+
+interface LayerPanelProps {
+    paths: PathLayer[];
+    selectedPathId: string | null;
+    onSelect: (id: string) => void;
+    onReorder: (newPaths: PathLayer[]) => void;
+    onReorderEnd: (newPaths: PathLayer[]) => void;
+    onToggleVisibility: (id: string) => void;
+    onDelete: (id: string) => void;
+}
+
+export const LayerPanel: React.FC<LayerPanelProps> = ({
+    paths,
+    selectedPathId,
+    onSelect,
+    onReorder,
+    onReorderEnd,
+    onToggleVisibility,
+    onDelete
+}) => {
+    // We want the most recent path (top of list) to be rendered on top.
+    // SVG renders from first to last, so last in array is on top.
+    // For the UI, we usually want top of list = top of stack.
+    const displayPaths = React.useMemo(() => [...paths].reverse(), [paths]);
+
+    const handleReorder = (newDisplayPaths: PathLayer[]) => {
+        // Reverse back to maintain SVG order
+        onReorder([...newDisplayPaths].reverse());
+    };
+
+    const handleReorderEnd = () => {
+        onReorderEnd(paths);
+    };
+
+    return (
+        <div className="flex flex-col h-full bg-slate-900/40 rounded-xl border border-white/5 overflow-hidden">
+            <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
+                <div className="flex items-center gap-2">
+                    <Layers size={14} className="text-secondary" />
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-secondary">Layers</h3>
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium bg-black/40 px-1.5 py-0.5 rounded-full border border-white/5">
+                    {paths.length}
+                </span>
+            </div>
+
+            <div className="flex-1 min-h-0">
+                {paths.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 p-4 text-center">
+                        <Layers size={24} className="opacity-20" />
+                        <p className="text-[10px] leading-relaxed">No layers yet. Start drawing to create your first layer.</p>
+                    </div>
+                ) : (
+                    <Reorder.Group
+                        axis="y"
+                        layoutScroll
+                        values={displayPaths}
+                        onReorder={handleReorder}
+                        className="flex flex-col gap-1 overflow-y-auto p-2 custom-scrollbar h-full"
+                    >
+                        {displayPaths.map((path) => (
+                            <LayerItem
+                                key={path.id}
+                                path={path}
+                                isSelected={selectedPathId === path.id}
+                                onSelect={() => onSelect(path.id)}
+                                onToggleVisibility={() => onToggleVisibility(path.id)}
+                                onDelete={() => onDelete(path.id)}
+                                onDragEnd={handleReorderEnd}
+                            />
+                        ))}
+                    </Reorder.Group>
+                )}
+            </div>
+        </div>
+    );
+};
+
+interface LayerItemProps {
+    path: PathLayer;
+    isSelected: boolean;
+    onSelect: () => void;
+    onToggleVisibility: () => void;
+    onDelete: () => void;
+    onDragEnd: () => void;
+}
+
+const LayerItem: React.FC<LayerItemProps> = ({
+    path,
+    isSelected,
+    onSelect,
+    onToggleVisibility,
+    onDelete,
+    onDragEnd
+}) => {
+    const controls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={path}
+            dragListener={false}
+            dragControls={controls}
+            onDragEnd={onDragEnd}
+            whileDrag={{ scale: 1.02 }}
+            className={cn(
+                "group flex items-center gap-2 p-2 rounded-lg border outline-none select-none",
+                isSelected
+                    ? "bg-indigo-500/20 border-indigo-500/30 text-white"
+                    : "bg-black/20 border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            )}
+            onClick={onSelect}
+        >
+            <div
+                onPointerDown={(e) => controls.start(e)}
+                className="cursor-grab active:cursor-grabbing p-1 text-slate-600 group-hover:text-slate-400 transition-colors"
+                title="Drag to reorder"
+            >
+                <GripVertical size={14} />
+            </div>
+
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+                <div
+                    className="w-6 h-6 rounded border border-white/10 flex-shrink-0 flex items-center justify-center overflow-hidden bg-slate-800"
+                >
+                    <svg viewBox="0 0 100 100" className="w-full h-full p-1">
+                        <path
+                            d="M 10 50 Q 50 10 90 50 Q 50 90 10 50"
+                            stroke={path.color}
+                            strokeWidth="10"
+                            fill={path.fill || 'none'}
+                            strokeLinecap="round"
+                        />
+                    </svg>
+                </div>
+                <span className="text-[11px] font-medium truncate">
+                    {path.name || `Layer ${path.id.slice(-4)}`}
+                </span>
+            </div>
+
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+                <button
+                    onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
+                    className={cn(
+                        "p-1.5 rounded-md transition-all hover:scale-110 active:scale-95",
+                        path.visible === false ? "text-amber-400 hover:bg-amber-400/10" : "text-slate-500 hover:bg-white/10"
+                    )}
+                    title={path.visible === false ? "Show layer" : "Hide layer"}
+                >
+                    {path.visible === false ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+                <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    className="p-1.5 rounded-md text-red-400/70 hover:text-red-400 hover:bg-red-400/10 transition-all hover:scale-110 active:scale-95"
+                    title="Delete layer"
+                >
+                    <Trash2 size={14} />
+                </button>
+            </div>
+
+            <div className={cn(
+                "w-1 absolute right-0 top-2 bottom-2 rounded-l-full transition-all",
+                isSelected ? "bg-indigo-500" : "bg-transparent"
+            )} />
+        </Reorder.Item>
+    );
+};

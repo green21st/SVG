@@ -81,31 +81,24 @@ function useDraw() {
     }, []);
 
     // 1. Sync settings when selectedPathId changes, with guards to prevent infinite loops
+    // 1. Sync settings when selectedPathId changes
     useEffect(() => {
         if (mode === 'edit' && selectedPathId) {
             const path = paths.find(p => p.id === selectedPathId);
             if (path) {
-                const newColor = path.color || '#22d3ee';
-                const newFill = path.fill || 'none';
-                const newWidth = path.width || 2;
-                const newTension = path.tension ?? 0.5;
-                const newClosed = path.closed ?? false;
-                const newStrokeOpacity = path.strokeOpacity ?? 1;
-                const newFillOpacity = path.fillOpacity ?? 1;
-                const newAnimation = path.animation ?? { types: [], duration: 2, delay: 0, ease: 'ease-in-out' };
+                setStrokeColor(prev => prev !== (path.color || '#22d3ee') ? (path.color || '#22d3ee') : prev);
+                setFillColor(prev => prev !== (path.fill || 'none') ? (path.fill || 'none') : prev);
+                setStrokeWidth(prev => prev !== (path.width || 2) ? (path.width || 2) : prev);
+                setTension(prev => prev !== (path.tension ?? 0.5) ? (path.tension ?? 0.5) : prev);
+                setIsClosed(prev => prev !== (path.closed ?? false) ? (path.closed ?? false) : prev);
+                setStrokeOpacity(prev => prev !== (path.strokeOpacity ?? 1) ? (path.strokeOpacity ?? 1) : prev);
+                setFillOpacity(prev => prev !== (path.fillOpacity ?? 1) ? (path.fillOpacity ?? 1) : prev);
 
-                // ONLY update if actually different to avoid "Maximum update depth exceeded"
-                if (strokeColor !== newColor) setStrokeColor(newColor);
-                if (fillColor !== newFill) setFillColor(newFill);
-                if (strokeWidth !== newWidth) setStrokeWidth(newWidth);
-                if (tension !== newTension) setTension(newTension);
-                if (isClosed !== newClosed) setIsClosed(newClosed);
-                if (strokeOpacity !== newStrokeOpacity) setStrokeOpacity(newStrokeOpacity);
-                if (fillOpacity !== newFillOpacity) setFillOpacity(newFillOpacity);
-                if (JSON.stringify(animation) !== JSON.stringify(newAnimation)) setAnimation(newAnimation);
+                const newAnimation = path.animation ?? { types: [], duration: 2, delay: 0, ease: 'ease-in-out' };
+                setAnimation(prev => JSON.stringify(prev) !== JSON.stringify(newAnimation) ? newAnimation : prev);
             }
         }
-    }, [selectedPathId, mode, paths, strokeColor, fillColor, strokeWidth, tension, isClosed, strokeOpacity, fillOpacity, animation]);
+    }, [selectedPathId, mode, paths]);
 
     // 2. Helper to update selected path property
     const updateSelectedPathProperty = useCallback((updater: (path: PathLayer) => PathLayer) => {
@@ -373,7 +366,9 @@ function useDraw() {
             strokeOpacity,
             fillOpacity,
             animation: { ...animation },
-            symmetry: { ...symmetry }
+            symmetry: { ...symmetry },
+            visible: true,
+            name: `Path ${paths.length + 1}`
         };
 
         setPaths([...paths, newPath]);
@@ -500,7 +495,9 @@ function useDraw() {
                 strokeOpacity,
                 fillOpacity,
                 animation: { ...animation },
-                symmetry: { ...symmetry }
+                symmetry: { ...symmetry },
+                visible: true,
+                name: `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} ${paths.length + 1}`
             };
             setPaths(prev => [...prev, newPath]);
             setCurrentPoints([]);
@@ -611,6 +608,7 @@ function useDraw() {
         setActiveTool,
         handlePointerUp,
         setPaths,
+        setPathsInternal: setInternalState,
         isDragging: draggingPointIndex !== null || transformMode !== 'none',
         getBoundingBox,
         transformMode,

@@ -622,12 +622,9 @@ const Canvas: React.FC<CanvasProps> = ({
             <svg className="w-full h-full pointer-events-none" viewBox={`0 0 ${width} ${height}`} style={{ isolation: 'isolate' }}>
 
                 {/* Symmetry Guides */}
-                {symmetry.horizontal && (
-                    <line x1={centerX} y1={0} x2={centerX} y2={height} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={0.5} />
-                )}
-                {symmetry.vertical && (
-                    <line x1={0} y1={centerY} x2={width} y2={centerY} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={0.5} />
-                )}
+                {/* Symmetry Guides (Always Visible) */}
+                <line x1={centerX} y1={0} x2={centerX} y2={height} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.horizontal ? 0.5 : 0.1} />
+                <line x1={0} y1={centerY} x2={width} y2={centerY} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.vertical ? 0.5 : 0.1} />
                 {symmetry.center && (
                     <g opacity={0.5}>
                         <line x1={centerX - 20} y1={centerY} x2={centerX + 20} y2={centerY} stroke="#64748b" strokeWidth={1} />
@@ -637,7 +634,7 @@ const Canvas: React.FC<CanvasProps> = ({
                 )}
 
                 {/* Render Completed Paths */}
-                {paths.map((path) => (
+                {paths.filter(p => p.visible !== false).map((path) => (
                     <PathItem
                         key={path.id}
                         path={path}
@@ -731,6 +728,15 @@ const Canvas: React.FC<CanvasProps> = ({
                     </>
                 )}
             </svg>
+
+            {cursorPos && (
+                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] font-mono text-slate-400 pointer-events-none border border-white/5 tabular-nums select-none flex items-center gap-2 z-10 transition-opacity duration-200">
+                    <span className="text-white/50">X:</span>
+                    <span className="text-indigo-400 w-8 text-right">{Math.round(cursorPos.x - width / 2)}</span>
+                    <span className="text-white/50 border-l border-white/10 pl-2">Y:</span>
+                    <span className="text-indigo-400 w-8 text-right">{Math.round(-(cursorPos.y - height / 2))}</span>
+                </div>
+            )}
         </div>
     );
 };

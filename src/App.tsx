@@ -3,8 +3,9 @@ import { Pencil, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, P
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
-import { smoothPath } from './utils/geometry';
+import { smoothPath, applySymmetry } from './utils/geometry';
 import { CodePanel } from './components/CodePanel';
+import { LayerPanel } from './components/LayerPanel';
 
 function App() {
   const {
@@ -55,7 +56,8 @@ function App() {
     fillOpacity,
     setFillOpacity,
     animation,
-    setAnimation
+    setAnimation,
+    setPathsInternal
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -128,7 +130,7 @@ function App() {
 
     // Collect all used animation types
     const usedAnimations = new Set<string>();
-    paths.forEach(path => {
+    paths.filter(p => p.visible !== false).forEach(path => {
       if (path.animation?.types) {
         path.animation.types.forEach(type => {
           if (type !== 'none') usedAnimations.add(type);
@@ -154,29 +156,48 @@ function App() {
       .filter(Boolean)
       .join('\n  ');
 
-    const pathsCode = paths.map(path => {
-      const d = smoothPath(path.points, path.tension, path.closed);
-      const sOp = path.strokeOpacity ?? 1;
-      const fOp = path.fillOpacity ?? 1;
+    const pathsCode = paths.filter(p => p.visible !== false).flatMap(path => {
+      const variants = applySymmetry(path.points, path.symmetry, width / 2, height / 2);
 
-      let finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+      return variants.map(v => {
+        const d = smoothPath(v.points, path.tension, path.closed);
+        const sOp = path.strokeOpacity ?? 1;
+        const fOp = path.fillOpacity ?? 1;
 
-      if (path.animation && path.animation.types.length > 0) {
-        const { types, duration, delay, ease, direction = 'forward' } = path.animation;
+        let finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
 
-        types.filter(t => t !== 'none').forEach(type => {
-          let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
-          if (direction === 'reverse') styleStr += ' animation-direction: reverse;';
-          if (direction === 'alternate') styleStr += ' animation-direction: alternate;';
+        if (path.animation && path.animation.types.length > 0) {
+          const { types, duration, delay, ease, direction = 'forward' } = path.animation;
 
-          if (type === 'draw') styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
-          if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') styleStr += ' transform-origin: center; transform-box: fill-box;';
+          types.filter(t => t !== 'none').forEach(type => {
+            let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
+              direction === 'forward' ? 'normal' :
+                direction === 'alternate' ? 'alternate' : 'reverse';
 
-          finalCode = `<g style="${styleStr}">${finalCode}</g>`;
-        });
-      }
+            let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
 
-      return finalCode;
+            // Replicate Canvas.tsx logic for variants
+            if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
+              if (finalDirection === 'normal') finalDirection = 'reverse';
+              else if (finalDirection === 'reverse') finalDirection = 'normal';
+            }
+
+            if (finalDirection === 'reverse') styleStr += ' animation-direction: reverse;';
+            if (finalDirection === 'alternate') styleStr += ' animation-direction: alternate;';
+
+            if (type === 'draw') styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
+            if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') styleStr += ' transform-origin: center; transform-box: fill-box;';
+
+            if (type === 'float' && (v.type === 'V' || v.type === 'C')) {
+              styleStr += ' --float-dist: 10px;';
+            }
+
+            finalCode = `<g style="${styleStr}">${finalCode}</g>`;
+          });
+        }
+
+        return finalCode;
+      });
     }).join('\n');
 
     const svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
@@ -374,7 +395,7 @@ ${pathsCode}
                 </div>
               </div>
 
-              {animation.type !== 'none' && (
+              {animation.types.length > 0 && (
                 <div className="flex-1 grid grid-cols-5 gap-3 animate-in fade-in slide-in-from-left-2 duration-300 items-center">
                   <div className="flex flex-col gap-1">
                     <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
@@ -435,7 +456,7 @@ ${pathsCode}
                 </div>
               )}
 
-              {animation.type === 'none' && (
+              {animation.types.length === 0 && (
                 <div className="flex-1 text-[10px] text-slate-600 font-medium italic">
                   Select an effect to unlock motion controls
                 </div>
@@ -443,8 +464,27 @@ ${pathsCode}
             </div>
           </div>
         </section>
-        <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col gap-4">
-          <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} />
+        <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col gap-4 overflow-hidden">
+          <div className="flex-[3] min-h-0 flex flex-col">
+            <LayerPanel
+              paths={paths}
+              selectedPathId={selectedPathId}
+              onSelect={(id) => {
+                setSelectedPathId(id);
+                setMode('edit');
+              }}
+              onReorder={setPathsInternal}
+              onReorderEnd={setPaths}
+              onToggleVisibility={(id) => setPaths(prev => prev.map(p => p.id === id ? { ...p, visible: !p.visible } : p))}
+              onDelete={(id) => {
+                setPaths(prev => prev.filter(p => p.id !== id));
+                if (selectedPathId === id) setSelectedPathId(null);
+              }}
+            />
+          </div>
+          <div className="flex-[2] min-h-0 flex flex-col">
+            <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} />
+          </div>
         </aside>
       </main>
     </div>
