@@ -28,40 +28,62 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
         return getBoundingBox(path.points);
     }, [selected, path.points, getBoundingBox]);
 
-    const animationStyle = useMemo(() => {
-        if (!path.animation || path.animation.type === 'none') return {};
-        const { type, duration, delay, ease } = path.animation;
-        let animationName = '';
-        const style: React.CSSProperties = {
-            animationDuration: `${duration}s`,
-            animationDelay: `${delay}s`,
-            animationTimingFunction: ease,
-            animationIterationCount: 'infinite',
-            animationFillMode: 'forwards'
-        };
+    const variantConfigs = useMemo(() => {
+        return variants.map(v => {
+            if (!path.animation || path.animation.type === 'none') return { points: v.points, style: {} };
 
-        switch (type) {
-            case 'draw':
-                animationName = 'drawPath';
-                style.strokeDasharray = '1000';
-                style.strokeDashoffset = '1000';
-                break;
-            case 'pulse':
-                animationName = 'pulsePath';
-                break;
-            case 'float':
-                animationName = 'floatPath';
-                break;
-            case 'spin':
-                animationName = 'spinPath';
-                style.transformOrigin = 'center';
-                style.transformBox = 'fill-box';
-                break;
-        }
+            const { type, duration, delay, ease, direction = 'forward' } = path.animation;
+            const style: React.CSSProperties = {
+                animationDuration: `${duration}s`,
+                animationDelay: `${delay}s`,
+                animationTimingFunction: ease,
+                animationIterationCount: 'infinite',
+                animationFillMode: 'forwards'
+            };
 
-        style.animationName = animationName;
-        return style;
-    }, [path.animation]);
+            // Base direction from user settings
+            let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
+                direction === 'forward' ? 'normal' :
+                    direction === 'alternate' ? 'alternate' : 'reverse';
+
+            switch (type) {
+                case 'draw':
+                    style.animationName = 'drawPath';
+                    style.strokeDasharray = '1000';
+                    style.strokeDashoffset = '1000';
+                    style.animationDirection = finalDirection;
+                    break;
+                case 'pulse':
+                    style.animationName = 'pulsePath';
+                    style.animationDirection = finalDirection;
+                    break;
+                case 'float':
+                    style.animationName = 'floatPath';
+                    // Mirror vertical float dist
+                    if (v.type === 'V' || v.type === 'C') {
+                        // @ts-ignore
+                        style['--float-dist'] = '10px';
+                    }
+                    style.animationDirection = finalDirection;
+                    break;
+                case 'spin':
+                    style.animationName = 'spinPath';
+                    style.transformOrigin = 'center';
+                    style.transformBox = 'fill-box';
+
+                    // Flip direction for symmetry variants
+                    const shouldFlip = (v.type === 'H' || v.type === 'V');
+                    if (shouldFlip) {
+                        if (finalDirection === 'normal') finalDirection = 'reverse';
+                        else if (finalDirection === 'reverse') finalDirection = 'normal';
+                        // alternate stays alternate as it cycles both ways
+                    }
+                    style.animationDirection = finalDirection;
+                    break;
+            }
+            return { points: v.points, style, variantType: v.type };
+        });
+    }, [path.animation, variants]);
 
     return (
         <g>
@@ -77,7 +99,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                     }
                     @keyframes floatPath {
                         0%, 100% { transform: translateY(0); }
-                        50% { transform: translateY(-10px); }
+                        50% { transform: translateY(var(--float-dist, -10px)); }
                     }
                     @keyframes spinPath {
                         from { transform: rotate(0deg); }
@@ -85,8 +107,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                     }
                 `}
             </style>
-            {variants.map((points, vIdx) => {
-                const d = smoothPath(points, path.tension, path.closed);
+            {variantConfigs.map((config, vIdx) => {
+                const d = smoothPath(config.points, path.tension, path.closed);
                 return (
                     <g key={`${path.id}-variant-${vIdx}`}>
                         <path
@@ -104,12 +126,12 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                             )}
                             style={{
                                 pointerEvents: mode === 'edit' ? 'all' : 'none',
-                                ...animationStyle
+                                ...config.style
                             }}
                         />
 
                         {/* Bounding Box & Handles - Only for the primary variant to avoid symmetry duplication conflicts */}
-                        {mode === 'edit' && selected && vIdx === 0 && (
+                        {mode === 'edit' && selected && config.variantType === 'I' && (
                             <g className="pointer-events-none">
                                 {box && (
                                     <g>
@@ -226,7 +248,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                                 )}
 
                                 {/* Direct Point Edit Handles */}
-                                {points.map((p, i) => (
+                                {config.points.map((p, i) => (
                                     <g key={`handle-group-${i}`} className="group pointer-events-auto">
                                         <circle
                                             cx={p.x}
@@ -317,13 +339,12 @@ const Canvas: React.FC<CanvasProps> = ({
         onPathSelect(id);
     }, [onPathSelect]);
 
-    // Calculate real-time symmetric points for the current path
     const symmetricCurrentPaths = useMemo(() => {
         if (currentPoints.length === 0) {
             return [];
         }
-        const pointsSets = applySymmetry(currentPoints, symmetry, centerX, centerY);
-        return pointsSets.slice(1);
+        const variants = applySymmetry(currentPoints, symmetry, centerX, centerY);
+        return variants.slice(1).map(v => v.points);
     }, [currentPoints, symmetry, centerX, centerY]);
 
     return (

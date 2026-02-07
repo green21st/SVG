@@ -64,12 +64,17 @@ export const getPolylinePath = (points: Point[]): string => {
 
 import type { SymmetrySettings } from '../types';
 
+export interface SymmetryVariant {
+    points: Point[];
+    type: 'I' | 'H' | 'V' | 'C';
+}
+
 export const applySymmetry = (
     points: Point[],
     settings: SymmetrySettings,
     centerX: number,
     centerY: number
-): Point[][] => {
+): SymmetryVariant[] => {
     const flipH = (p: Point) => ({ x: centerX + (centerX - p.x), y: p.y });
     const flipV = (p: Point) => ({ x: p.x, y: centerY + (centerY - p.y) });
     const flipC = (p: Point) => ({ x: centerX + (centerX - p.x), y: centerY + (centerY - p.y) });
@@ -78,18 +83,14 @@ export const applySymmetry = (
     const activeV = settings.vertical || (settings.horizontal && settings.center);
     const activeC = settings.center || (settings.horizontal && settings.vertical);
 
-    const variants: { [key: string]: Point[] } = {};
+    const variants: SymmetryVariant[] = [];
 
-    const add = (pts: Point[], key: string) => {
-        if (!variants[key]) variants[key] = pts;
-    };
+    variants.push({ points: [...points], type: 'I' });
+    if (activeH) variants.push({ points: points.map(flipH), type: 'H' });
+    if (activeV) variants.push({ points: points.map(flipV), type: 'V' });
+    if (activeC) variants.push({ points: points.map(flipC), type: 'C' });
 
-    add(points, 'I');
-    if (activeH) add(points.map(flipH), 'H');
-    if (activeV) add(points.map(flipV), 'V');
-    if (activeC) add(points.map(flipC), 'C');
-
-    return Object.values(variants);
+    return variants;
 };
 
 // Calculate distance from point p to segment p1-p2

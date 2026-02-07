@@ -22,6 +22,7 @@ export interface AnimationSettings {
     duration: number; // in seconds
     delay: number; // in seconds
     ease: string;
+    direction?: 'forward' | 'reverse' | 'alternate';
 }
 
 export interface SymmetrySettings {

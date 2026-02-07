@@ -34,7 +34,8 @@ function useDraw() {
         type: 'none',
         duration: 2,
         delay: 0,
-        ease: 'ease-in-out'
+        ease: 'ease-in-out',
+        direction: 'forward'
     });
 
     // Edit Mode State
@@ -314,8 +315,8 @@ function useDraw() {
                     const variants = applySymmetry(path.points, path.symmetry, centerX, centerY);
 
                     let clickedPointIndex = -1;
-                    for (const points of variants) {
-                        const idx = points.findIndex(pt => {
+                    for (const v of variants) {
+                        const idx = v.points.findIndex(pt => {
                             return Math.sqrt(Math.pow(pt.x - mouseX, 2) + Math.pow(pt.y - mouseY, 2)) <= HIT_RADIUS;
                         });
                         if (idx !== -1) { clickedPointIndex = idx; break; }
