@@ -31,7 +31,7 @@ function useDraw() {
     const [strokeOpacity, setStrokeOpacity] = useState<number>(1);
     const [fillOpacity, setFillOpacity] = useState<number>(1);
     const [animation, setAnimation] = useState<AnimationSettings>({
-        type: 'none',
+        types: [],
         duration: 2,
         delay: 0,
         ease: 'ease-in-out',
@@ -92,7 +92,7 @@ function useDraw() {
                 const newClosed = path.closed ?? false;
                 const newStrokeOpacity = path.strokeOpacity ?? 1;
                 const newFillOpacity = path.fillOpacity ?? 1;
-                const newAnimation = path.animation ?? { type: 'none', duration: 2, delay: 0, ease: 'ease-in-out' };
+                const newAnimation = path.animation ?? { types: [], duration: 2, delay: 0, ease: 'ease-in-out' };
 
                 // ONLY update if actually different to avoid "Maximum update depth exceeded"
                 if (strokeColor !== newColor) setStrokeColor(newColor);

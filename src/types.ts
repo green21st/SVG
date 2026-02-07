@@ -17,8 +17,10 @@ export interface PathLayer {
     animation?: AnimationSettings;
 }
 
+export type AnimationType = 'none' | 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';
+
 export interface AnimationSettings {
-    type: 'none' | 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';
+    types: AnimationType[];
     duration: number; // in seconds
     delay: number; // in seconds
     ease: string;

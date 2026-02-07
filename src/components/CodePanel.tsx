@@ -25,45 +25,54 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
         const width = 800;
         const height = 600;
 
-        // Generate CSS Keyframes for the output SVG
-        const keyframes = `
-  @keyframes drawPath { to { stroke-dashoffset: 0; } }
-  @keyframes pulsePath { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-  @keyframes floatPath { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -10px)); } }
-  @keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  @keyframes bouncePath { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.15, 0.85); } 60% { transform: scale(0.9, 1.1); } 80% { transform: scale(1.05, 0.95); } }
-  @keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color)) brightness(1.5); } }
-  @keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-  @keyframes swingPath { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
-  @keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }
-        `.trim();
+        // Collect all used animation types
+        const usedAnimations = new Set<string>();
+        paths.forEach(path => {
+            if (path.animation?.types) {
+                path.animation.types.forEach(type => {
+                    if (type !== 'none') usedAnimations.add(type);
+                });
+            }
+        });
+
+        // Only generate keyframes for used animations
+        const keyframeMap: Record<string, string> = {
+            draw: '@keyframes drawPath { to { stroke-dashoffset: 0; } }',
+            pulse: '@keyframes pulsePath { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }',
+            float: '@keyframes floatPath { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -10px)); } }',
+            spin: '@keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }',
+            bounce: '@keyframes bouncePath { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.15, 0.85); } 60% { transform: scale(0.9, 1.1); } 80% { transform: scale(1.05, 0.95); } }',
+            glow: '@keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color)) brightness(1.5); } }',
+            shake: '@keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }',
+            swing: '@keyframes swingPath { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }',
+            tada: '@keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }'
+        };
+
+        const keyframes = Array.from(usedAnimations)
+            .map(type => keyframeMap[type])
+            .filter(Boolean)
+            .join('\n  ');
 
         const pathsCode = paths.map(path => {
             const d = smoothPath(path.points, path.tension ?? tension, path.closed);
-            let animationAttrs = '';
+            let finalCode = `  <path d="${d}" stroke="${path.color}" stroke-width="${path.width}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
 
-            if (path.animation && path.animation.type !== 'none') {
-                const { type, duration, delay, ease, direction = 'forward' } = path.animation;
+            if (path.animation && path.animation.types.length > 0) {
+                const { types, duration, delay, ease, direction = 'forward' } = path.animation;
 
-                let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
+                types.filter(t => t !== 'none').forEach(type => {
+                    let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
+                    if (direction === 'reverse') styleStr += ' animation-direction: reverse;';
+                    if (direction === 'alternate') styleStr += ' animation-direction: alternate;';
 
-                if (direction === 'reverse') styleStr += ' animation-direction: reverse;';
-                if (direction === 'alternate') styleStr += ' animation-direction: alternate;';
+                    if (type === 'draw') styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
+                    if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') styleStr += ' transform-origin: center; transform-box: fill-box;';
 
-                if (type === 'draw') {
-                    styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
-                }
-                if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') {
-                    styleStr += ' transform-origin: center; transform-box: fill-box;';
-                }
-                if (type === 'glow') {
-                    styleStr += ` --glow-color: ${path.color || '#22d3ee'};`;
-                }
-
-                animationAttrs = ` style="${styleStr}"`;
+                    finalCode = `<g style="${styleStr}">${finalCode}</g>`;
+                });
             }
 
-            return `  <path d="${d}" stroke="${path.color}" stroke-width="${path.width}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${animationAttrs} />`;
+            return finalCode;
         }).join('\n');
 
         const result = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">

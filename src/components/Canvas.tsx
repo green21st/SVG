@@ -30,91 +30,85 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
 
     const variantConfigs = useMemo(() => {
         return variants.map(v => {
-            if (!path.animation || path.animation.type === 'none') {
-                return { points: v.points, style: {}, variantType: v.type };
+            if (!path.animation || !path.animation.types || path.animation.types.length === 0) {
+                return { points: v.points, pathStyles: {}, groupAnimations: [], variantType: v.type };
             }
 
-            const { type, duration, delay, ease, direction = 'forward' } = path.animation;
-            const style: React.CSSProperties = {
-                animationDuration: `${duration}s`,
-                animationDelay: `${delay}s`,
-                animationTimingFunction: ease,
-                animationIterationCount: 'infinite',
-                animationFillMode: 'forwards',
-                animationPlayState: isDragging ? 'paused' : 'running'
-            };
+            const { types, duration, delay, ease, direction = 'forward' } = path.animation;
 
-            // Base direction from user settings
-            let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
-                direction === 'forward' ? 'normal' :
-                    direction === 'alternate' ? 'alternate' : 'reverse';
+            let pathStyles: React.CSSProperties = {};
+            const groupAnimations: React.CSSProperties[] = [];
 
-            switch (type) {
-                case 'draw':
-                    style.animationName = 'drawPath';
-                    style.strokeDasharray = '1000';
-                    style.strokeDashoffset = '1000';
-                    style.animationDirection = finalDirection;
-                    break;
-                case 'pulse':
-                    style.animationName = 'pulsePath';
-                    style.animationDirection = finalDirection;
-                    break;
-                case 'float':
-                    style.animationName = 'floatPath';
-                    // Mirror vertical float dist
-                    if (v.type === 'V' || v.type === 'C') {
+            types.filter(t => t !== 'none').forEach(type => {
+                const baseStyle: React.CSSProperties = {
+                    animationDuration: `${duration}s`,
+                    animationDelay: `${delay}s`,
+                    animationTimingFunction: ease,
+                    animationIterationCount: 'infinite',
+                    animationFillMode: 'forwards',
+                    animationPlayState: isDragging ? 'paused' : 'running'
+                };
+
+                let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
+                    direction === 'forward' ? 'normal' :
+                        direction === 'alternate' ? 'alternate' : 'reverse';
+
+                switch (type) {
+                    case 'draw':
+                        // Draw animation MUST be on the path itself, not in a group
+                        // Only set if not already set (in case of multiple draw in types array)
+                        if (!pathStyles.animationName) {
+                            pathStyles = {
+                                ...baseStyle,
+                                animationName: 'drawPath',
+                                strokeDasharray: '1000',
+                                strokeDashoffset: '1000',
+                                animationDirection: finalDirection
+                            };
+                        }
+                        break;
+                    case 'pulse':
+                        groupAnimations.push({ ...baseStyle, animationName: 'pulsePath', animationDirection: finalDirection });
+                        break;
+                    case 'float':
+                        const floatStyle = { ...baseStyle, animationName: 'floatPath', animationDirection: finalDirection };
+                        if (v.type === 'V' || v.type === 'C') {
+                            // @ts-ignore
+                            floatStyle['--float-dist'] = '10px';
+                        }
+                        groupAnimations.push(floatStyle);
+                        break;
+                    case 'spin':
+                        if (v.type === 'H' || v.type === 'V') {
+                            if (finalDirection === 'normal') finalDirection = 'reverse';
+                            else if (finalDirection === 'reverse') finalDirection = 'normal';
+                        }
+                        groupAnimations.push({ ...baseStyle, animationName: 'spinPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                        break;
+                    case 'bounce':
+                        groupAnimations.push({ ...baseStyle, animationName: 'bouncePath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                        break;
+                    case 'glow':
+                        const glowStyle = { ...baseStyle, animationName: 'glowPath', animationDirection: finalDirection };
                         // @ts-ignore
-                        style['--float-dist'] = '10px';
-                    }
-                    style.animationDirection = finalDirection;
-                    break;
-                case 'spin':
-                    style.animationName = 'spinPath';
-                    style.transformOrigin = 'center';
-                    style.transformBox = 'fill-box';
+                        glowStyle['--glow-color'] = path.color || '#22d3ee';
+                        groupAnimations.push(glowStyle);
+                        break;
+                    case 'shake':
+                        groupAnimations.push({ ...baseStyle, animationName: 'shakePath', animationDirection: finalDirection });
+                        break;
+                    case 'swing':
+                        groupAnimations.push({ ...baseStyle, animationName: 'swingPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                        break;
+                    case 'tada':
+                        groupAnimations.push({ ...baseStyle, animationName: 'tadaPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                        break;
+                }
+            });
 
-                    // Flip direction for symmetry variants
-                    const shouldFlip = (v.type === 'H' || v.type === 'V');
-                    if (shouldFlip) {
-                        if (finalDirection === 'normal') finalDirection = 'reverse';
-                        else if (finalDirection === 'reverse') finalDirection = 'normal';
-                        // alternate stays alternate as it cycles both ways
-                    }
-                    style.animationDirection = finalDirection;
-                    break;
-                case 'bounce':
-                    style.animationName = 'bouncePath';
-                    style.transformOrigin = 'center';
-                    style.transformBox = 'fill-box';
-                    style.animationDirection = finalDirection;
-                    break;
-                case 'glow':
-                    style.animationName = 'glowPath';
-                    // @ts-ignore
-                    style['--glow-color'] = path.color || '#22d3ee';
-                    style.animationDirection = finalDirection;
-                    break;
-                case 'shake':
-                    style.animationName = 'shakePath';
-                    style.animationDirection = finalDirection;
-                    break;
-                case 'swing':
-                    style.animationName = 'swingPath';
-                    style.transformOrigin = 'center';
-                    style.transformBox = 'fill-box';
-                    style.animationDirection = finalDirection;
-                    break;
-                case 'tada':
-                    style.animationName = 'tadaPath';
-                    style.transformOrigin = 'center';
-                    style.transformBox = 'fill-box';
-                    style.animationDirection = finalDirection;
-                    break;
-            }
-            return { points: v.points, style, variantType: v.type };
+            return { points: v.points, pathStyles, groupAnimations, variantType: v.type };
         });
-    }, [path.animation, variants]);
+    }, [path.animation, variants, path.color, isDragging]);
 
     return (
         <g>
@@ -166,171 +160,362 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
             </style>
             {variantConfigs.map((config, vIdx) => {
                 const d = smoothPath(config.points, path.tension, path.closed);
+
+                // Helper to wrap content in nested animated groups
+                const wrapInAnimations = (content: React.ReactNode, styles: React.CSSProperties[], prefix: string = 'anim') => {
+                    let result = content;
+                    styles.forEach((style, idx) => {
+                        const animKey = `${prefix}-${style.animationName || 'anim'}-${idx}`;
+                        result = (
+                            <g key={animKey} style={style}>
+                                {result}
+                            </g>
+                        );
+                    });
+                    return result;
+                };
+
+                // Create a stable key that includes animation state
+                const animKey = config.groupAnimations.map(s => s.animationName).join('-') || 'no-group-anim';
+                const pathStyleKey = config.pathStyles.animationName || 'no-path-anim';
+                const fullKey = `${path.id}-v${vIdx}-${pathStyleKey}-${animKey}`;
+
                 return (
-                    <g key={`${path.id}-variant-${vIdx}`}>
-                        <path
-                            d={d}
-                            stroke={selected ? '#f59e0b' : (path.color || '#22d3ee')}
-                            strokeOpacity={path.strokeOpacity ?? 1}
-                            strokeWidth={path.width || 2}
-                            fill={path.fill || 'none'}
-                            fillOpacity={path.fillOpacity ?? 1}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            data-path-id={path.id}
-                            className={cn(
-                                mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
-                            )}
-                            style={{
-                                pointerEvents: mode === 'edit' ? 'all' : 'none',
-                                ...config.style
-                            }}
-                        />
+                    <g key={fullKey}>
+                        {config.groupAnimations.length > 0
+                            ? wrapInAnimations(
+                                <path
+                                    d={d}
+                                    stroke={selected ? '#f59e0b' : (path.color || '#22d3ee')}
+                                    strokeOpacity={path.strokeOpacity ?? 1}
+                                    strokeWidth={path.width || 2}
+                                    fill={path.fill || 'none'}
+                                    fillOpacity={path.fillOpacity ?? 1}
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    data-path-id={path.id}
+                                    className={cn(
+                                        mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
+                                    )}
+                                    style={{
+                                        pointerEvents: mode === 'edit' ? 'all' : 'none',
+                                        ...config.pathStyles
+                                    }}
+                                />,
+                                config.groupAnimations,
+                                'path'
+                            )
+                            : <path
+                                d={d}
+                                stroke={selected ? '#f59e0b' : (path.color || '#22d3ee')}
+                                strokeOpacity={path.strokeOpacity ?? 1}
+                                strokeWidth={path.width || 2}
+                                fill={path.fill || 'none'}
+                                fillOpacity={path.fillOpacity ?? 1}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                data-path-id={path.id}
+                                className={cn(
+                                    mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
+                                )}
+                                style={{
+                                    pointerEvents: mode === 'edit' ? 'all' : 'none',
+                                    ...config.pathStyles
+                                }}
+                            />
+                        }
 
                         {/* Bounding Box & Handles - Only for the primary variant to avoid symmetry duplication conflicts */}
                         {mode === 'edit' && selected && config.variantType === 'I' && (
-                            <g className="pointer-events-none" style={config.style}>
-                                {box && (
-                                    <g>
-                                        {/* Bounding Box */}
-                                        <rect
-                                            x={box.minX - 5}
-                                            y={box.minY - 5}
-                                            width={box.width + 10}
-                                            height={box.height + 10}
-                                            fill="none"
-                                            stroke="#f59e0b"
-                                            strokeWidth={1}
-                                            strokeDasharray="4,4"
-                                            opacity={0.6}
-                                        />
-
-                                        {/* Rotation Handle */}
-                                        <line
-                                            x1={box.centerX}
-                                            y1={box.minY - 5}
-                                            x2={box.centerX}
-                                            y2={box.minY - 25}
-                                            stroke="#f59e0b"
-                                            strokeWidth={1}
-                                            opacity={0.6}
-                                        />
-                                        <g className="group pointer-events-auto cursor-grab">
-                                            <circle
-                                                cx={box.centerX}
-                                                cy={box.minY - 25}
-                                                r={15}
-                                                fill="transparent"
-                                                data-handle="rotate"
-                                            />
-                                            <circle
-                                                cx={box.centerX}
-                                                cy={box.minY - 25}
-                                                r={6}
-                                                fill="#f59e0b"
-                                                stroke="#fff"
-                                                strokeWidth={2}
-                                                className={cn(
-                                                    "transition-all duration-300 ease-out",
-                                                    "group-hover:scale-125 group-hover:-translate-y-2",
-                                                    isDragging && "transition-none translate-y-0 scale-110"
-                                                )}
-                                                style={{ pointerEvents: 'none', transformOrigin: 'center', transformBox: 'fill-box' }}
-                                            />
-                                        </g>
-
-                                        {/* Scale Corner Handles */}
-                                        {[
-                                            { x: box.minX - 5, y: box.minY - 5, h: 'nw', tx: -4, ty: -4 },
-                                            { x: box.maxX + 5, y: box.minY - 5, h: 'ne', tx: 4, ty: -4 },
-                                            { x: box.minX - 5, y: box.maxY + 5, h: 'sw', tx: -4, ty: 4 },
-                                            { x: box.maxX + 5, y: box.maxY + 5, h: 'se', tx: 4, ty: 4 }
-                                        ].map((h, i) => (
-                                            <g key={i} className="group pointer-events-auto">
+                            config.groupAnimations.length > 0
+                                ? wrapInAnimations(
+                                    <g className="pointer-events-none">
+                                        {box && (
+                                            <g>
+                                                {/* Bounding Box */}
                                                 <rect
-                                                    x={h.x - 10}
-                                                    y={h.y - 10}
-                                                    width={20}
-                                                    height={20}
-                                                    fill="transparent"
-                                                    className={cn(
-                                                        (h.h === 'nw' || h.h === 'se') ? "cursor-nwse-resize" : "cursor-nesw-resize"
-                                                    )}
-                                                    data-handle={h.h}
-                                                />
-                                                <rect
-                                                    x={h.x - 4}
-                                                    y={h.y - 4}
-                                                    width={8}
-                                                    height={8}
-                                                    fill="#fff"
+                                                    x={box.minX - 5}
+                                                    y={box.minY - 5}
+                                                    width={box.width + 10}
+                                                    height={box.height + 10}
+                                                    fill="none"
                                                     stroke="#f59e0b"
-                                                    strokeWidth={2}
-                                                    className={cn(
-                                                        "pointer-events-none transition-all duration-300 ease-out",
-                                                        "group-hover:scale-125",
-                                                        isDragging && "transition-none scale-110 translate-x-0 translate-y-0"
-                                                    )}
-                                                    style={{
-                                                        transformOrigin: 'center',
-                                                        transformBox: 'fill-box',
-                                                        transform: `translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))`
-                                                    }}
+                                                    strokeWidth={1}
+                                                    strokeDasharray="4,4"
+                                                    opacity={0.6}
                                                 />
-                                                {/* Hidden CSS variable to handle the pop out movement */}
-                                                <style>{`
+
+                                                {/* Rotation Handle */}
+                                                <line
+                                                    x1={box.centerX}
+                                                    y1={box.minY - 5}
+                                                    x2={box.centerX}
+                                                    y2={box.minY - 25}
+                                                    stroke="#f59e0b"
+                                                    strokeWidth={1}
+                                                    opacity={0.6}
+                                                />
+                                                <g className="group pointer-events-auto cursor-grab">
+                                                    <circle
+                                                        cx={box.centerX}
+                                                        cy={box.minY - 25}
+                                                        r={15}
+                                                        fill="transparent"
+                                                        data-handle="rotate"
+                                                    />
+                                                    <circle
+                                                        cx={box.centerX}
+                                                        cy={box.minY - 25}
+                                                        r={6}
+                                                        fill="#f59e0b"
+                                                        stroke="#fff"
+                                                        strokeWidth={2}
+                                                        className={cn(
+                                                            "transition-all duration-300 ease-out",
+                                                            "group-hover:scale-125 group-hover:-translate-y-2",
+                                                            isDragging && "transition-none translate-y-0 scale-110"
+                                                        )}
+                                                        style={{ pointerEvents: 'none', transformOrigin: 'center', transformBox: 'fill-box' }}
+                                                    />
+                                                </g>
+
+                                                {/* Scale Corner Handles */}
+                                                {[
+                                                    { x: box.minX - 5, y: box.minY - 5, h: 'nw', tx: -4, ty: -4 },
+                                                    { x: box.maxX + 5, y: box.minY - 5, h: 'ne', tx: 4, ty: -4 },
+                                                    { x: box.minX - 5, y: box.maxY + 5, h: 'sw', tx: -4, ty: 4 },
+                                                    { x: box.maxX + 5, y: box.maxY + 5, h: 'se', tx: 4, ty: 4 }
+                                                ].map((h, i) => (
+                                                    <g key={i} className="group pointer-events-auto">
+                                                        <rect
+                                                            x={h.x - 10}
+                                                            y={h.y - 10}
+                                                            width={20}
+                                                            height={20}
+                                                            fill="transparent"
+                                                            className={cn(
+                                                                (h.h === 'nw' || h.h === 'se') ? "cursor-nwse-resize" : "cursor-nesw-resize"
+                                                            )}
+                                                            data-handle={h.h}
+                                                        />
+                                                        <rect
+                                                            x={h.x - 4}
+                                                            y={h.y - 4}
+                                                            width={8}
+                                                            height={8}
+                                                            fill="#fff"
+                                                            stroke="#f59e0b"
+                                                            strokeWidth={2}
+                                                            className={cn(
+                                                                "pointer-events-none transition-all duration-300 ease-out",
+                                                                "group-hover:scale-125",
+                                                                isDragging && "transition-none scale-110 translate-x-0 translate-y-0"
+                                                            )}
+                                                            style={{
+                                                                transformOrigin: 'center',
+                                                                transformBox: 'fill-box',
+                                                                transform: `translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))`
+                                                            }}
+                                                        />
+                                                        {/* Hidden CSS variable to handle the pop out movement */}
+                                                        <style>{`
                                                     .group:hover rect[data-pop="${h.h}"] {
                                                         transform: translate(${h.tx}px, ${h.ty}px) scale(1.25) !important;
                                                     }
                                                 `}</style>
-                                                <rect
-                                                    x={h.x - 4}
-                                                    y={h.y - 4}
-                                                    width={8}
-                                                    height={8}
-                                                    fill="#fff"
-                                                    stroke="#f59e0b"
+                                                        <rect
+                                                            x={h.x - 4}
+                                                            y={h.y - 4}
+                                                            width={8}
+                                                            height={8}
+                                                            fill="#fff"
+                                                            stroke="#f59e0b"
+                                                            strokeWidth={2}
+                                                            data-pop={h.h}
+                                                            className={cn(
+                                                                "pointer-events-none transition-all duration-300 ease-out opacity-0",
+                                                                "group-hover:opacity-100",
+                                                                isDragging && "hidden"
+                                                            )}
+                                                            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+                                                        />
+                                                    </g>
+                                                ))}
+                                            </g>
+                                        )}
+
+                                        {/* Direct Point Edit Handles */}
+                                        {config.points.map((p, i) => (
+                                            <g key={`handle-group-${i}`} className="group pointer-events-auto">
+                                                <circle
+                                                    cx={p.x}
+                                                    cy={p.y}
+                                                    r={12}
+                                                    fill="transparent"
+                                                    className="cursor-grab"
+                                                />
+                                                <circle
+                                                    cx={p.x}
+                                                    cy={p.y}
+                                                    r={4}
+                                                    fill="#f59e0b"
+                                                    stroke="#fff"
                                                     strokeWidth={2}
-                                                    data-pop={h.h}
                                                     className={cn(
-                                                        "pointer-events-none transition-all duration-300 ease-out opacity-0",
-                                                        "group-hover:opacity-100",
-                                                        isDragging && "hidden"
+                                                        "transition-all duration-300 ease-out pointer-events-none",
+                                                        "group-hover:scale-150 group-hover:shadow-lg",
+                                                        isDragging && "transition-none scale-110"
                                                     )}
                                                     style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
                                                 />
                                             </g>
                                         ))}
-                                    </g>
-                                )}
+                                    </g>,
+                                    config.groupAnimations,
+                                    'handles'
+                                )
+                                : <g className="pointer-events-none">
+                                    {box && (
+                                        <g>
+                                            {/* Bounding Box */}
+                                            <rect
+                                                x={box.minX - 5}
+                                                y={box.minY - 5}
+                                                width={box.width + 10}
+                                                height={box.height + 10}
+                                                fill="none"
+                                                stroke="#f59e0b"
+                                                strokeWidth={1}
+                                                strokeDasharray="4,4"
+                                                opacity={0.6}
+                                            />
 
-                                {/* Direct Point Edit Handles */}
-                                {config.points.map((p, i) => (
-                                    <g key={`handle-group-${i}`} className="group pointer-events-auto">
-                                        <circle
-                                            cx={p.x}
-                                            cy={p.y}
-                                            r={12}
-                                            fill="transparent"
-                                            className="cursor-grab"
-                                        />
-                                        <circle
-                                            cx={p.x}
-                                            cy={p.y}
-                                            r={4}
-                                            fill="#f59e0b"
-                                            stroke="#fff"
-                                            strokeWidth={2}
-                                            className={cn(
-                                                "transition-all duration-300 ease-out pointer-events-none",
-                                                "group-hover:scale-150 group-hover:shadow-lg",
-                                                isDragging && "transition-none scale-110"
-                                            )}
-                                            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-                                        />
-                                    </g>
-                                ))}
-                            </g>
+                                            {/* Rotation Handle */}
+                                            <line
+                                                x1={box.centerX}
+                                                y1={box.minY - 5}
+                                                x2={box.centerX}
+                                                y2={box.minY - 25}
+                                                stroke="#f59e0b"
+                                                strokeWidth={1}
+                                                opacity={0.6}
+                                            />
+                                            <g className="group pointer-events-auto cursor-grab">
+                                                <circle
+                                                    cx={box.centerX}
+                                                    cy={box.minY - 25}
+                                                    r={15}
+                                                    fill="transparent"
+                                                    data-handle="rotate"
+                                                />
+                                                <circle
+                                                    cx={box.centerX}
+                                                    cy={box.minY - 25}
+                                                    r={6}
+                                                    fill="#f59e0b"
+                                                    stroke="#fff"
+                                                    strokeWidth={2}
+                                                    className={cn(
+                                                        "transition-all duration-300 ease-out",
+                                                        "group-hover:scale-125 group-hover:-translate-y-2",
+                                                        isDragging && "transition-none translate-y-0 scale-110"
+                                                    )}
+                                                    style={{ pointerEvents: 'none', transformOrigin: 'center', transformBox: 'fill-box' }}
+                                                />
+                                            </g>
+
+                                            {/* Scale Corner Handles */}
+                                            {[
+                                                { x: box.minX - 5, y: box.minY - 5, h: 'nw', tx: -4, ty: -4 },
+                                                { x: box.maxX + 5, y: box.minY - 5, h: 'ne', tx: 4, ty: -4 },
+                                                { x: box.minX - 5, y: box.maxY + 5, h: 'sw', tx: -4, ty: 4 },
+                                                { x: box.maxX + 5, y: box.maxY + 5, h: 'se', tx: 4, ty: 4 }
+                                            ].map((h, i) => (
+                                                <g key={i} className="group pointer-events-auto">
+                                                    <rect
+                                                        x={h.x - 10}
+                                                        y={h.y - 10}
+                                                        width={20}
+                                                        height={20}
+                                                        fill="transparent"
+                                                        className={cn(
+                                                            (h.h === 'nw' || h.h === 'se') ? "cursor-nwse-resize" : "cursor-nesw-resize"
+                                                        )}
+                                                        data-handle={h.h}
+                                                    />
+                                                    <rect
+                                                        x={h.x - 4}
+                                                        y={h.y - 4}
+                                                        width={8}
+                                                        height={8}
+                                                        fill="#fff"
+                                                        stroke="#f59e0b"
+                                                        strokeWidth={2}
+                                                        className={cn(
+                                                            "pointer-events-none transition-all duration-300 ease-out",
+                                                            "group-hover:scale-125",
+                                                            isDragging && "transition-none scale-110 translate-x-0 translate-y-0"
+                                                        )}
+                                                        style={{
+                                                            transformOrigin: 'center',
+                                                            transformBox: 'fill-box',
+                                                            transform: `translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))`
+                                                        }}
+                                                    />
+                                                    {/* Hidden CSS variable to handle the pop out movement */}
+                                                    <style>{`
+                                                    .group:hover rect[data-pop="${h.h}"] {
+                                                        transform: translate(${h.tx}px, ${h.ty}px) scale(1.25) !important;
+                                                    }
+                                                `}</style>
+                                                    <rect
+                                                        x={h.x - 4}
+                                                        y={h.y - 4}
+                                                        width={8}
+                                                        height={8}
+                                                        fill="#fff"
+                                                        stroke="#f59e0b"
+                                                        strokeWidth={2}
+                                                        data-pop={h.h}
+                                                        className={cn(
+                                                            "pointer-events-none transition-all duration-300 ease-out opacity-0",
+                                                            "group-hover:opacity-100",
+                                                            isDragging && "hidden"
+                                                        )}
+                                                        style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+                                                    />
+                                                </g>
+                                            ))}
+                                        </g>
+                                    )}
+
+                                    {/* Direct Point Edit Handles */}
+                                    {config.points.map((p, i) => (
+                                        <g key={`handle-group-${i}`} className="group pointer-events-auto">
+                                            <circle
+                                                cx={p.x}
+                                                cy={p.y}
+                                                r={12}
+                                                fill="transparent"
+                                                className="cursor-grab"
+                                            />
+                                            <circle
+                                                cx={p.x}
+                                                cy={p.y}
+                                                r={4}
+                                                fill="#f59e0b"
+                                                stroke="#fff"
+                                                strokeWidth={2}
+                                                className={cn(
+                                                    "transition-all duration-300 ease-out pointer-events-none",
+                                                    "group-hover:scale-150 group-hover:shadow-lg",
+                                                    isDragging && "transition-none scale-110"
+                                                )}
+                                                style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+                                            />
+                                        </g>
+                                    ))}
+                                </g>
                         )}
                     </g>
                 );
