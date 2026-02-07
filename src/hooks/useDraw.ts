@@ -101,11 +101,12 @@ function useDraw() {
     }, [selectedPathId, mode, paths]);
 
     // 2. Helper to update selected path property
-    const updateSelectedPathProperty = useCallback((updater: (path: PathLayer) => PathLayer) => {
+    const updateSelectedPathProperty = useCallback((updater: (path: PathLayer) => PathLayer, commit: boolean = true) => {
         if (mode === 'edit' && selectedPathId) {
-            setPaths(prev => prev.map(p => p.id === selectedPathId ? updater(p) : p));
+            const updateType = commit ? setPaths : setInternalState;
+            updateType(prev => prev.map(p => p.id === selectedPathId ? updater(p) : p));
         }
-    }, [mode, selectedPathId, setPaths]);
+    }, [mode, selectedPathId, setPaths, setInternalState]);
 
     const deleteSelectedPath = useCallback(() => {
         if (selectedPathId) {
@@ -128,44 +129,53 @@ function useDraw() {
             }
         }
     }, [selectedPathId, paths, setPaths]);
-    const setStrokeColorEnhanced = useCallback((color: string) => {
+
+    const setStrokeColorEnhanced = useCallback((color: string, commit: boolean = true) => {
+        setIsInteracting(!commit);
         setStrokeColor(color);
-        updateSelectedPathProperty(p => ({ ...p, color }));
+        updateSelectedPathProperty(p => ({ ...p, color }), commit);
     }, [updateSelectedPathProperty]);
 
-    const setFillColorEnhanced = useCallback((fill: string) => {
+    const setFillColorEnhanced = useCallback((fill: string, commit: boolean = true) => {
+        setIsInteracting(!commit);
         setFillColor(fill);
-        updateSelectedPathProperty(p => ({ ...p, fill }));
+        updateSelectedPathProperty(p => ({ ...p, fill }), commit);
     }, [updateSelectedPathProperty]);
 
-    const setStrokeWidthEnhanced = useCallback((width: number) => {
+    const setStrokeWidthEnhanced = useCallback((width: number, commit: boolean = true) => {
+        setIsInteracting(!commit);
         setStrokeWidth(width);
-        updateSelectedPathProperty(p => ({ ...p, width }));
+        updateSelectedPathProperty(p => ({ ...p, width }), commit);
     }, [updateSelectedPathProperty]);
 
-    const setTensionEnhanced = useCallback((t: number) => {
+    const setTensionEnhanced = useCallback((t: number, commit: boolean = true) => {
+        setIsInteracting(!commit);
         setTension(t);
-        updateSelectedPathProperty(p => ({ ...p, tension: t }));
+        updateSelectedPathProperty(p => ({ ...p, tension: t }), commit);
     }, [updateSelectedPathProperty]);
 
-    const setIsClosedEnhanced = useCallback((closed: boolean) => {
+    const setIsClosedEnhanced = useCallback((closed: boolean, commit: boolean = true) => {
+        setIsInteracting(!commit);
         setIsClosed(closed);
-        updateSelectedPathProperty(p => ({ ...p, closed }));
+        updateSelectedPathProperty(p => ({ ...p, closed }), commit);
     }, [updateSelectedPathProperty]);
 
-    const setStrokeOpacityEnhanced = useCallback((opacity: number) => {
+    const setStrokeOpacityEnhanced = useCallback((opacity: number, commit: boolean = true) => {
+        setIsInteracting(!commit);
         setStrokeOpacity(opacity);
-        updateSelectedPathProperty(p => ({ ...p, strokeOpacity: opacity }));
+        updateSelectedPathProperty(p => ({ ...p, strokeOpacity: opacity }), commit);
     }, [updateSelectedPathProperty]);
 
-    const setFillOpacityEnhanced = useCallback((opacity: number) => {
+    const setFillOpacityEnhanced = useCallback((opacity: number, commit: boolean = true) => {
+        setIsInteracting(!commit);
         setFillOpacity(opacity);
-        updateSelectedPathProperty(p => ({ ...p, fillOpacity: opacity }));
+        updateSelectedPathProperty(p => ({ ...p, fillOpacity: opacity }), commit);
     }, [updateSelectedPathProperty]);
 
-    const setAnimationEnhanced = useCallback((anim: AnimationSettings) => {
+    const setAnimationEnhanced = useCallback((anim: AnimationSettings, commit: boolean = true) => {
+        setIsInteracting(!commit);
         setAnimation(anim);
-        updateSelectedPathProperty(p => ({ ...p, animation: anim }));
+        updateSelectedPathProperty(p => ({ ...p, animation: anim }), commit);
     }, [updateSelectedPathProperty]);
 
     const toggleSymmetry = useCallback((key: keyof SymmetrySettings) => {
@@ -376,6 +386,7 @@ function useDraw() {
     }, [currentPoints, paths, setPaths, symmetry, strokeColor, fillColor, strokeWidth, tension, isClosed, mode, strokeOpacity, fillOpacity]);
 
     const [cursorPos, setCursorPos] = useState<Point | null>(null);
+    const [isInteracting, setIsInteracting] = useState(false); // For sliders/color pickers
 
     const handlePointerMove = useCallback((e: React.MouseEvent) => {
         const point = getPointFromEvent(e);
@@ -609,7 +620,7 @@ function useDraw() {
         handlePointerUp,
         setPaths,
         setPathsInternal: setInternalState,
-        isDragging: draggingPointIndex !== null || transformMode !== 'none',
+        isDragging: draggingPointIndex !== null || transformMode !== 'none' || isInteracting,
         getBoundingBox,
         transformMode,
         transformHandle,

@@ -4,7 +4,7 @@ import type { SymmetrySettings } from '../types';
 
 interface ToolbarProps {
     tension: number;
-    setTension: (val: number) => void;
+    setTension: (val: number, commit?: boolean) => void;
     symmetry: SymmetrySettings;
     toggleSymmetry: (key: keyof SymmetrySettings) => void;
     undo: () => void;
@@ -16,13 +16,13 @@ interface ToolbarProps {
     onSaveJson: () => void; // JSON
     onLoad: () => void;
     strokeColor: string;
-    setStrokeColor: (val: string) => void;
+    setStrokeColor: (val: string, commit?: boolean) => void;
     fillColor: string;
-    setFillColor: (val: string) => void;
+    setFillColor: (val: string, commit?: boolean) => void;
     strokeWidth: number;
-    setStrokeWidth: (val: number) => void;
+    setStrokeWidth: (val: number, commit?: boolean) => void;
     isClosed: boolean;
-    setIsClosed: (val: boolean) => void;
+    setIsClosed: (val: boolean, commit?: boolean) => void;
     onBgUpload: () => void;
     onBgClear: () => void;
     bgVisible: boolean;
@@ -38,9 +38,9 @@ interface ToolbarProps {
     deleteSelectedPath: () => void;
     duplicateSelectedPath: () => void;
     strokeOpacity: number;
-    setStrokeOpacity: (val: number) => void;
+    setStrokeOpacity: (val: number, commit?: boolean) => void;
     fillOpacity: number;
-    setFillOpacity: (val: number) => void;
+    setFillOpacity: (val: number, commit?: boolean) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -150,7 +150,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         <input
                             type="color"
                             value={strokeColor}
-                            onChange={(e) => setStrokeColor(e.target.value)}
+                            onChange={(e) => setStrokeColor(e.target.value, false)}
+                            onBlur={(e) => setStrokeColor(e.target.value, true)}
                             className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border-none outline-none"
                         />
                         <div className="flex-1 grid grid-cols-4 gap-1">
@@ -176,7 +177,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             max="1"
                             step="0.01"
                             value={strokeOpacity}
-                            onChange={(e) => setStrokeOpacity(parseFloat(e.target.value))}
+                            onChange={(e) => setStrokeOpacity(parseFloat(e.target.value), false)}
+                            onMouseUp={(e) => setStrokeOpacity(parseFloat(e.currentTarget.value), true)}
+                            onTouchEnd={(e) => setStrokeOpacity(parseFloat(e.currentTarget.value), true)}
                             className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                     </div>
@@ -203,7 +206,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 <input
                                     type="color"
                                     value={fillColor === 'none' ? '#ffffff' : fillColor}
-                                    onChange={(e) => setFillColor(e.target.value)}
+                                    onChange={(e) => setFillColor(e.target.value, false)}
+                                    onBlur={(e) => setFillColor(e.target.value, true)}
                                     className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border-none outline-none"
                                 />
                                 <div className="flex-1 grid grid-cols-4 gap-1">
@@ -230,7 +234,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                         max="1"
                                         step="0.01"
                                         value={fillOpacity}
-                                        onChange={(e) => setFillOpacity(parseFloat(e.target.value))}
+                                        onChange={(e) => setFillOpacity(parseFloat(e.target.value), false)}
+                                        onMouseUp={(e) => setFillOpacity(parseFloat(e.currentTarget.value), true)}
+                                        onTouchEnd={(e) => setFillOpacity(parseFloat(e.currentTarget.value), true)}
                                         className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
                                     />
                                 </div>
@@ -251,7 +257,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             min="1"
                             max="20"
                             value={strokeWidth}
-                            onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
+                            onChange={(e) => setStrokeWidth(parseInt(e.target.value), false)}
+                            onMouseUp={(e) => setStrokeWidth(parseInt(e.currentTarget.value), true)}
+                            onTouchEnd={(e) => setStrokeWidth(parseInt(e.currentTarget.value), true)}
                             className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                     </div>
@@ -266,7 +274,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             max="1.5"
                             step="0.1"
                             value={tension}
-                            onChange={(e) => setTension(parseFloat(e.target.value))}
+                            onChange={(e) => setTension(parseFloat(e.target.value), false)}
+                            onMouseUp={(e) => setTension(parseFloat(e.currentTarget.value), true)}
+                            onTouchEnd={(e) => setTension(parseFloat(e.currentTarget.value), true)}
                             className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                     </div>

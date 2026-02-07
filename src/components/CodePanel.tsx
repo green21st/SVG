@@ -18,7 +18,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
     // Update localCode when paths change, but only if not currently editing
     const generatedCode = useMemo(() => {
-        if (isDragging && lastCodeRef.current) {
+        // Skip generation while dragging to improve performance
+        if (isDragging) {
             return lastCodeRef.current;
         }
 
@@ -94,15 +95,15 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
             });
         }).join('\n');
 
-        const result = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+        const code = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
   <style>
 ${keyframes}
   </style>
 ${pathsCode}
 </svg>`;
 
-        lastCodeRef.current = result;
-        return result;
+        lastCodeRef.current = code;
+        return code;
     }, [paths, tension, isDragging]);
 
     // Sync generated code to local code when not editing
