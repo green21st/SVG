@@ -1,9 +1,8 @@
 import React, { useRef } from 'react';
-import { Square, Circle as CircleIcon, Triangle, Star, Pencil } from 'lucide-react';
+import { Pencil, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
-import { CodePanel } from './components/CodePanel';
 import { smoothPath } from './utils/geometry';
 
 function App() {
@@ -42,7 +41,18 @@ function App() {
     isDragging,
     handleAddShape,
     activeTool,
-    setActiveTool
+    setActiveTool,
+    getBoundingBox,
+    pointSnappingEnabled,
+    setPointSnappingEnabled,
+    guideSnappingEnabled,
+    setGuideSnappingEnabled,
+    deleteSelectedPath,
+    duplicateSelectedPath,
+    strokeOpacity,
+    setStrokeOpacity,
+    fillOpacity,
+    setFillOpacity
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,14 +83,11 @@ function App() {
     setBackgroundImage(null);
   };
 
-  const handleLoadClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleLoadClick = () => { fileInputRef.current?.click(); };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
@@ -88,16 +95,10 @@ function App() {
         const data = JSON.parse(json);
         if (Array.isArray(data)) {
           const valid = data.every((item: any) => item.points && Array.isArray(item.points));
-          if (valid) {
-            setPaths(data);
-          } else {
-            alert('Invalid file format');
-          }
+          if (valid) setPaths(data);
+          else alert('Invalid file format');
         }
-      } catch (err) {
-        console.error('Failed to parse JSON', err);
-        alert('Failed to load file');
-      }
+      } catch (err) { alert('Failed to load file'); }
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -118,14 +119,13 @@ function App() {
     if (!canvasRef.current) return;
     const width = 800;
     const height = 600;
-
     const pathsCode = paths.map(path => {
       const d = smoothPath(path.points, path.tension, path.closed);
-      return `\t<path d="${d}" stroke="${path.color}" stroke-width="${path.width}" fill="${path.fill || 'none'}" stroke-linecap="round" stroke-linejoin="round" />`;
+      const sOp = path.strokeOpacity ?? 1;
+      const fOp = path.fillOpacity ?? 1;
+      return `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round" />`;
     }).join('\n');
-
     const svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">\n${pathsCode}\n</svg>`;
-
     const blob = new Blob([svgContent], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -134,6 +134,20 @@ function App() {
     link.click();
     URL.revokeObjectURL(url);
   };
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '');
+      if (isInput) return;
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+      else if (ctrl && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+      else if (ctrl && e.key.toLowerCase() === 'd') { if (selectedPathId) { e.preventDefault(); duplicateSelectedPath(); } }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedPathId) { e.preventDefault(); deleteSelectedPath(); } }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, duplicateSelectedPath, deleteSelectedPath, selectedPathId]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30">
@@ -148,68 +162,40 @@ function App() {
             PolyCurve <span className="text-primary/50 font-normal">Studio</span>
           </h1>
         </div>
-
         <div className="flex items-center gap-4">
-          <button className="text-xs font-medium text-secondary hover:text-white transition-colors">
-            Help
-          </button>
-          <a href="https://github.com" target="_blank" className="text-xs font-medium text-secondary hover:text-white transition-colors">
-            GitHub
-          </a>
+          <button className="text-xs font-medium text-secondary hover:text-white transition-colors">Help</button>
+          <a href="https://github.com" target="_blank" className="text-xs font-medium text-secondary hover:text-white transition-colors">GitHub</a>
         </div>
       </header>
 
       <main className="flex-1 flex overflow-hidden">
         <aside className="w-72 p-4 border-r border-border bg-slate-950 overflow-y-auto">
           <Toolbar
-            tension={tension}
-            setTension={setTension}
-            symmetry={symmetry}
-            toggleSymmetry={toggleSymmetry}
-            undo={undo}
-            redo={redo}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            clear={clearCanvas}
-            onSave={handleExportSvg}
-            onSaveJson={handleSaveJson}
-            onLoad={handleLoadClick}
-            strokeColor={strokeColor}
-            setStrokeColor={setStrokeColor}
-            fillColor={fillColor}
-            setFillColor={setFillColor}
-            strokeWidth={strokeWidth}
-            setStrokeWidth={setStrokeWidth}
-            isClosed={isClosed}
-            setIsClosed={setIsClosed}
-            onBgUpload={handleBgUploadClick}
-            onBgClear={handleClearBg}
-            bgVisible={bgVisible}
-            setBgVisible={setBgVisible}
-            hasBg={!!backgroundImage}
-            mode={mode}
-            setMode={setMode}
+            tension={tension} setTension={setTension}
+            symmetry={symmetry} toggleSymmetry={toggleSymmetry}
+            undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} clear={clearCanvas}
+            onSave={handleExportSvg} onSaveJson={handleSaveJson} onLoad={handleLoadClick}
+            strokeColor={strokeColor} setStrokeColor={setStrokeColor}
+            fillColor={fillColor} setFillColor={setFillColor}
+            strokeWidth={strokeWidth} setStrokeWidth={setStrokeWidth}
+            isClosed={isClosed} setIsClosed={setIsClosed}
+            onBgUpload={handleBgUploadClick} onBgClear={handleClearBg}
+            bgVisible={bgVisible} setBgVisible={setBgVisible}
+            hasBg={!!backgroundImage} mode={mode} setMode={setMode}
+            pointSnappingEnabled={pointSnappingEnabled} setPointSnappingEnabled={setPointSnappingEnabled}
+            guideSnappingEnabled={guideSnappingEnabled} setGuideSnappingEnabled={setGuideSnappingEnabled}
+            deleteSelectedPath={deleteSelectedPath} duplicateSelectedPath={duplicateSelectedPath}
+            selectedPathId={selectedPathId}
+            strokeOpacity={strokeOpacity}
+            setStrokeOpacity={setStrokeOpacity}
+            fillOpacity={fillOpacity}
+            setFillOpacity={setFillOpacity}
           />
-
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept=".json"
-            onChange={handleFileChange}
-          />
-
-          <input
-            type="file"
-            ref={bgInputRef}
-            className="hidden"
-            accept="image/*"
-            onChange={handleBgFileChange}
-          />
+          <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+          <input type="file" ref={bgInputRef} className="hidden" accept="image/*" onChange={handleBgFileChange} />
         </aside>
 
         <section className="flex-1 bg-[#020617] p-8 overflow-hidden relative flex flex-col items-center justify-center gap-4">
-          {/* Shapes Bar */}
           <div className="flex bg-slate-900/50 backdrop-blur-sm p-1.5 rounded-xl border border-white/5 shadow-xl gap-1">
             <button
               onClick={() => setActiveTool('pen')}
@@ -249,34 +235,42 @@ function App() {
             </button>
           </div>
 
-          <div className="w-[800px] h-[600px] shadow-2xl shadow-black/50 rounded-xl relative">
-            <Canvas
-              paths={paths}
-              currentPoints={currentPoints}
-              cursorPos={cursorPos}
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerLeave={handlePointerLeave}
-              onDoubleClick={handleDoubleClick}
-              onContextMenu={handleContextMenu}
-              tension={tension}
-              symmetry={symmetry}
-              canvasRef={canvasRef as React.RefObject<HTMLDivElement>}
-              isClosed={isClosed}
-              backgroundImage={backgroundImage}
-              bgVisible={bgVisible}
-              mode={mode}
-              selectedPathId={selectedPathId}
-              onPathSelect={setSelectedPathId}
-              isDragging={isDragging}
-              activeTool={activeTool}
-            />
+          <div className="relative">
+            <div className="w-[800px] h-[600px] shadow-2xl shadow-black/50 rounded-xl relative overflow-hidden">
+              <Canvas
+                paths={paths} currentPoints={currentPoints} cursorPos={cursorPos}
+                onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}
+                onPointerLeave={handlePointerLeave} onDoubleClick={handleDoubleClick}
+                onContextMenu={handleContextMenu} tension={tension} symmetry={symmetry}
+                canvasRef={canvasRef as React.RefObject<HTMLDivElement>}
+                isClosed={isClosed} backgroundImage={backgroundImage}
+                bgVisible={bgVisible} mode={mode}
+                selectedPathId={selectedPathId} onPathSelect={setSelectedPathId}
+                isDragging={isDragging} activeTool={activeTool}
+                getBoundingBox={getBoundingBox}
+              />
+            </div>
+
+            {mode === 'edit' && selectedPathId && (
+              <div className="absolute -right-16 top-0 flex flex-col gap-2 p-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 shadow-2xl transition-all animate-in fade-in slide-in-from-left-2">
+                <button
+                  onClick={duplicateSelectedPath}
+                  className="p-3 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:scale-110 active:scale-95 transition-all"
+                  title="Duplicate (Ctrl+D)"
+                >
+                  <Copy size={20} />
+                </button>
+                <button
+                  onClick={deleteSelectedPath}
+                  className="p-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:scale-110 active:scale-95 transition-all"
+                  title="Delete (Del/Backspace)"
+                >
+                  <Scissors size={20} />
+                </button>
+              </div>
+            )}
           </div>
         </section>
-
-        <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col overflow-hidden">
-          <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} />
-        </aside>
       </main>
     </div>
   );

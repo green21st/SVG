@@ -27,7 +27,9 @@ function useDraw() {
     const [strokeColor, setStrokeColor] = useState<string>('#22d3ee');
     const [fillColor, setFillColor] = useState<string>('none'); // Default no fill
     const [strokeWidth, setStrokeWidth] = useState<number>(2);
-    const [isClosed, setIsClosed] = useState<boolean>(false); // New State
+    const [isClosed, setIsClosed] = useState<boolean>(false);
+    const [strokeOpacity, setStrokeOpacity] = useState<number>(1);
+    const [fillOpacity, setFillOpacity] = useState<number>(1);
 
     // Edit Mode State
     const [mode, setMode] = useState<'draw' | 'edit'>('draw');
@@ -38,7 +40,38 @@ function useDraw() {
     const [activeTool, setActiveTool] = useState<'pen' | 'square' | 'circle' | 'triangle' | 'star'>('pen');
     const [shapeStartPoint, setShapeStartPoint] = useState<Point | null>(null);
 
+    // Transformation State
+    const [transformMode, setTransformMode] = useState<'none' | 'rotate' | 'scale' | 'translate'>('none');
+    const [transformHandle, setTransformHandle] = useState<string | null>(null);
+    const [transformPivot, setTransformPivot] = useState<Point | null>(null);
+    const [initialPoints, setInitialPoints] = useState<Point[] | null>(null);
+    const [initialAngle, setInitialAngle] = useState<number>(0);
+    const [initialDist, setInitialDist] = useState<number>(1);
+    const [initialMousePos, setInitialMousePos] = useState<Point | null>(null);
+
+    // Snapping Settings
+    const [pointSnappingEnabled, setPointSnappingEnabled] = useState<boolean>(true);
+    const [guideSnappingEnabled, setGuideSnappingEnabled] = useState<boolean>(true);
+
     const canvasRef = useRef<HTMLDivElement>(null);
+
+    // Bounding Box Helper
+    const getBoundingBox = useCallback((points: Point[]) => {
+        if (points.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0, centerX: 0, centerY: 0 };
+        const xs = points.map(p => p.x);
+        const ys = points.map(p => p.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        return {
+            minX, minY, maxX, maxY,
+            width: maxX - minX,
+            height: maxY - minY,
+            centerX: (minX + maxX) / 2,
+            centerY: (minY + maxY) / 2
+        };
+    }, []);
 
     // 1. Sync settings when selectedPathId changes, with guards to prevent infinite loops
     useEffect(() => {
@@ -50,6 +83,8 @@ function useDraw() {
                 const newWidth = path.width || 2;
                 const newTension = path.tension ?? 0.5;
                 const newClosed = path.closed ?? false;
+                const newStrokeOpacity = path.strokeOpacity ?? 1;
+                const newFillOpacity = path.fillOpacity ?? 1;
 
                 // ONLY update if actually different to avoid "Maximum update depth exceeded"
                 if (strokeColor !== newColor) setStrokeColor(newColor);
@@ -57,9 +92,11 @@ function useDraw() {
                 if (strokeWidth !== newWidth) setStrokeWidth(newWidth);
                 if (tension !== newTension) setTension(newTension);
                 if (isClosed !== newClosed) setIsClosed(newClosed);
+                if (strokeOpacity !== newStrokeOpacity) setStrokeOpacity(newStrokeOpacity);
+                if (fillOpacity !== newFillOpacity) setFillOpacity(newFillOpacity);
             }
         }
-    }, [selectedPathId, mode, paths, strokeColor, fillColor, strokeWidth, tension, isClosed]);
+    }, [selectedPathId, mode, paths, strokeColor, fillColor, strokeWidth, tension, isClosed, strokeOpacity, fillOpacity]);
 
     // 2. Helper to update selected path property
     const updateSelectedPathProperty = useCallback((updater: (path: PathLayer) => PathLayer) => {
@@ -68,7 +105,27 @@ function useDraw() {
         }
     }, [mode, selectedPathId, setPaths]);
 
-    // Wrap setters to support edit mode
+    const deleteSelectedPath = useCallback(() => {
+        if (selectedPathId) {
+            setPaths(prev => prev.filter(p => p.id !== selectedPathId));
+            setSelectedPathId(null);
+        }
+    }, [selectedPathId, setPaths]);
+
+    const duplicateSelectedPath = useCallback(() => {
+        if (selectedPathId) {
+            const path = paths.find(p => p.id === selectedPathId);
+            if (path) {
+                const newPath: PathLayer = {
+                    ...path,
+                    id: `path-${Date.now()}`,
+                    points: path.points.map(pt => ({ x: pt.x + 20, y: pt.y + 20 }))
+                };
+                setPaths(prev => [...prev, newPath]);
+                setSelectedPathId(newPath.id);
+            }
+        }
+    }, [selectedPathId, paths, setPaths]);
     const setStrokeColorEnhanced = useCallback((color: string) => {
         setStrokeColor(color);
         updateSelectedPathProperty(p => ({ ...p, color }));
@@ -94,6 +151,16 @@ function useDraw() {
         updateSelectedPathProperty(p => ({ ...p, closed }));
     }, [updateSelectedPathProperty]);
 
+    const setStrokeOpacityEnhanced = useCallback((opacity: number) => {
+        setStrokeOpacity(opacity);
+        updateSelectedPathProperty(p => ({ ...p, strokeOpacity: opacity }));
+    }, [updateSelectedPathProperty]);
+
+    const setFillOpacityEnhanced = useCallback((opacity: number) => {
+        setFillOpacity(opacity);
+        updateSelectedPathProperty(p => ({ ...p, fillOpacity: opacity }));
+    }, [updateSelectedPathProperty]);
+
     const toggleSymmetry = useCallback((key: keyof SymmetrySettings) => {
         setSymmetry(prev => ({ ...prev, [key]: !prev[key] }));
     }, []);
@@ -115,71 +182,99 @@ function useDraw() {
         let x = clientX - rect.left;
         let y = clientY - rect.top;
 
-        const SNAP_THRESHOLD = 10;
-        const SNAP_THRESHOLD_SQ = SNAP_THRESHOLD * SNAP_THRESHOLD;
+        // Only snap if not transforming
+        if (transformMode === 'none' && draggingPointIndex === null) {
+            const SNAP_THRESHOLD = 10;
+            const SNAP_THRESHOLD_SQ = SNAP_THRESHOLD * SNAP_THRESHOLD;
 
-        // 1. Point Snapping (Highest Priority)
-        let closestDistSq = SNAP_THRESHOLD_SQ;
-        let snapX = x;
-        let snapY = y;
-        let hasSnappedToPoint = false;
+            let closestDistSq = SNAP_THRESHOLD_SQ;
+            let snapX = x;
+            let snapY = y;
+            let hasSnappedToPoint = false;
 
-        // Optimized Snapping Loop: Using squared distance and skipping if there are too many paths
-        if (paths.length < 100) { // Safety gate for extreme cases
-            for (const path of paths) {
-                for (const p of path.points) {
-                    const dx = x - p.x;
-                    const dy = y - p.y;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq < closestDistSq) {
-                        closestDistSq = distSq;
-                        snapX = p.x;
-                        snapY = p.y;
-                        hasSnappedToPoint = true;
+            if (pointSnappingEnabled) {
+                if (paths.length < 100) {
+                    for (const path of paths) {
+                        for (const p of path.points) {
+                            const dx = x - p.x;
+                            const dy = y - p.y;
+                            const distSq = dx * dx + dy * dy;
+                            if (distSq < closestDistSq) {
+                                closestDistSq = distSq;
+                                snapX = p.x;
+                                snapY = p.y;
+                                hasSnappedToPoint = true;
+                            }
+                        }
+                    }
+                }
+
+                if (mode === 'draw') {
+                    for (const p of currentPoints) {
+                        const dx = x - p.x;
+                        const dy = y - p.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < closestDistSq) {
+                            closestDistSq = distSq;
+                            snapX = p.x;
+                            snapY = p.y;
+                            hasSnappedToPoint = true;
+                        }
                     }
                 }
             }
-        }
 
-        // Check Previous Points in Current Path (ONLY in DRAW mode)
-        if (mode === 'draw') {
-            for (const p of currentPoints) {
-                const dx = x - p.x;
-                const dy = y - p.y;
-                const distSq = dx * dx + dy * dy;
-                if (distSq < closestDistSq) {
-                    closestDistSq = distSq;
-                    snapX = p.x;
-                    snapY = p.y;
-                    hasSnappedToPoint = true;
+            if (hasSnappedToPoint) {
+                return { x: snapX, y: snapY };
+            }
+
+            if (guideSnappingEnabled) {
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                if (symmetry.horizontal && Math.abs(x - centerX) < SNAP_THRESHOLD) x = centerX;
+                if (symmetry.vertical && Math.abs(y - centerY) < SNAP_THRESHOLD) y = centerY;
+                if (symmetry.center) {
+                    if (Math.abs(x - centerX) < SNAP_THRESHOLD) x = centerX;
+                    if (Math.abs(y - centerY) < SNAP_THRESHOLD) y = centerY;
                 }
             }
         }
 
-        if (hasSnappedToPoint) {
-            return { x: snapX, y: snapY };
-        }
-
-        // 2. Axis Snapping (Lower Priority)
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-
-        if (symmetry.horizontal && Math.abs(x - centerX) < SNAP_THRESHOLD) {
-            x = centerX;
-        }
-        if (symmetry.vertical && Math.abs(y - centerY) < SNAP_THRESHOLD) {
-            y = centerY;
-        }
-        if (symmetry.center) {
-            if (Math.abs(x - centerX) < SNAP_THRESHOLD) x = centerX;
-            if (Math.abs(y - centerY) < SNAP_THRESHOLD) y = centerY;
-        }
-
         return { x, y };
-    }, [symmetry, paths, currentPoints, mode]);
+    }, [symmetry, paths, currentPoints, mode, transformMode, draggingPointIndex, pointSnappingEnabled, guideSnappingEnabled]);
 
     const handlePointerDown = useCallback((e: React.MouseEvent) => {
         if (e.button !== 0) return;
+
+        // Check for transform handles first (this information is passed via dataset/target)
+        const target = e.target as HTMLElement;
+        const handleType = target.dataset.handle;
+
+        if (handleType && selectedPathId) {
+            const path = paths.find(p => p.id === selectedPathId);
+            if (path) {
+                const box = getBoundingBox(path.points);
+                const pivot = { x: box.centerX, y: box.centerY };
+                const rect = canvasRef.current!.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                setInitialPoints([...path.points]);
+                setTransformPivot(pivot);
+                setTransformHandle(handleType);
+
+                if (handleType === 'rotate') {
+                    setTransformMode('rotate');
+                    setInitialAngle(Math.atan2(mouseY - pivot.y, mouseX - pivot.x));
+                } else {
+                    setTransformMode('scale');
+                    setInitialDist(Math.sqrt(Math.pow(mouseX - pivot.x, 2) + Math.pow(mouseY - pivot.y, 2)));
+                }
+                isDraggingRef.current = false;
+                return;
+            }
+        }
+
         const point = getPointFromEvent(e);
         if (!point) return;
 
@@ -188,45 +283,59 @@ function useDraw() {
                 setCurrentPoints(prev => [...prev, point]);
             } else {
                 setShapeStartPoint(point);
-                setCurrentPoints([point, point]); // Initial two points for shape
+                setCurrentPoints([point, point]);
             }
         } else if (mode === 'edit') {
+            const rect = canvasRef.current!.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // 1. Check if we clicked an existing point handle of the selected path
             if (selectedPathId) {
                 const path = paths.find(p => p.id === selectedPathId);
                 if (path) {
-                    const HIT_RADIUS = 10;
-                    const rect = canvasRef.current!.getBoundingClientRect();
-                    const rx = e.clientX - rect.left;
-                    const ry = e.clientY - rect.top;
-
-                    // Support clicking on any symmetric variant
+                    const HIT_RADIUS = 12;
                     const { width, height } = rect;
                     const centerX = width / 2;
                     const centerY = height / 2;
                     const variants = applySymmetry(path.points, path.symmetry, centerX, centerY);
 
                     let clickedPointIndex = -1;
-
                     for (const points of variants) {
-                        const idx = points.findIndex(p => {
-                            return Math.sqrt(Math.pow(p.x - rx, 2) + Math.pow(p.y - ry, 2)) <= HIT_RADIUS;
+                        const idx = points.findIndex(pt => {
+                            return Math.sqrt(Math.pow(pt.x - mouseX, 2) + Math.pow(pt.y - mouseY, 2)) <= HIT_RADIUS;
                         });
-                        if (idx !== -1) {
-                            clickedPointIndex = idx;
-                            break;
-                        }
+                        if (idx !== -1) { clickedPointIndex = idx; break; }
                     }
 
                     if (clickedPointIndex !== -1) {
                         setDraggingPointIndex(clickedPointIndex);
-                        isDraggingRef.current = false; // Reset for a new drag session
+                        isDraggingRef.current = false;
                         return;
                     }
                 }
             }
-            setSelectedPathId(null);
+
+            // 2. Check if we clicked on a path for translation or selection
+            const pathId = target.dataset.pathId || (target.tagName === 'path' ? (target as any).dataset.pathId : null);
+            if (pathId) {
+                const path = paths.find(p => p.id === pathId);
+                if (path) {
+                    setSelectedPathId(pathId);
+                    setTransformMode('translate');
+                    setInitialPoints([...path.points]);
+                    setInitialMousePos({ x: mouseX, y: mouseY });
+                    isDraggingRef.current = false;
+                    return;
+                }
+            }
+
+            // 3. Deselect if clicking on empty space
+            if (target === canvasRef.current || target.tagName === 'svg') {
+                setSelectedPathId(null);
+            }
         }
-    }, [getPointFromEvent, mode, paths, selectedPathId]);
+    }, [getPointFromEvent, mode, paths, selectedPathId, getBoundingBox, activeTool, initialAngle, initialDist]);
 
     const handleContextMenu = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -247,12 +356,14 @@ function useDraw() {
             width: strokeWidth,
             tension: tension,
             closed: isClosed,
-            symmetry: { ...symmetry } // Store the current symmetry settings
+            strokeOpacity,
+            fillOpacity,
+            symmetry: { ...symmetry }
         };
 
         setPaths([...paths, newPath]);
         setCurrentPoints([]);
-    }, [currentPoints, paths, setPaths, symmetry, strokeColor, fillColor, strokeWidth, tension, isClosed]);
+    }, [currentPoints, paths, setPaths, symmetry, strokeColor, fillColor, strokeWidth, tension, isClosed, mode, strokeOpacity, fillOpacity]);
 
     const [cursorPos, setCursorPos] = useState<Point | null>(null);
 
@@ -262,73 +373,103 @@ function useDraw() {
             setCursorPos(point);
 
             if (mode === 'draw' && shapeStartPoint) {
-                // Generate shape points based on drag
                 const dx = point.x - shapeStartPoint.x;
                 const dy = point.y - shapeStartPoint.y;
                 let newPoints: Point[] = [];
-
                 switch (activeTool) {
                     case 'square':
-                        newPoints = [
-                            { x: shapeStartPoint.x, y: shapeStartPoint.y },
-                            { x: point.x, y: shapeStartPoint.y },
-                            { x: point.x, y: point.y },
-                            { x: shapeStartPoint.x, y: point.y }
-                        ];
+                        newPoints = [{ x: shapeStartPoint.x, y: shapeStartPoint.y }, { x: point.x, y: shapeStartPoint.y }, { x: point.x, y: point.y }, { x: shapeStartPoint.x, y: point.y }];
                         break;
                     case 'circle': {
                         const r = Math.sqrt(dx * dx + dy * dy);
-                        for (let i = 0; i < 16; i++) {
-                            const angle = (i / 16) * Math.PI * 2;
-                            newPoints.push({
-                                x: shapeStartPoint.x + Math.cos(angle) * r,
-                                y: shapeStartPoint.y + Math.sin(angle) * r
-                            });
+                        for (let i = 0; i < 32; i++) {
+                            const angle = (i / 32) * Math.PI * 2;
+                            newPoints.push({ x: shapeStartPoint.x + Math.cos(angle) * r, y: shapeStartPoint.y + Math.sin(angle) * r });
                         }
                         break;
                     }
                     case 'triangle':
-                        newPoints = [
-                            { x: shapeStartPoint.x + dx / 2, y: shapeStartPoint.y },
-                            { x: point.x, y: point.y },
-                            { x: shapeStartPoint.x, y: point.y }
-                        ];
+                        newPoints = [{ x: shapeStartPoint.x + dx / 2, y: shapeStartPoint.y }, { x: point.x, y: point.y }, { x: shapeStartPoint.x, y: point.y }];
                         break;
                     case 'star': {
                         const r = Math.sqrt(dx * dx + dy * dy);
                         for (let i = 0; i < 10; i++) {
                             const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
                             const currentR = i % 2 === 0 ? r : r * 0.4;
-                            newPoints.push({
-                                x: shapeStartPoint.x + Math.cos(angle) * currentR,
-                                y: shapeStartPoint.y + Math.sin(angle) * currentR
-                            });
+                            newPoints.push({ x: shapeStartPoint.x + Math.cos(angle) * currentR, y: shapeStartPoint.y + Math.sin(angle) * currentR });
                         }
                         break;
                     }
                 }
                 setCurrentPoints(newPoints);
-            } else if (mode === 'edit' && draggingPointIndex !== null && selectedPathId) {
-                const updateFn = (prev: PathLayer[]) => prev.map(p => {
-                    if (p.id === selectedPathId) {
-                        const newPoints = [...p.points];
-                        newPoints[draggingPointIndex] = point;
-                        return { ...p, points: newPoints };
-                    }
-                    return p;
-                });
+            } else if (mode === 'edit' && selectedPathId) {
+                if (transformMode !== 'none' && initialPoints) {
+                    const updateFn = (prev: PathLayer[]) => prev.map(p => {
+                        if (p.id === selectedPathId) {
+                            let newPoints = [...initialPoints];
+                            const rect = canvasRef.current!.getBoundingClientRect();
+                            const mouseX = e.clientX - rect.left;
+                            const mouseY = e.clientY - rect.top;
 
-                if (!isDraggingRef.current) {
-                    // First move in a drag session: use setState to create a history entry
-                    setPaths(updateFn);
-                    isDraggingRef.current = true;
-                } else {
-                    // Subsequent moves: use setInternalState to update in-place
-                    setInternalState(updateFn);
+                            if (transformMode === 'rotate' && transformPivot) {
+                                const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
+                                const deltaAngle = currentAngle - initialAngle;
+
+                                newPoints = initialPoints.map(pt => {
+                                    const dx = pt.x - transformPivot.x;
+                                    const dy = pt.y - transformPivot.y;
+                                    const cos = Math.cos(deltaAngle);
+                                    const sin = Math.sin(deltaAngle);
+                                    return {
+                                        x: transformPivot.x + dx * cos - dy * sin,
+                                        y: transformPivot.y + dx * sin + dy * cos
+                                    };
+                                });
+                            } else if (transformMode === 'scale' && transformPivot) {
+                                const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
+                                const scaleFactor = currentDist / initialDist;
+                                newPoints = initialPoints.map(pt => ({
+                                    x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
+                                    y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
+                                }));
+                            } else if (transformMode === 'translate' && initialMousePos) {
+                                const dx = mouseX - initialMousePos.x;
+                                const dy = mouseY - initialMousePos.y;
+                                newPoints = initialPoints.map(pt => ({
+                                    x: pt.x + dx,
+                                    y: pt.y + dy
+                                }));
+                            }
+                            return { ...p, points: newPoints };
+                        }
+                        return p;
+                    });
+
+                    if (!isDraggingRef.current) {
+                        setPaths(updateFn);
+                        isDraggingRef.current = true;
+                    } else {
+                        setInternalState(updateFn);
+                    }
+                } else if (draggingPointIndex !== null) {
+                    const updateFn = (prev: PathLayer[]) => prev.map(p => {
+                        if (p.id === selectedPathId) {
+                            const newPoints = [...p.points];
+                            newPoints[draggingPointIndex] = point;
+                            return { ...p, points: newPoints };
+                        }
+                        return p;
+                    });
+                    if (!isDraggingRef.current) {
+                        setPaths(updateFn);
+                        isDraggingRef.current = true;
+                    } else {
+                        setInternalState(updateFn);
+                    }
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState]);
+    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState, transformMode, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && shapeStartPoint && currentPoints.length > 2) {
@@ -341,23 +482,30 @@ function useDraw() {
                 width: strokeWidth,
                 tension: tension,
                 closed: true,
+                strokeOpacity,
+                fillOpacity,
                 symmetry: { ...symmetry }
             };
             setPaths(prev => [...prev, newPath]);
             setCurrentPoints([]);
             setShapeStartPoint(null);
-            // Optionally switch back to pen or keep tool
         }
 
         setCursorPos(null);
         setDraggingPointIndex(null);
+        setTransformMode('none');
+        setTransformHandle(null);
+        setInitialPoints(null);
         isDraggingRef.current = false;
         setShapeStartPoint(null);
-    }, [mode, shapeStartPoint, currentPoints, activeTool, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths]);
+    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths]);
 
     const handlePointerLeave = useCallback(() => {
         setCursorPos(null);
         setDraggingPointIndex(null);
+        setTransformMode('none');
+        setTransformHandle(null);
+        setInitialPoints(null);
         isDraggingRef.current = false;
         setShapeStartPoint(null);
     }, []);
@@ -380,26 +528,16 @@ function useDraw() {
             if (path.id === selectedPathId) {
                 const newPoints = [...path.points];
                 let bestIdx = -1;
-                let minDist = 20; // Threshold to be "near" the curve to add a point
+                let minDist = 20;
 
-                // 1. Check all regular segments
                 for (let i = 0; i < newPoints.length - 1; i++) {
                     const d = distToSegment(point, newPoints[i], newPoints[i + 1]);
-                    if (d < minDist) {
-                        minDist = d;
-                        bestIdx = i + 1;
-                    }
+                    if (d < minDist) { minDist = d; bestIdx = i + 1; }
                 }
-
-                // 2. Check closing segment if path is closed
                 if (path.closed && newPoints.length > 2) {
                     const d = distToSegment(point, newPoints[newPoints.length - 1], newPoints[0]);
-                    if (d < minDist) {
-                        minDist = d;
-                        bestIdx = newPoints.length; // Append at the end (before closing)
-                    }
+                    if (d < minDist) { minDist = d; bestIdx = newPoints.length; }
                 }
-
                 if (bestIdx !== -1) {
                     newPoints.splice(bestIdx, 0, point);
                     return { ...path, points: newPoints };
@@ -457,7 +595,20 @@ function useDraw() {
         setActiveTool,
         handlePointerUp,
         setPaths,
-        isDragging: draggingPointIndex !== null
+        isDragging: draggingPointIndex !== null || transformMode !== 'none',
+        getBoundingBox,
+        transformMode,
+        transformHandle,
+        pointSnappingEnabled,
+        setPointSnappingEnabled,
+        guideSnappingEnabled,
+        setGuideSnappingEnabled,
+        deleteSelectedPath,
+        duplicateSelectedPath,
+        strokeOpacity,
+        setStrokeOpacity: setStrokeOpacityEnhanced,
+        fillOpacity,
+        setFillOpacity: setFillOpacityEnhanced
     };
 }
 

@@ -12,6 +12,8 @@ export interface PathLayer {
     tension: number; // Store tension per path
     closed: boolean;
     symmetry: SymmetrySettings; // Embedded symmetry for dynamic editing
+    strokeOpacity?: number;
+    fillOpacity?: number;
 }
 
 export interface SymmetrySettings {

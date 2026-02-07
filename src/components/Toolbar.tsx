@@ -1,5 +1,4 @@
-import React from 'react';
-import { Undo2, Redo2, Trash2, Download, Upload, Save, Eye, EyeOff } from 'lucide-react';
+import { Undo2, Redo2, Trash2, Download, Upload, Save, Eye, EyeOff, Magnet, LayoutGrid } from 'lucide-react';
 
 import type { SymmetrySettings } from '../types';
 
@@ -31,6 +30,17 @@ interface ToolbarProps {
     hasBg: boolean;
     mode: 'draw' | 'edit';
     setMode: (mode: 'draw' | 'edit') => void;
+    pointSnappingEnabled: boolean;
+    setPointSnappingEnabled: (val: boolean) => void;
+    guideSnappingEnabled: boolean;
+    setGuideSnappingEnabled: (val: boolean) => void;
+    selectedPathId: string | null;
+    deleteSelectedPath: () => void;
+    duplicateSelectedPath: () => void;
+    strokeOpacity: number;
+    setStrokeOpacity: (val: number) => void;
+    fillOpacity: number;
+    setFillOpacity: (val: number) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -60,7 +70,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     setBgVisible,
     hasBg,
     mode,
-    setMode
+    setMode,
+    pointSnappingEnabled,
+    setPointSnappingEnabled,
+    guideSnappingEnabled,
+    setGuideSnappingEnabled,
+    selectedPathId,
+    deleteSelectedPath,
+    duplicateSelectedPath,
+    strokeOpacity,
+    setStrokeOpacity,
+    fillOpacity,
+    setFillOpacity
 }) => {
     return (
         <div className="flex flex-col gap-4 bg-surface p-4 rounded-xl border border-border shadow-lg w-full">
@@ -143,6 +164,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             ))}
                         </div>
                     </div>
+                    {/* Stroke Opacity Slider */}
+                    <div className="px-1 mt-2">
+                        <div className="flex justify-between text-[10px] text-secondary mb-1">
+                            <span>Opacity</span>
+                            <span>{Math.round(strokeOpacity * 100)}%</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.01"
+                            value={strokeOpacity}
+                            onChange={(e) => setStrokeOpacity(parseFloat(e.target.value))}
+                            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                    </div>
                 </div>
 
                 {/* Fill Color */}
@@ -180,6 +217,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     ))}
                                 </div>
                             </div>
+                            {/* Fill Opacity Slider */}
+                            {fillColor !== 'none' && (
+                                <div className="px-1">
+                                    <div className="flex justify-between text-[10px] text-secondary mb-1">
+                                        <span>Opacity</span>
+                                        <span>{Math.round(fillOpacity * 100)}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="1"
+                                        step="0.01"
+                                        value={fillOpacity}
+                                        onChange={(e) => setFillOpacity(parseFloat(e.target.value))}
+                                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -227,6 +282,33 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             }`}
                     >
                         {isClosed ? 'Closed Loop' : 'Open Path'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="h-px bg-border/50" />
+
+            {/* Snapping Controls */}
+            <div>
+                <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold flex items-center justify-between">
+                    Snapping
+                </h3>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setPointSnappingEnabled(!pointSnappingEnabled)}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-1 rounded-lg border transition-all text-[10px] font-bold ${pointSnappingEnabled ? 'bg-primary/20 text-primary border-primary/40 shadow-[0_0_10px_rgba(34,211,238,0.1)]' : 'bg-slate-900 text-secondary border-slate-800 hover:text-white'}`}
+                        title="Snap to Points"
+                    >
+                        <Magnet size={14} />
+                        Points
+                    </button>
+                    <button
+                        onClick={() => setGuideSnappingEnabled(!guideSnappingEnabled)}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-1 rounded-lg border transition-all text-[10px] font-bold ${guideSnappingEnabled ? 'bg-primary/20 text-primary border-primary/40 shadow-[0_0_10px_rgba(34,211,238,0.1)]' : 'bg-slate-900 text-secondary border-slate-800 hover:text-white'}`}
+                        title="Snap to Guides"
+                    >
+                        <LayoutGrid size={14} />
+                        Guides
                     </button>
                 </div>
             </div>
