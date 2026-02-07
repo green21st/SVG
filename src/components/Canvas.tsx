@@ -30,7 +30,9 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
 
     const variantConfigs = useMemo(() => {
         return variants.map(v => {
-            if (!path.animation || path.animation.type === 'none') return { points: v.points, style: {} };
+            if (!path.animation || path.animation.type === 'none') {
+                return { points: v.points, style: {}, variantType: v.type };
+            }
 
             const { type, duration, delay, ease, direction = 'forward' } = path.animation;
             const style: React.CSSProperties = {
@@ -38,7 +40,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                 animationDelay: `${delay}s`,
                 animationTimingFunction: ease,
                 animationIterationCount: 'infinite',
-                animationFillMode: 'forwards'
+                animationFillMode: 'forwards',
+                animationPlayState: isDragging ? 'paused' : 'running'
             };
 
             // Base direction from user settings
@@ -132,7 +135,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
 
                         {/* Bounding Box & Handles - Only for the primary variant to avoid symmetry duplication conflicts */}
                         {mode === 'edit' && selected && config.variantType === 'I' && (
-                            <g className="pointer-events-none">
+                            <g className="pointer-events-none" style={config.style}>
                                 {box && (
                                     <g>
                                         {/* Bounding Box */}

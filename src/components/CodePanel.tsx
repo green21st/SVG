@@ -25,12 +25,43 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
         const width = 800;
         const height = 600;
 
+        // Generate CSS Keyframes for the output SVG
+        const keyframes = `
+  @keyframes drawPath { to { stroke-dashoffset: 0; } }
+  @keyframes pulsePath { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @keyframes floatPath { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -10px)); } }
+  @keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `.trim();
+
         const pathsCode = paths.map(path => {
             const d = smoothPath(path.points, path.tension ?? tension, path.closed);
-            return `  <path d="${d}" stroke="${path.color}" stroke-width="${path.width}" fill="${path.fill || 'none'}" stroke-linecap="round" stroke-linejoin="round" />`;
+            let animationAttrs = '';
+
+            if (path.animation && path.animation.type !== 'none') {
+                const { type, duration, delay, ease, direction = 'forward' } = path.animation;
+
+                let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
+
+                if (direction === 'reverse') styleStr += ' animation-direction: reverse;';
+                if (direction === 'alternate') styleStr += ' animation-direction: alternate;';
+
+                if (type === 'draw') {
+                    styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
+                }
+                if (type === 'spin') {
+                    styleStr += ' transform-origin: center; transform-box: fill-box;';
+                }
+
+                animationAttrs = ` style="${styleStr}"`;
+            }
+
+            return `  <path d="${d}" stroke="${path.color}" stroke-width="${path.width}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${animationAttrs} />`;
         }).join('\n');
 
         const result = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  <style>
+${keyframes}
+  </style>
 ${pathsCode}
 </svg>`;
 
