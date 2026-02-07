@@ -242,9 +242,15 @@ ${pathsCode}
             PolyCurve <span className="text-primary/50 font-normal">Studio</span>
           </h1>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="text-xs font-medium text-secondary hover:text-white transition-colors">Help</button>
-          <a href="https://github.com" target="_blank" className="text-xs font-medium text-secondary hover:text-white transition-colors">GitHub</a>
+        <div className="flex items-center gap-4 bg-slate-900/50 px-3 py-1 rounded-full border border-white/5">
+          <span id="busuanzi_container_site_pv" className="text-[10px] font-medium text-slate-400 flex items-center gap-1.5">
+            <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></span>
+            VIEWS: <span id="busuanzi_value_site_pv" className="text-primary tracking-wider">-</span>
+          </span>
+          <div className="w-px h-3 bg-white/10"></div>
+          <span id="busuanzi_container_site_uv" className="text-[10px] font-medium text-slate-400 flex items-center gap-1.5">
+            VISITORS: <span id="busuanzi_value_site_uv" className="text-blue-400 tracking-wider">-</span>
+          </span>
         </div>
       </header>
 
