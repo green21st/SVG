@@ -84,19 +84,39 @@ function useDraw() {
     // 1. Sync settings when selectedPathId changes, with guards to prevent infinite loops
     // 1. Sync settings when selectedPathId changes
     useEffect(() => {
-        if (mode === 'edit' && selectedPathId) {
+        // Skip syncing during dragging/transforming to prevent performance issues and infinite loops
+        if (mode === 'edit' && selectedPathId && !isDraggingRef.current) {
             const path = paths.find(p => p.id === selectedPathId);
             if (path) {
-                setStrokeColor(prev => prev !== (path.color || '#22d3ee') ? (path.color || '#22d3ee') : prev);
-                setFillColor(prev => prev !== (path.fill || 'none') ? (path.fill || 'none') : prev);
-                setStrokeWidth(prev => prev !== (path.width || 2) ? (path.width || 2) : prev);
-                setTension(prev => prev !== (path.tension ?? 0.5) ? (path.tension ?? 0.5) : prev);
-                setIsClosed(prev => prev !== (path.closed ?? false) ? (path.closed ?? false) : prev);
-                setStrokeOpacity(prev => prev !== (path.strokeOpacity ?? 1) ? (path.strokeOpacity ?? 1) : prev);
-                setFillOpacity(prev => prev !== (path.fillOpacity ?? 1) ? (path.fillOpacity ?? 1) : prev);
+                const targetStrokeColor = path.color || '#22d3ee';
+                const targetFillColor = path.fill || 'none';
+                const targetStrokeWidth = path.width || 2;
+                const targetTension = path.tension ?? 0.5;
+                const targetIsClosed = path.closed ?? false;
+                const targetStrokeOpacity = path.strokeOpacity ?? 1;
+                const targetFillOpacity = path.fillOpacity ?? 1;
 
-                const newAnimation = path.animation ?? { types: [], duration: 2, delay: 0, ease: 'ease-in-out' };
-                setAnimation(prev => JSON.stringify(prev) !== JSON.stringify(newAnimation) ? newAnimation : prev);
+                setStrokeColor(prev => prev !== targetStrokeColor ? targetStrokeColor : prev);
+                setFillColor(prev => prev !== targetFillColor ? targetFillColor : prev);
+                setStrokeWidth(prev => prev !== targetStrokeWidth ? targetStrokeWidth : prev);
+                setTension(prev => prev !== targetTension ? targetTension : prev);
+                setIsClosed(prev => prev !== targetIsClosed ? targetIsClosed : prev);
+                setStrokeOpacity(prev => prev !== targetStrokeOpacity ? targetStrokeOpacity : prev);
+                setFillOpacity(prev => prev !== targetFillOpacity ? targetFillOpacity : prev);
+
+                const newAnimation = path.animation ?? {
+                    types: [],
+                    duration: 2,
+                    delay: 0,
+                    ease: 'ease-in-out',
+                    direction: 'forward'
+                };
+
+                setAnimation(prev => {
+                    const s1 = JSON.stringify(prev);
+                    const s2 = JSON.stringify(newAnimation);
+                    return s1 !== s2 ? newAnimation : prev;
+                });
             }
         }
     }, [selectedPathId, mode, paths]);
