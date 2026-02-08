@@ -683,11 +683,15 @@ function useDraw() {
         const centerX = canvasRef.current?.clientWidth ? canvasRef.current.clientWidth / 2 : 400;
         const centerY = canvasRef.current?.clientHeight ? canvasRef.current.clientHeight / 2 : 300;
 
+        // Position in the top-left quadrant (approx "red box" area)
+        const initialX = centerX / 2;
+        const initialY = centerY / 2;
+
         const newPath: PathLayer = {
             id: `text-${timestamp}`,
             type: 'text',
             text: content,
-            points: [{ x: centerX, y: centerY }],
+            points: [{ x: initialX, y: initialY }],
             color: strokeColor,
             fill: strokeColor,
             width: 1,
@@ -696,14 +700,14 @@ function useDraw() {
             fontSize: 40,
             fontFamily: 'Inter, system-ui, sans-serif',
             visible: true,
-            symmetry: { horizontal: false, vertical: false, center: false },
+            symmetry: { ...symmetry }, // Inherit global symmetry settings
             name: `Text: ${content.substring(0, 10)}...`
         };
 
         setPaths(prev => [...prev, newPath]);
         setSelectedPathId(newPath.id);
         setMode('edit');
-    }, [strokeColor, setPaths]);
+    }, [strokeColor, symmetry, setPaths]);
 
     return {
         paths,

@@ -168,10 +168,12 @@ function App() {
         if (path.type === 'text') {
           const pt = v.points[0];
           const rotation = path.rotation || 0;
-          const transform = rotation ? ` transform="rotate(${rotation}, ${pt.x}, ${pt.y})"` : '';
+          const sx = v.type === 'H' || v.type === 'C' ? -1 : 1;
+          const sy = v.type === 'V' || v.type === 'C' ? -1 : 1;
+          const transform = ` transform="translate(${pt.x}, ${pt.y}) scale(${sx}, ${sy}) rotate(${rotation})"`;
           const fill = path.fill || path.color || '#22d3ee';
           const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : '';
-          finalCode = `\t<text x="${pt.x}" y="${pt.y}" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
+          finalCode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
         } else {
           const d = smoothPath(v.points, path.tension, path.closed);
           finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;

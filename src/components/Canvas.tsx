@@ -206,8 +206,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
 
                 const element = path.type === 'text' ? (
                     <text
-                        x={config.points[0].x}
-                        y={config.points[0].y}
+                        x={0}
+                        y={0}
                         fill={path.fill || path.color || '#22d3ee'}
                         fillOpacity={path.fillOpacity ?? 1}
                         stroke={path.color || 'none'}
@@ -217,7 +217,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                         fontFamily={path.fontFamily || 'Inter, system-ui, sans-serif'}
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        transform={`rotate(${path.rotation || 0}, ${config.points[0].x}, ${config.points[0].y})`}
+                        transform={`translate(${config.points[0].x}, ${config.points[0].y}) scale(${config.variantType === 'H' || config.variantType === 'C' ? -1 : 1}, ${config.variantType === 'V' || config.variantType === 'C' ? -1 : 1}) rotate(${path.rotation || 0})`}
                         data-path-id={path.id}
                         className={cn(
                             mode === 'edit' && !isDragging && "cursor-move hover:opacity-80 transition-opacity"
