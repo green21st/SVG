@@ -595,6 +595,23 @@ const Canvas: React.FC<CanvasProps> = ({
         return variants.slice(1).map(v => v.points);
     }, [currentPoints, symmetry, centerX, centerY]);
 
+    // Manual DOM Update for maximum performance (skips React re-render cycle)
+    React.useEffect(() => {
+        const xEl = document.getElementById('coord-x');
+        const yEl = document.getElementById('coord-y');
+        const tracker = document.getElementById('coord-tracker');
+
+        if (cursorPos) {
+            const x = Math.round(cursorPos.x - width / 2);
+            const y = Math.round(-(cursorPos.y - height / 2));
+            if (xEl) xEl.textContent = String(x);
+            if (yEl) yEl.textContent = String(y);
+            if (tracker) tracker.style.opacity = '1';
+        } else {
+            if (tracker) tracker.style.opacity = '0';
+        }
+    }, [cursorPos, width, height]);
+
     return (
         <div
             className={cn(
@@ -615,17 +632,17 @@ const Canvas: React.FC<CanvasProps> = ({
                 }}
             />
 
-            {/* Reference Background Image */}
+            {/* Background Image Logic */}
             {backgroundImage && bgVisible && (
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-30">
                     <img src={backgroundImage} alt="Reference" className="max-w-full max-h-full object-contain" />
                 </div>
             )}
 
-            <svg className="w-full h-full pointer-events-none" viewBox={`0 0 ${width} ${height}`} style={{ isolation: 'isolate' }}>
+            {/* Main Path SVG - This stays mostly static during simple mouse moves */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${width} ${height}`} style={{ isolation: 'isolate' }}>
                 <Defs />
 
-                {/* Symmetry Guides */}
                 {/* Symmetry Guides (Always Visible) */}
                 <line x1={centerX} y1={0} x2={centerX} y2={height} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.horizontal ? 0.5 : 0.1} />
                 <line x1={0} y1={centerY} x2={width} y2={centerY} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.vertical ? 0.5 : 0.1} />
@@ -650,7 +667,10 @@ const Canvas: React.FC<CanvasProps> = ({
                         animationPaused={animationPaused}
                     />
                 ))}
+            </svg>
 
+            {/* High-Frequency Interaction Layer SVG - Handles real-time previews and cursor lines */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox={`0 0 ${width} ${height}`}>
                 {/* Render Current Drawing Path (Polyline Preview) */}
                 {currentPoints.length > 0 && (
                     <path
@@ -731,14 +751,19 @@ const Canvas: React.FC<CanvasProps> = ({
                 )}
             </svg>
 
-            {cursorPos && (
-                <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] font-mono text-slate-400 pointer-events-none border border-white/5 tabular-nums select-none flex items-center gap-2 z-10 transition-opacity duration-200">
-                    <span className="text-white/50">X:</span>
-                    <span className="text-indigo-400 w-8 text-right">{Math.round(cursorPos.x - width / 2)}</span>
-                    <span className="text-white/50 border-l border-white/10 pl-2">Y:</span>
-                    <span className="text-indigo-400 w-8 text-right">{Math.round(-(cursorPos.y - height / 2))}</span>
-                </div>
-            )}
+            {/* Optimized Coordinate Display using direct DOM access to avoid React re-renders */}
+            <div
+                id="coord-tracker"
+                className={cn(
+                    "absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] font-mono text-slate-400 pointer-events-none border border-white/5 tabular-nums select-none flex items-center gap-2 z-30 transition-opacity duration-200",
+                    !cursorPos && "opacity-0"
+                )}
+            >
+                <span className="text-white/50">X:</span>
+                <span id="coord-x" className="text-indigo-400 w-8 text-right">0</span>
+                <span className="text-white/50 border-l border-white/10 pl-2">Y:</span>
+                <span id="coord-y" className="text-indigo-400 w-8 text-right">0</span>
+            </div>
         </div>
     );
 };
