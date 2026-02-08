@@ -157,7 +157,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 <div className="flex gap-2 mb-2">
                                     <input
                                         type="color"
-                                        value={(fillColor.startsWith('#') && fillColor.length === 7) ? fillColor : '#ffffff'}
+                                        value={/^#[0-9A-F]{6}$/i.test(fillColor) ? fillColor : '#ffffff'}
                                         onChange={(e) => setFillColor(e.target.value, false)}
                                         onBlur={(e) => setFillColor(e.target.value, true)}
                                         className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border-none outline-none"

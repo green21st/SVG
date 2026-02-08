@@ -145,17 +145,33 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const r = parseFloat(el.getAttribute('r') || '0');
 
         const points = [];
-        for (let a = 0; a < Math.PI * 2; a += Math.PI / 16) {
+        // Increased sampling for circles to 64 points for smoothness with tension 0
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 32) {
             points.push(transform(cx + Math.cos(a) * r, cy + Math.sin(a) * r));
+        }
+
+        const strokeAttr = el.getAttribute('stroke');
+        const fillAttr = el.getAttribute('fill');
+        const widthAttr = el.getAttribute('stroke-width');
+
+        const hasFill = fillAttr && fillAttr !== 'none';
+        const hasStroke = strokeAttr && strokeAttr !== 'none';
+
+        let color = strokeAttr || 'none';
+        let width = widthAttr ? parseFloat(widthAttr) : (hasStroke ? 2 : 0);
+
+        if (!hasFill && !hasStroke) {
+            color = '#ffffff';
+            width = 2;
         }
 
         newPaths.push({
             id: `imported-circle-${Date.now()}-${i}`,
             points,
-            color: el.getAttribute('stroke') || '#ffffff',
-            fill: el.getAttribute('fill') || 'none',
-            width: parseInt(el.getAttribute('stroke-width') || '2'),
-            tension: 1,
+            color,
+            fill: fillAttr || 'none',
+            width,
+            tension: 0,
             closed: true,
             symmetry: { horizontal: false, vertical: false, center: false }
         });
@@ -164,9 +180,21 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
     // 3. Robust Path Parser
     doc.querySelectorAll('path').forEach((el, i) => {
         const d = el.getAttribute('d') || '';
-        const color = el.getAttribute('stroke') || '#ffffff';
-        const fill = el.getAttribute('fill') || 'none';
-        const width = parseInt(el.getAttribute('stroke-width') || '2');
+        const strokeAttr = el.getAttribute('stroke');
+        const fillAttr = el.getAttribute('fill');
+        const widthAttr = el.getAttribute('stroke-width');
+
+        const hasFill = fillAttr && fillAttr !== 'none';
+        const hasStroke = strokeAttr && strokeAttr !== 'none';
+
+        let color = strokeAttr || 'none';
+        let fill = fillAttr || 'none';
+        let width = widthAttr ? parseFloat(widthAttr) : (hasStroke ? 2 : 0);
+
+        if (!hasFill && !hasStroke) {
+            color = '#ffffff';
+            width = 2;
+        }
 
         let curX = 0, curY = 0;
         let lastCPX = 0, lastCPY = 0; // Previous control point for shorthand bezier
@@ -195,7 +223,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         color,
                         fill,
                         width,
-                        tension: 0.8,
+                        tension: 0, // Using 0 tension to keep straight lines straight
                         closed: d.toLowerCase().includes('z'),
                         symmetry: { horizontal: false, vertical: false, center: false }
                     });
@@ -214,6 +242,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                 if (t.toLowerCase() === 'm' && points.length > 0) finishPath();
                 prevCmd = cmd;
                 cmd = t;
+
                 if (cmd.toLowerCase() === 'z') {
                     finishPath();
                 }
@@ -240,8 +269,9 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                     const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
                     const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
 
-                    for (let step = 1; step < 7; step++) {
-                        const t = step / 7;
+                    // High density sampling (16 steps)
+                    for (let step = 1; step < 16; step++) {
+                        const t = step / 16;
                         const mt = 1 - t;
                         const bx = mt * mt * mt * curX + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x;
                         const by = mt * mt * mt * curY + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y;
@@ -267,8 +297,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         x1 = curX; y1 = curY;
                     }
 
-                    for (let step = 1; step < 7; step++) {
-                        const t = step / 7;
+                    for (let step = 1; step < 16; step++) {
+                        const t = step / 16;
                         const mt = 1 - t;
                         const bx = mt * mt * mt * curX + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x;
                         const by = mt * mt * mt * curY + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y;
@@ -286,8 +316,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                     const x = isRel ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
                     const y = isRel ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
 
-                    for (let step = 1; step < 5; step++) {
-                        const t = step / 5;
+                    for (let step = 1; step < 10; step++) {
+                        const t = step / 10;
                         const mt = 1 - t;
                         const bx = mt * mt * curX + 2 * mt * t * x1 + t * t * x;
                         const by = mt * mt * curY + 2 * mt * t * y1 + t * t * y;
@@ -311,8 +341,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         x1 = curX; y1 = curY;
                     }
 
-                    for (let step = 1; step < 5; step++) {
-                        const t = step / 5;
+                    for (let step = 1; step < 10; step++) {
+                        const t = step / 10;
                         const mt = 1 - t;
                         const bx = mt * mt * curX + 2 * mt * t * x1 + t * t * x;
                         const by = mt * mt * curY + 2 * mt * t * y1 + t * t * y;
@@ -377,7 +407,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                     if (sweepFlag === 0 && dTheta > 0) dTheta -= 2 * Math.PI;
                     if (sweepFlag === 1 && dTheta < 0) dTheta += 2 * Math.PI;
 
-                    const samples = 12;
+                    const samples = 24;
                     for (let s = 1; s <= samples; s++) {
                         const angle = theta1 + dTheta * (s / (samples + 1));
                         const sxp = rx * Math.cos(angle);
