@@ -49,7 +49,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                 </span>
             </div>
 
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 relative">
                 {paths.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-600 gap-2 p-4 text-center">
                         <Layers size={24} className="opacity-20" />
@@ -61,7 +61,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                         layoutScroll
                         values={displayPaths}
                         onReorder={handleReorder}
-                        className="flex flex-col gap-1 overflow-y-auto p-2 custom-scrollbar h-full"
+                        className="flex flex-col gap-1 overflow-y-auto p-2 custom-scrollbar absolute inset-0"
                     >
                         {displayPaths.map((path) => (
                             <LayerItem
