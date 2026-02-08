@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Download, Upload, Save, Eye, EyeOff, Undo2, Trash2 } from 'lucide-react';
+import { Download, Upload, Save, Eye, EyeOff, Undo2, Trash2, Move } from 'lucide-react';
 
 interface ToolbarProps {
     tension: number;
@@ -28,6 +28,8 @@ interface ToolbarProps {
     fontFamily: string;
     setFontFamily: (val: string, commit?: boolean) => void;
     selectedPathType?: string;
+    activeTool: string;
+    setActiveTool: (tool: any) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -55,7 +57,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     setStrokeOpacity,
     fontFamily,
     setFontFamily,
-    selectedPathType
+    selectedPathType,
+    activeTool,
+    setActiveTool
 }) => {
     const [showMaterialPicker, setShowMaterialPicker] = useState(false);
 
@@ -299,6 +303,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     {bgVisible ? <Eye size={16} /> : <EyeOff size={16} />}
                                 </button>
                                 <button
+                                    onClick={() => setActiveTool(activeTool === 'image' ? 'brush' : 'image')}
+                                    className={`flex items-center justify-center p-2 rounded border transition-colors ${activeTool === 'image'
+                                        ? 'bg-primary text-background border-primary shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+                                        : 'bg-slate-800 text-secondary border-slate-700 hover:bg-slate-700'
+                                        }`}
+                                    title="Transform Reference (Drag: Move, Alt+Drag: Scale, Shift+Drag: Rotate)"
+                                >
+                                    <Move size={16} />
+                                </button>
+                                <button
                                     onClick={onBgClear}
                                     className="flex items-center justify-center p-2 rounded bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors"
                                     title="Remove Image"
@@ -312,83 +326,85 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </div>
 
             {/* Material Picker Overlay */}
-            {showMaterialPicker && (
-                <div className="absolute inset-0 bg-slate-950 z-[100] flex flex-col p-4 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center mb-6 pb-2 border-b border-white/10">
-                        <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-400">Materials Library</h4>
-                        <button
-                            onClick={() => setShowMaterialPicker(false)}
-                            className="px-3 py-1 bg-white/5 hover:bg-red-500/20 hover:text-red-400 rounded-full text-[10px] font-bold transition-all text-slate-400 flex items-center gap-2"
-                        >
-                            <Undo2 size={12} className="rotate-90" />
-                            CLOSE
-                        </button>
-                    </div>
+            {
+                showMaterialPicker && (
+                    <div className="absolute inset-0 bg-slate-950 z-[100] flex flex-col p-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center mb-6 pb-2 border-b border-white/10">
+                            <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-400">Materials Library</h4>
+                            <button
+                                onClick={() => setShowMaterialPicker(false)}
+                                className="px-3 py-1 bg-white/5 hover:bg-red-500/20 hover:text-red-400 rounded-full text-[10px] font-bold transition-all text-slate-400 flex items-center gap-2"
+                            >
+                                <Undo2 size={12} className="rotate-90" />
+                                CLOSE
+                            </button>
+                        </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 -mx-1">
-                        {[
-                            {
-                                category: 'Metals',
-                                items: [
-                                    { label: 'Silver', value: 'url(#metal-silver)', background: 'linear-gradient(135deg, #e0e0e0, #fff, #9e9e9e)' },
-                                    { label: 'Gold', value: 'url(#metal-gold)', background: 'linear-gradient(135deg, #bf953f, #fcf6ba, #aa771c)' },
-                                    { label: 'Copper', value: 'url(#metal-copper)', background: 'linear-gradient(135deg, #b87333, #ff9d5c, #8b4513)' },
-                                    { label: 'Chrome', value: 'url(#metal-chrome)', background: 'linear-gradient(to bottom, #fff, #888, #444, #888)' },
-                                ]
-                            },
-                            {
-                                category: 'Effects',
-                                items: [
-                                    { label: 'Crystal', value: 'url(#crystal-blue)', background: 'linear-gradient(135deg, #a1c4fd, #fff)' },
-                                    { label: 'Shine', value: 'url(#crystal-shine)', background: 'radial-gradient(circle at 30% 30%, white, #00bfff)' },
-                                    { label: 'Frosted', value: 'url(#glass-frosted)', background: 'rgba(255,255,255,0.2)' },
-                                    { label: 'Sphere', value: 'url(#3d-sphere)', background: 'radial-gradient(circle at 30% 30%, #fff, #00bfff, #00008b)' },
-                                    { label: 'Ruby', value: 'url(#3d-ruby)', background: 'radial-gradient(circle at 30% 30%, #ff9999, #f00, #600)' },
-                                ]
-                            },
-                            {
-                                category: 'Gradients',
-                                items: [
-                                    { label: 'Sunset', value: 'url(#gradient-sunset)', background: 'linear-gradient(to right, #ff512f, #dd2476)' },
-                                    { label: 'Ocean', value: 'url(#gradient-ocean)', background: 'linear-gradient(to bottom, #2193b0, #6dd5ed)' },
-                                    { label: 'Fire', value: 'url(#gradient-fire)', background: 'linear-gradient(135deg, #f12711, #f5af19)' },
-                                    { label: 'Neon', value: 'url(#gradient-neon)', background: 'linear-gradient(to right, #ff00cc, #3333ff, #00ffcc)' },
-                                    { label: 'Holo', value: 'url(#gradient-holographic)', background: 'linear-gradient(135deg, #fdfcfb, #e2d1c3, #c3cfe2, #fedfe1)' },
-                                    { label: 'Rainbow', value: 'url(#gradient-rainbow)', background: 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)' },
-                                ]
-                            },
-                            {
-                                category: 'Patterns',
-                                items: [
-                                    { label: 'Carbon', value: 'url(#pattern-carbon)', background: '#111' },
-                                    { label: 'Grid', value: 'url(#pattern-grid)', background: 'repeating-linear-gradient(0deg, transparent, transparent 19px, #334155 20px), repeating-linear-gradient(90deg, #1e293b, #1e293b 19px, #334155 20px)' },
-                                    { label: 'Dots', value: 'url(#pattern-dots)', background: 'radial-gradient(#cbd5e1 1px, transparent 1px), #f8fafc', backgroundSize: '4px 4px' },
-                                    { label: 'Marble', value: 'url(#pattern-marble)', background: '#f5f5f5' },
-                                    { label: 'Wood', value: 'url(#pattern-wood)', background: '#8B4513' },
-                                    { label: 'Brushed', value: 'url(#pattern-brushed)', background: '#999' },
-                                    { label: 'Honey', value: 'url(#pattern-honeycomb)', background: '#ffcc00' },
-                                ]
-                            }
-                        ].map((cat) => (
-                            <div key={cat.category} className="mb-6 last:mb-0">
-                                <h5 className="text-[10px] font-bold text-slate-500 uppercase mb-3 ml-1 tracking-widest">{cat.category}</h5>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {cat.items.map((item) => (
-                                        <button
-                                            key={item.label}
-                                            onClick={() => { setFillColor(item.value); setShowMaterialPicker(false); }}
-                                            className={`group relative flex flex-col items-center gap-2 p-1.5 rounded-xl border transition-all ${fillColor === item.value ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)]' : 'bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5'}`}
-                                        >
-                                            <div className="w-full h-14 rounded-lg shadow-inner transition-transform group-hover:scale-[1.03]" style={{ background: item.background }} />
-                                            <span className="text-[10px] font-bold text-slate-400 group-hover:text-white truncate w-full text-center">{item.label}</span>
-                                        </button>
-                                    ))}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 -mx-1">
+                            {[
+                                {
+                                    category: 'Metals',
+                                    items: [
+                                        { label: 'Silver', value: 'url(#metal-silver)', background: 'linear-gradient(135deg, #e0e0e0, #fff, #9e9e9e)' },
+                                        { label: 'Gold', value: 'url(#metal-gold)', background: 'linear-gradient(135deg, #bf953f, #fcf6ba, #aa771c)' },
+                                        { label: 'Copper', value: 'url(#metal-copper)', background: 'linear-gradient(135deg, #b87333, #ff9d5c, #8b4513)' },
+                                        { label: 'Chrome', value: 'url(#metal-chrome)', background: 'linear-gradient(to bottom, #fff, #888, #444, #888)' },
+                                    ]
+                                },
+                                {
+                                    category: 'Effects',
+                                    items: [
+                                        { label: 'Crystal', value: 'url(#crystal-blue)', background: 'linear-gradient(135deg, #a1c4fd, #fff)' },
+                                        { label: 'Shine', value: 'url(#crystal-shine)', background: 'radial-gradient(circle at 30% 30%, white, #00bfff)' },
+                                        { label: 'Frosted', value: 'url(#glass-frosted)', background: 'rgba(255,255,255,0.2)' },
+                                        { label: 'Sphere', value: 'url(#3d-sphere)', background: 'radial-gradient(circle at 30% 30%, #fff, #00bfff, #00008b)' },
+                                        { label: 'Ruby', value: 'url(#3d-ruby)', background: 'radial-gradient(circle at 30% 30%, #ff9999, #f00, #600)' },
+                                    ]
+                                },
+                                {
+                                    category: 'Gradients',
+                                    items: [
+                                        { label: 'Sunset', value: 'url(#gradient-sunset)', background: 'linear-gradient(to right, #ff512f, #dd2476)' },
+                                        { label: 'Ocean', value: 'url(#gradient-ocean)', background: 'linear-gradient(to bottom, #2193b0, #6dd5ed)' },
+                                        { label: 'Fire', value: 'url(#gradient-fire)', background: 'linear-gradient(135deg, #f12711, #f5af19)' },
+                                        { label: 'Neon', value: 'url(#gradient-neon)', background: 'linear-gradient(to right, #ff00cc, #3333ff, #00ffcc)' },
+                                        { label: 'Holo', value: 'url(#gradient-holographic)', background: 'linear-gradient(135deg, #fdfcfb, #e2d1c3, #c3cfe2, #fedfe1)' },
+                                        { label: 'Rainbow', value: 'url(#gradient-rainbow)', background: 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)' },
+                                    ]
+                                },
+                                {
+                                    category: 'Patterns',
+                                    items: [
+                                        { label: 'Carbon', value: 'url(#pattern-carbon)', background: '#111' },
+                                        { label: 'Grid', value: 'url(#pattern-grid)', background: 'repeating-linear-gradient(0deg, transparent, transparent 19px, #334155 20px), repeating-linear-gradient(90deg, #1e293b, #1e293b 19px, #334155 20px)' },
+                                        { label: 'Dots', value: 'url(#pattern-dots)', background: 'radial-gradient(#cbd5e1 1px, transparent 1px), #f8fafc', backgroundSize: '4px 4px' },
+                                        { label: 'Marble', value: 'url(#pattern-marble)', background: '#f5f5f5' },
+                                        { label: 'Wood', value: 'url(#pattern-wood)', background: '#8B4513' },
+                                        { label: 'Brushed', value: 'url(#pattern-brushed)', background: '#999' },
+                                        { label: 'Honey', value: 'url(#pattern-honeycomb)', background: '#ffcc00' },
+                                    ]
+                                }
+                            ].map((cat) => (
+                                <div key={cat.category} className="mb-6 last:mb-0">
+                                    <h5 className="text-[10px] font-bold text-slate-500 uppercase mb-3 ml-1 tracking-widest">{cat.category}</h5>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {cat.items.map((item) => (
+                                            <button
+                                                key={item.label}
+                                                onClick={() => { setFillColor(item.value); setShowMaterialPicker(false); }}
+                                                className={`group relative flex flex-col items-center gap-2 p-1.5 rounded-xl border transition-all ${fillColor === item.value ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)]' : 'bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5'}`}
+                                            >
+                                                <div className="w-full h-14 rounded-lg shadow-inner transition-transform group-hover:scale-[1.03]" style={{ background: item.background }} />
+                                                <span className="text-[10px] font-bold text-slate-400 group-hover:text-white truncate w-full text-center">{item.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };

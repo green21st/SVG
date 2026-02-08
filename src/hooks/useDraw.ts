@@ -45,7 +45,8 @@ function useDraw() {
     const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
     const isDraggingRef = useRef(false);
 
-    const [activeTool, setActiveTool] = useState<'brush' | 'pen' | 'square' | 'circle' | 'triangle' | 'star'>('brush');
+    const [activeTool, setActiveTool] = useState<'brush' | 'pen' | 'square' | 'circle' | 'triangle' | 'star' | 'image'>('brush');
+    const [bgTransform, setBgTransform] = useState({ x: 0, y: 0, scale: 1, rotation: 0, opacity: 0.3 });
     const [shapeStartPoint, setShapeStartPoint] = useState<Point | null>(null);
     const isDrawingBrushRef = useRef(false);
 
@@ -337,6 +338,26 @@ function useDraw() {
         const point = getPointFromEvent(e);
         if (!point) return;
 
+        if (activeTool === 'image') {
+            const rect = canvasRef.current!.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const pivot = { x: 400 + bgTransform.x, y: 300 + bgTransform.y };
+
+            setTransformPivot(pivot);
+            setInitialMousePos({ x, y });
+            setInitialRotation(bgTransform.rotation);
+            setInitialDist(Math.sqrt(Math.pow(x - pivot.x, 2) + Math.pow(y - pivot.y, 2)));
+            setInitialAngle(Math.atan2(y - pivot.y, x - pivot.x));
+
+            if (e.shiftKey) setTransformMode('rotate');
+            else if (e.altKey) setTransformMode('scale');
+            else setTransformMode('translate');
+
+            isDraggingRef.current = true;
+            return;
+        }
+
         if (mode === 'draw') {
             if (activeTool === 'brush') {
                 isDrawingBrushRef.current = true;
@@ -437,6 +458,31 @@ function useDraw() {
         const point = getPointFromEvent(e);
         if (point) {
             setCursorPos(point);
+
+            if (activeTool === 'image' && isDraggingRef.current) {
+                const rect = canvasRef.current!.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const pivot = transformPivot || { x: 400, y: 300 };
+
+                if (transformMode === 'translate' && initialMousePos) {
+                    const dx = mouseX - initialMousePos.x;
+                    const dy = mouseY - initialMousePos.y;
+                    setBgTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+                    setInitialMousePos({ x: mouseX, y: mouseY });
+                } else if (transformMode === 'rotate') {
+                    const currentAngle = Math.atan2(mouseY - pivot.y, mouseX - pivot.x);
+                    const deltaAngle = (currentAngle - initialAngle) * (180 / Math.PI);
+                    setBgTransform(prev => ({ ...prev, rotation: prev.rotation + deltaAngle }));
+                    setInitialAngle(currentAngle);
+                } else if (transformMode === 'scale') {
+                    const currentDist = Math.sqrt(Math.pow(mouseX - pivot.x, 2) + Math.pow(mouseY - pivot.y, 2));
+                    const factor = currentDist / initialDist;
+                    setBgTransform(prev => ({ ...prev, scale: prev.scale * factor }));
+                    setInitialDist(currentDist);
+                }
+                return;
+            }
 
             if (mode === 'draw' && isDrawingBrushRef.current) {
                 setCurrentPoints(prev => [...prev, point]);
@@ -769,6 +815,8 @@ function useDraw() {
         setGuideSnappingEnabled,
         deleteSelectedPath,
         duplicateSelectedPath,
+        bgTransform,
+        setBgTransform,
         strokeOpacity,
         setStrokeOpacity: setStrokeOpacityEnhanced,
         fillOpacity,

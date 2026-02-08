@@ -59,7 +59,9 @@ function App() {
     setPathsInternal,
     handleAddText,
     fontFamily,
-    setFontFamily
+    setFontFamily,
+    bgTransform,
+    setBgTransform
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -289,6 +291,8 @@ ${pathsCode}
             fontFamily={fontFamily}
             setFontFamily={setFontFamily}
             selectedPathType={paths.find(p => p.id === selectedPathId)?.type}
+            activeTool={activeTool}
+            setActiveTool={setActiveTool}
           />
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
           <input type="file" ref={bgInputRef} className="hidden" accept="image/*" onChange={handleBgFileChange} />
@@ -419,9 +423,11 @@ ${pathsCode}
                 isClosed={isClosed} backgroundImage={backgroundImage}
                 bgVisible={bgVisible} mode={mode}
                 selectedPathId={selectedPathId} onPathSelect={setSelectedPathId}
-                isDragging={isDragging} activeTool={activeTool}
+                isDragging={isDragging}
+                activeTool={activeTool}
                 getBoundingBox={getBoundingBox}
                 animationPaused={animationPaused}
+                bgTransform={bgTransform}
               />
             </div>
 

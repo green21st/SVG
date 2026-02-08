@@ -578,9 +578,10 @@ interface CanvasProps {
     selectedPathId: string | null;
     onPathSelect: (id: string | null) => void;
     isDragging: boolean;
-    activeTool: 'brush' | 'pen' | 'square' | 'circle' | 'triangle' | 'star';
+    activeTool: 'brush' | 'pen' | 'square' | 'circle' | 'triangle' | 'star' | 'image';
     getBoundingBox: (points: Point[]) => any;
     animationPaused?: boolean;
+    bgTransform: { x: number, y: number, scale: number, rotation: number, opacity: number };
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -606,7 +607,8 @@ const Canvas: React.FC<CanvasProps> = ({
     isDragging,
     activeTool,
     getBoundingBox,
-    animationPaused = false
+    animationPaused = false,
+    bgTransform
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -662,8 +664,26 @@ const Canvas: React.FC<CanvasProps> = ({
 
             {/* Background Image Logic */}
             {backgroundImage && bgVisible && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-30">
-                    <img src={backgroundImage} alt="Reference" className="max-w-full max-h-full object-contain" />
+                <div
+                    className={cn(
+                        "absolute inset-0 flex items-center justify-center transition-opacity duration-500",
+                        activeTool === 'image' ? "pointer-events-auto cursor-move z-10" : "pointer-events-none"
+                    )}
+                >
+                    <div
+                        style={{
+                            opacity: bgTransform.opacity,
+                            transform: `translate(${bgTransform.x}px, ${bgTransform.y}px) scale(${bgTransform.scale}) rotate(${bgTransform.rotation}deg)`
+                        }}
+                        className="w-full h-full flex items-center justify-center"
+                    >
+                        <img src={backgroundImage} alt="Reference" className="max-w-full max-h-full object-contain select-none outline-none" draggable={false} />
+                    </div>
+                    {activeTool === 'image' && (
+                        <div className="absolute top-4 left-4 bg-primary/90 text-background px-3 py-1.5 rounded-full text-[10px] font-bold shadow-xl animate-bounce pointer-events-none z-20">
+                            TRANSFORM MODE: DRAG TO MOVE | ALT+DRAG TO SCALE | SHIFT+DRAG TO ROTATE
+                        </div>
+                    )}
                 </div>
             )}
 
