@@ -31,9 +31,9 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
             const centerX = path.points[0].x;
             const centerY = path.points[0].y;
             const fs = path.fontSize || 40;
-            const charWidth = fs * 0.55; // Slightly tighter estimate for Inter
+            const charWidth = fs * 0.65; // Improved estimate for common fonts
             const width = (path.text?.length || 1) * charWidth;
-            const height = fs;
+            const height = fs * 0.85; // Tighter estimate for visual height
             return {
                 minX: centerX - width / 2,
                 maxX: centerX + width / 2,
