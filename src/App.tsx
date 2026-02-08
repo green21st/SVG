@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Magnet, LayoutGrid, Undo2, Redo2, Trash2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -56,7 +56,8 @@ function App() {
     setStrokeOpacity,
     animation,
     setAnimation,
-    setPathsInternal
+    setPathsInternal,
+    handleAddText
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +69,7 @@ function App() {
 
   /* Animation Control */
   const [animationPaused, setAnimationPaused] = React.useState(false);
+  const [topTextInput, setTopTextInput] = useState('');
 
   const handleBgUploadClick = () => {
     bgInputRef.current?.click();
@@ -320,6 +322,25 @@ ${pathsCode}
             >
               <Star size={20} />
             </button>
+
+            <div className="w-px h-6 bg-white/10 mx-1 self-center" />
+
+            <div className="relative group flex items-center">
+              <input
+                type="text"
+                value={topTextInput}
+                onChange={(e) => setTopTextInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && topTextInput.trim()) {
+                    handleAddText(topTextInput);
+                    setTopTextInput('');
+                  }
+                }}
+                placeholder="Add Text..."
+                className="w-32 bg-black/40 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-primary/50 focus:w-48 transition-all"
+              />
+              <Type size={14} className="absolute left-2.5 text-slate-500 group-focus-within:text-primary transition-colors" />
+            </div>
           </div>
 
           <div className="relative">

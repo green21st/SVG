@@ -18,6 +18,11 @@ export interface PathLayer {
     visible?: boolean;
     name?: string;
     d?: string; // Cache the smoothed path data to avoid re-calculation
+    type?: 'path' | 'text';
+    text?: string;
+    fontSize?: number;
+    fontFamily?: string;
+    rotation?: number;
 }
 
 export type AnimationType = 'none' | 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';

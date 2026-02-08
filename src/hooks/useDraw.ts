@@ -56,6 +56,8 @@ function useDraw() {
     const [initialAngle, setInitialAngle] = useState<number>(0);
     const [initialDist, setInitialDist] = useState<number>(1);
     const [initialMousePos, setInitialMousePos] = useState<Point | null>(null);
+    const [initialFontSize, setInitialFontSize] = useState<number>(40);
+    const [initialRotation, setInitialRotation] = useState<number>(0);
 
     // Snapping Settings
     const [pointSnappingEnabled, setPointSnappingEnabled] = useState<boolean>(true);
@@ -306,6 +308,10 @@ function useDraw() {
                 setInitialPoints([...path.points]);
                 setTransformPivot(pivot);
                 setTransformHandle(handleType);
+                if (path.type === 'text') {
+                    setInitialFontSize(path.fontSize || 40);
+                    setInitialRotation(path.rotation || 0);
+                }
 
                 if (handleType === 'rotate') {
                     setTransformMode('rotate');
@@ -363,8 +369,8 @@ function useDraw() {
                 }
             }
 
-            // 2. Check if we clicked on a path for translation or selection
-            const pathId = target.dataset.pathId || (target.tagName === 'path' ? (target as any).dataset.pathId : null);
+            // 2. Check if we clicked on a path/text for translation or selection
+            const pathId = target.dataset.pathId || (['path', 'text'].includes(target.tagName.toLowerCase()) ? (target as any).dataset.pathId : null);
             if (pathId) {
                 const path = paths.find(p => p.id === pathId);
                 if (path) {
@@ -478,6 +484,16 @@ function useDraw() {
                                         y: transformPivot.y + dx * sin + dy * cos
                                     };
                                 });
+
+                                if (p.type === 'text') {
+                                    const deltaDegrees = (deltaAngle * 180) / Math.PI;
+                                    return {
+                                        ...p,
+                                        points: newPoints,
+                                        rotation: (initialRotation || 0) + deltaDegrees,
+                                        d: undefined
+                                    };
+                                }
                             } else if (transformMode === 'scale' && transformPivot) {
                                 const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
                                 const scaleFactor = currentDist / initialDist;
@@ -485,6 +501,15 @@ function useDraw() {
                                     x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
                                     y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
                                 }));
+
+                                if (p.type === 'text') {
+                                    return {
+                                        ...p,
+                                        points: newPoints,
+                                        fontSize: (initialFontSize || 40) * scaleFactor,
+                                        d: undefined
+                                    };
+                                }
                             } else if (transformMode === 'translate' && initialMousePos) {
                                 const dx = mouseX - initialMousePos.x;
                                 const dy = mouseY - initialMousePos.y;
@@ -522,7 +547,7 @@ function useDraw() {
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState, transformMode, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool]);
+    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState, transformMode, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
@@ -603,6 +628,17 @@ function useDraw() {
     const handleDoubleClick = useCallback((e: React.MouseEvent) => {
         if (mode !== 'edit' || !selectedPathId) return;
 
+        const path = paths.find(p => p.id === selectedPathId);
+        if (!path) return;
+
+        if (path.type === 'text') {
+            const newText = prompt('Edit text:', path.text);
+            if (newText !== null && newText !== path.text) {
+                setPaths(prev => prev.map(p => p.id === selectedPathId ? { ...p, text: newText, name: `Text: ${newText.substring(0, 10)}...` } : p));
+            }
+            return;
+        }
+
         const point = getPointFromEvent(e);
         if (!point) return;
 
@@ -627,7 +663,7 @@ function useDraw() {
             }
             return path;
         }));
-    }, [mode, selectedPathId, getPointFromEvent, setPaths]);
+    }, [mode, selectedPathId, paths, getPointFromEvent, setPaths]);
 
     const clearCanvas = useCallback(() => {
         setPaths([]);
@@ -639,6 +675,35 @@ function useDraw() {
         setMode('draw');
         setCurrentPoints([]);
     }, []);
+
+    const handleAddText = useCallback((content: string) => {
+        if (!content) return;
+
+        const timestamp = Date.now();
+        const centerX = canvasRef.current?.clientWidth ? canvasRef.current.clientWidth / 2 : 400;
+        const centerY = canvasRef.current?.clientHeight ? canvasRef.current.clientHeight / 2 : 300;
+
+        const newPath: PathLayer = {
+            id: `text-${timestamp}`,
+            type: 'text',
+            text: content,
+            points: [{ x: centerX, y: centerY }],
+            color: strokeColor,
+            fill: strokeColor,
+            width: 1,
+            tension: 0,
+            closed: false,
+            fontSize: 40,
+            fontFamily: 'Inter, system-ui, sans-serif',
+            visible: true,
+            symmetry: { horizontal: false, vertical: false, center: false },
+            name: `Text: ${content.substring(0, 10)}...`
+        };
+
+        setPaths(prev => [...prev, newPath]);
+        setSelectedPathId(newPath.id);
+        setMode('edit');
+    }, [strokeColor, setPaths]);
 
     return {
         paths,
@@ -673,6 +738,7 @@ function useDraw() {
         canRedo,
         clearCanvas,
         handleAddShape,
+        handleAddText,
         activeTool,
         setActiveTool,
         handlePointerUp,

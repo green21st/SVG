@@ -27,8 +27,26 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
 
     const box = useMemo(() => {
         if (!selected) return null;
+        if (path.type === 'text') {
+            const centerX = path.points[0].x;
+            const centerY = path.points[0].y;
+            const fs = path.fontSize || 40;
+            const charWidth = fs * 0.55; // Slightly tighter estimate for Inter
+            const width = (path.text?.length || 1) * charWidth;
+            const height = fs;
+            return {
+                minX: centerX - width / 2,
+                maxX: centerX + width / 2,
+                minY: centerY - height / 2,
+                maxY: centerY + height / 2,
+                width,
+                height,
+                centerX,
+                centerY
+            };
+        }
         return getBoundingBox(path.points);
-    }, [selected, path.points, getBoundingBox]);
+    }, [selected, path.points, path.type, path.fontSize, path.text, getBoundingBox]);
 
     const variantConfigs = useMemo(() => {
         return variants.map(v => {
@@ -161,9 +179,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                 `}
             </style>
             {variantConfigs.map((config, vIdx) => {
-                const d = (config.variantType === 'I' && path.d)
-                    ? path.d
-                    : smoothPath(config.points, path.tension, path.closed);
+                // Remove the old 'const d' here as it's now declared inside the return block for text support
 
                 // Helper to wrap content in nested animated groups
                 const wrapInAnimations = (content: React.ReactNode, styles: React.CSSProperties[], prefix: string = 'anim') => {
@@ -184,50 +200,62 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                 const pathStyleKey = config.pathStyles.animationName || 'no-path-anim';
                 const fullKey = `${path.id}-v${vIdx}-${pathStyleKey}-${animKey}`;
 
+                const d = (config.variantType === 'I' && path.d)
+                    ? path.d
+                    : smoothPath(config.points, path.tension, path.closed);
+
+                const element = path.type === 'text' ? (
+                    <text
+                        x={config.points[0].x}
+                        y={config.points[0].y}
+                        fill={path.fill || path.color || '#22d3ee'}
+                        fillOpacity={path.fillOpacity ?? 1}
+                        stroke={path.color || 'none'}
+                        strokeWidth={path.width || 0}
+                        strokeOpacity={path.strokeOpacity ?? 1}
+                        fontSize={path.fontSize || 40}
+                        fontFamily={path.fontFamily || 'Inter, system-ui, sans-serif'}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        transform={`rotate(${path.rotation || 0}, ${config.points[0].x}, ${config.points[0].y})`}
+                        data-path-id={path.id}
+                        className={cn(
+                            mode === 'edit' && !isDragging && "cursor-move hover:opacity-80 transition-opacity"
+                        )}
+                        style={{
+                            pointerEvents: mode === 'edit' ? 'all' : 'none',
+                            userSelect: 'none',
+                            ...config.pathStyles
+                        }}
+                    >
+                        {path.text}
+                    </text>
+                ) : (
+                    <path
+                        d={d}
+                        stroke={selected ? '#f59e0b' : (path.color || '#22d3ee')}
+                        strokeOpacity={path.strokeOpacity ?? 1}
+                        strokeWidth={path.width || 2}
+                        fill={path.fill || 'none'}
+                        fillOpacity={path.fillOpacity ?? 1}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        data-path-id={path.id}
+                        className={cn(
+                            mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
+                        )}
+                        style={{
+                            pointerEvents: mode === 'edit' ? 'all' : 'none',
+                            ...config.pathStyles
+                        }}
+                    />
+                );
+
                 return (
                     <g key={fullKey}>
                         {config.groupAnimations.length > 0
-                            ? wrapInAnimations(
-                                <path
-                                    d={d}
-                                    stroke={selected ? '#f59e0b' : (path.color || '#22d3ee')}
-                                    strokeOpacity={path.strokeOpacity ?? 1}
-                                    strokeWidth={path.width || 2}
-                                    fill={path.fill || 'none'}
-                                    fillOpacity={path.fillOpacity ?? 1}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    data-path-id={path.id}
-                                    className={cn(
-                                        mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
-                                    )}
-                                    style={{
-                                        pointerEvents: mode === 'edit' ? 'all' : 'none',
-                                        ...config.pathStyles
-                                    }}
-                                />,
-                                config.groupAnimations,
-                                'path'
-                            )
-                            : <path
-                                d={d}
-                                stroke={selected ? '#f59e0b' : (path.color || '#22d3ee')}
-                                strokeOpacity={path.strokeOpacity ?? 1}
-                                strokeWidth={path.width || 2}
-                                fill={path.fill || 'none'}
-                                fillOpacity={path.fillOpacity ?? 1}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                data-path-id={path.id}
-                                className={cn(
-                                    mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
-                                )}
-                                style={{
-                                    pointerEvents: mode === 'edit' ? 'all' : 'none',
-                                    ...config.pathStyles
-                                }}
-                            />
-                        }
+                            ? wrapInAnimations(element, config.groupAnimations, path.type === 'text' ? 'text' : 'path')
+                            : element}
 
                         {/* Bounding Box & Handles - Only for the primary variant to avoid symmetry duplication conflicts */}
                         {mode === 'edit' && selected && config.variantType === 'I' && (
