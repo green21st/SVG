@@ -146,7 +146,7 @@ function App() {
       float: '@keyframes floatPath { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -10px)); } }',
       spin: '@keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }',
       bounce: '@keyframes bouncePath { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.15, 0.85); } 60% { transform: scale(0.9, 1.1); } 80% { transform: scale(1.05, 0.95); } }',
-      glow: '@keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color)) brightness(1.5); } }',
+      glow: '@keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color, #22d3ee)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color, #22d3ee)) brightness(1.6); } }',
       shake: '@keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }',
       swing: '@keyframes swingPath { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }',
       tada: '@keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }'
@@ -161,11 +161,21 @@ function App() {
       const variants = applySymmetry(path.points, path.symmetry, width / 2, height / 2);
 
       return variants.map(v => {
-        const d = smoothPath(v.points, path.tension, path.closed);
         const sOp = path.strokeOpacity ?? 1;
         const fOp = path.fillOpacity ?? 1;
+        let finalCode = '';
 
-        let finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+        if (path.type === 'text') {
+          const pt = v.points[0];
+          const rotation = path.rotation || 0;
+          const transform = rotation ? ` transform="rotate(${rotation}, ${pt.x}, ${pt.y})"` : '';
+          const fill = path.fill || path.color || '#22d3ee';
+          const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : '';
+          finalCode = `\t<text x="${pt.x}" y="${pt.y}" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
+        } else {
+          const d = smoothPath(v.points, path.tension, path.closed);
+          finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+        }
 
         if (path.animation && path.animation.types.length > 0) {
           const { types, duration, delay, ease, direction = 'forward' } = path.animation;
@@ -176,8 +186,8 @@ function App() {
                 direction === 'alternate' ? 'alternate' : 'reverse';
 
             let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
+            if (path.animation?.types.includes('glow')) styleStr += ` --glow-color: ${path.color || '#22d3ee'};`;
 
-            // Replicate Canvas.tsx logic for variants
             if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
               if (finalDirection === 'normal') finalDirection = 'reverse';
               else if (finalDirection === 'reverse') finalDirection = 'normal';
