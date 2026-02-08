@@ -9,9 +9,14 @@ export const smoothPath = (points: Point[], k: number = 1, closed: boolean = fal
     if (points.length === 0) return '';
     if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
 
-    // If only 2 points, just draw a line
-    if (points.length === 2 && !closed) {
-        return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+    // If tension is 0, return a simple polyline (straight lines)
+    if (k <= 0) {
+        let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+        for (let i = 1; i < points.length; i++) {
+            d += ` L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)}`;
+        }
+        if (closed) d += ' Z';
+        return d;
     }
 
     const pts = [...points];
