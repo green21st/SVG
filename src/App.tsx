@@ -60,8 +60,7 @@ function App() {
     handleAddText,
     fontFamily,
     setFontFamily,
-    bgTransform,
-    setBgTransform
+    bgTransform
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
