@@ -1,0 +1,153 @@
+
+export const SVG_DEFS = `
+      <!-- METAL -->
+      <linearGradient id="metal-silver" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#e0e0e0" />
+        <stop offset="20%" stop-color="#ffffff" />
+        <stop offset="40%" stop-color="#9e9e9e" />
+        <stop offset="60%" stop-color="#e0e0e0" />
+        <stop offset="80%" stop-color="#757575" />
+        <stop offset="100%" stop-color="#e0e0e0" />
+      </linearGradient>
+
+      <linearGradient id="metal-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#bf953f" />
+        <stop offset="25%" stop-color="#fcf6ba" />
+        <stop offset="50%" stop-color="#b38728" />
+        <stop offset="75%" stop-color="#fbf5b7" />
+        <stop offset="100%" stop-color="#aa771c" />
+      </linearGradient>
+
+      <linearGradient id="metal-copper" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#b87333" />
+        <stop offset="50%" stop-color="#ff9d5c" />
+        <stop offset="100%" stop-color="#8b4513" />
+      </linearGradient>
+
+      <linearGradient id="metal-chrome" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#ffffff" />
+        <stop offset="40%" stop-color="#dddddd" />
+        <stop offset="50%" stop-color="#aaaaaa" />
+        <stop offset="51%" stop-color="#666666" />
+        <stop offset="100%" stop-color="#888888" />
+      </linearGradient>
+
+      <!-- CRYSTAL & GLASS -->
+      <linearGradient id="crystal-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#a1c4fd" stop-opacity="0.8" />
+        <stop offset="50%" stop-color="#c2e9fb" stop-opacity="0.4" />
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0.9" />
+      </linearGradient>
+      
+      <radialGradient id="crystal-shine" cx="30%" cy="30%" r="70%">
+        <stop offset="0%" stop-color="white" stop-opacity="0.9"/>
+        <stop offset="20%" stop-color="#e0ffff" stop-opacity="0.6"/>
+        <stop offset="100%" stop-color="#00bfff" stop-opacity="0.2"/>
+      </radialGradient>
+
+      <linearGradient id="glass-frosted" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.4)" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0.1)" />
+      </linearGradient>
+
+      <!-- 3D EFFECTS -->
+      <radialGradient id="3d-sphere" cx="35%" cy="35%" r="60%" fx="30%" fy="30%">
+        <stop offset="0%" stop-color="#ffffff" />
+        <stop offset="20%" stop-color="#00bfff" />
+        <stop offset="100%" stop-color="#00008b" />
+      </radialGradient>
+
+      <radialGradient id="3d-ruby" cx="35%" cy="35%" r="60%" fx="30%" fy="30%">
+          <stop offset="0%" stop-color="#ff9999" />
+          <stop offset="20%" stop-color="#ff0000" />
+          <stop offset="100%" stop-color="#660000" />
+      </radialGradient>
+
+      <!-- GRADIENTS -->
+      <linearGradient id="gradient-sunset" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#ff512f" />
+        <stop offset="100%" stop-color="#dd2476" />
+      </linearGradient>
+
+      <linearGradient id="gradient-ocean" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#2193b0" />
+        <stop offset="100%" stop-color="#6dd5ed" />
+      </linearGradient>
+      
+      <linearGradient id="gradient-fire" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#f12711" />
+        <stop offset="100%" stop-color="#f5af19" />
+      </linearGradient>
+
+      <linearGradient id="gradient-neon" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#ff00cc" />
+          <stop offset="33%" stop-color="#3333ff" />
+          <stop offset="66%" stop-color="#00ffcc" />
+          <stop offset="100%" stop-color="#ffff00" />
+      </linearGradient>
+
+      <linearGradient id="gradient-holographic" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#fdfcfb" />
+          <stop offset="10%" stop-color="#e2d1c3" />
+          <stop offset="25%" stop-color="#f5f7fa" />
+          <stop offset="40%" stop-color="#c3cfe2" />
+          <stop offset="60%" stop-color="#a8edea" />
+          <stop offset="80%" stop-color="#fedfe1" />
+          <stop offset="100%" stop-color="#c3cfe2" />
+      </linearGradient>
+
+      <linearGradient id="gradient-rainbow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="red" />
+          <stop offset="17%" stop-color="orange" />
+          <stop offset="33%" stop-color="yellow" />
+          <stop offset="50%" stop-color="green" />
+          <stop offset="67%" stop-color="blue" />
+          <stop offset="83%" stop-color="indigo" />
+          <stop offset="100%" stop-color="violet" />
+      </linearGradient>
+
+      <!-- PATTERNS -->
+      <pattern id="pattern-grid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+        <rect width="20" height="20" fill="#1e293b" />
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#334155" stroke-width="1"/>
+      </pattern>
+
+      <pattern id="pattern-dots" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+          <rect width="10" height="10" fill="#f8fafc" />
+          <circle cx="5" cy="5" r="2" fill="#cbd5e1" />
+      </pattern>
+      
+      <pattern id="pattern-marble" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+         <rect x="0" y="0" width="100" height="100" fill="#f5f5f5" />
+         <path d="M0,50 Q25,25 50,50 T100,50" fill="none" stroke="#d4d4d4" stroke-width="2" opacity="0.5" />
+         <path d="M0,20 Q40,60 80,20" fill="none" stroke="#a3a3a3" stroke-width="1" opacity="0.3" />
+         <path d="M20,0 Q60,40 20,80" fill="none" stroke="#e5e5e5" stroke-width="3" opacity="0.6" />
+      </pattern>
+
+      <pattern id="pattern-carbon" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+          <rect width="8" height="8" fill="#111" />
+          <path d="M0,0 L4,0 L4,4 L0,4 Z M4,4 L8,4 L8,8 L4,8 Z" fill="#222" />
+          <path d="M0,0 L8,8 M0,8 L8,0" stroke="#000" stroke-opacity="0.2" stroke-width="0.5" />
+      </pattern>
+
+      <pattern id="pattern-wood" x="0" y="0" width="100" height="40" patternUnits="userSpaceOnUse">
+          <rect width="100" height="40" fill="#8B4513" />
+          <path d="M0,10 Q50,15 100,10" fill="none" stroke="#5D2906" stroke-width="2" opacity="0.6" />
+          <path d="M0,25 Q50,20 100,25" fill="none" stroke="#5D2906" stroke-width="1" opacity="0.4" />
+          <path d="M0,35 Q30,40 60,35 T100,40" fill="none" stroke="#3E1C04" stroke-width="1.5" opacity="0.5" />
+      </pattern>
+
+      <pattern id="pattern-brushed" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+          <rect width="100" height="100" fill="#999" />
+          <line x1="0" y1="0" x2="100" y2="0" stroke="#fff" stroke-opacity="0.1" stroke-width="1" />
+          <line x1="0" y1="2" x2="100" y2="2" stroke="#000" stroke-opacity="0.1" stroke-width="1" />
+          <line x1="0" y1="4" x2="100" y2="4" stroke="#fff" stroke-opacity="0.1" stroke-width="1" />
+      </pattern>
+
+      <pattern id="pattern-honeycomb" x="0" y="0" width="14" height="24" patternUnits="userSpaceOnUse">
+          <rect width="14" height="24" fill="#ffcc00" />
+          <path d="M7,0 L14,4 L14,12 L7,16 L0,12 L0,4 Z" fill="none" stroke="#cc9900" stroke-width="1" />
+          <path d="M7,16 L14,20 L14,28 L7,32 L0,28 L0,20 Z" fill="none" stroke="#cc9900" stroke-width="1" />
+      </pattern>
+
+`;

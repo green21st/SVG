@@ -1,11 +1,12 @@
 import React, { useRef } from 'react';
-import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause } from 'lucide-react';
+import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Magnet, LayoutGrid, Undo2, Redo2, Trash2 } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
 import { smoothPath, applySymmetry } from './utils/geometry';
 import { CodePanel } from './components/CodePanel';
 import { LayerPanel } from './components/LayerPanel';
+import { SVG_DEFS } from './utils/svgDefs';
 
 function App() {
   const {
@@ -53,8 +54,6 @@ function App() {
     duplicateSelectedPath,
     strokeOpacity,
     setStrokeOpacity,
-    fillOpacity,
-    setFillOpacity,
     animation,
     setAnimation,
     setPathsInternal
@@ -201,6 +200,9 @@ function App() {
     }).join('\n');
 
     const svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    ${SVG_DEFS}
+  </defs>
   <style>
 ${keyframes}
   </style>
@@ -255,11 +257,9 @@ ${pathsCode}
       </header>
 
       <main className="flex-1 flex overflow-hidden">
-        <aside className="w-72 p-4 border-r border-border bg-slate-950 overflow-y-auto">
+        <aside className="w-72 border-r border-border bg-slate-950 relative overflow-y-auto">
           <Toolbar
             tension={tension} setTension={setTension}
-            symmetry={symmetry} toggleSymmetry={toggleSymmetry}
-            undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo} clear={clearCanvas}
             onSave={handleExportSvg} onSaveJson={handleSaveJson} onLoad={handleLoadClick}
             strokeColor={strokeColor} setStrokeColor={setStrokeColor}
             fillColor={fillColor} setFillColor={setFillColor}
@@ -268,12 +268,8 @@ ${pathsCode}
             onBgUpload={handleBgUploadClick} onBgClear={handleClearBg}
             bgVisible={bgVisible} setBgVisible={setBgVisible}
             hasBg={!!backgroundImage} mode={mode} setMode={setMode}
-            pointSnappingEnabled={pointSnappingEnabled} setPointSnappingEnabled={setPointSnappingEnabled}
-            guideSnappingEnabled={guideSnappingEnabled} setGuideSnappingEnabled={setGuideSnappingEnabled}
             strokeOpacity={strokeOpacity}
             setStrokeOpacity={setStrokeOpacity}
-            fillOpacity={fillOpacity}
-            setFillOpacity={setFillOpacity}
           />
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
           <input type="file" ref={bgInputRef} className="hidden" accept="image/*" onChange={handleBgFileChange} />
@@ -327,6 +323,54 @@ ${pathsCode}
           </div>
 
           <div className="relative">
+            {/* Quick Access Sidebar (Snapping & Symmetry) */}
+            <div className="absolute -left-16 top-0 flex flex-col gap-2 p-1.5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/5 shadow-2xl z-40 animate-in fade-in slide-in-from-right-4 duration-500">
+              {/* Snapping Group */}
+              <div className="flex flex-col gap-1.5">
+                <button
+                  onClick={() => setPointSnappingEnabled(!pointSnappingEnabled)}
+                  className={`p-2.5 rounded-xl transition-all duration-300 active:scale-90 ${pointSnappingEnabled ? 'bg-primary text-background shadow-[0_0_15px_rgba(34,211,238,0.5)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                  title="Snap to Points"
+                >
+                  <Magnet size={20} />
+                </button>
+                <button
+                  onClick={() => setGuideSnappingEnabled(!guideSnappingEnabled)}
+                  className={`p-2.5 rounded-xl transition-all duration-300 active:scale-90 ${guideSnappingEnabled ? 'bg-primary text-background shadow-[0_0_15px_rgba(34,211,238,0.5)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                  title="Snap to Guides"
+                >
+                  <LayoutGrid size={20} />
+                </button>
+              </div>
+
+              <div className="h-px w-6 bg-white/10 mx-auto my-1" />
+
+              {/* Symmetry Group */}
+              <div className="flex flex-col gap-1.5">
+                <button
+                  onClick={() => toggleSymmetry('horizontal')}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-xs font-black transition-all duration-300 active:scale-90 ${symmetry.horizontal ? 'bg-primary text-background shadow-[0_0_15px_rgba(34,211,238,0.5)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                  title="Horizontal Symmetry (H)"
+                >
+                  H
+                </button>
+                <button
+                  onClick={() => toggleSymmetry('vertical')}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-xs font-black transition-all duration-300 active:scale-90 ${symmetry.vertical ? 'bg-primary text-background shadow-[0_0_15px_rgba(34,211,238,0.5)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                  title="Vertical Symmetry (V)"
+                >
+                  V
+                </button>
+                <button
+                  onClick={() => toggleSymmetry('center')}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-xs font-black transition-all duration-300 active:scale-90 ${symmetry.center ? 'bg-primary text-background shadow-[0_0_15px_rgba(34,211,238,0.5)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                  title="Center Symmetry (C)"
+                >
+                  C
+                </button>
+              </div>
+            </div>
+
             <div className="w-[800px] h-[600px] shadow-2xl shadow-black/50 rounded-xl relative overflow-hidden">
               <Canvas
                 paths={paths} currentPoints={currentPoints} cursorPos={cursorPos}
@@ -361,6 +405,38 @@ ${pathsCode}
                 </button>
               </div>
             )}
+
+            {/* Bottom-Right Controls (Undo, Redo, Clear) */}
+            <div className="absolute -right-16 bottom-0 flex flex-col gap-2 p-1.5 bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white/5 shadow-2xl z-40 animate-in fade-in slide-in-from-left-4 duration-500">
+              <div className="flex flex-col gap-1.5">
+                <button
+                  onClick={undo}
+                  disabled={!canUndo}
+                  className={`p-2.5 rounded-xl transition-all duration-300 active:scale-90 ${canUndo ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30' : 'text-slate-700 opacity-50 cursor-not-allowed'}`}
+                  title="Undo (Ctrl+Z)"
+                >
+                  <Undo2 size={20} />
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={!canRedo}
+                  className={`p-2.5 rounded-xl transition-all duration-300 active:scale-90 ${canRedo ? 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30' : 'text-slate-700 opacity-50 cursor-not-allowed'}`}
+                  title="Redo (Ctrl+Y)"
+                >
+                  <Redo2 size={20} />
+                </button>
+              </div>
+
+              <div className="h-px w-6 bg-white/10 mx-auto my-1" />
+
+              <button
+                onClick={clearCanvas}
+                className="p-2.5 rounded-xl text-red-400 hover:bg-red-500/20 transition-all duration-300 active:scale-90"
+                title="Clear All"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Animation Controls Panel - Compact Version */}

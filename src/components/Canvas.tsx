@@ -2,6 +2,7 @@ import React, { useMemo, useCallback } from 'react';
 import type { Point, PathLayer, SymmetrySettings } from '../types';
 import { smoothPath, getPolylinePath, applySymmetry } from '../utils/geometry';
 import { cn } from '../utils/cn';
+import { Defs } from './Defs';
 
 interface PathItemProps {
     path: PathLayer;
@@ -622,6 +623,7 @@ const Canvas: React.FC<CanvasProps> = ({
             )}
 
             <svg className="w-full h-full pointer-events-none" viewBox={`0 0 ${width} ${height}`} style={{ isolation: 'isolate' }}>
+                <Defs />
 
                 {/* Symmetry Guides */}
                 {/* Symmetry Guides (Always Visible) */}
