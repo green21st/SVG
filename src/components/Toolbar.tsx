@@ -102,7 +102,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         <div className="flex gap-2">
                             <input
                                 type="color"
-                                value={strokeColor}
+                                value={/^#[0-9A-F]{6}$/i.test(strokeColor) ? strokeColor : '#ffffff'}
                                 onChange={(e) => setStrokeColor(e.target.value, false)}
                                 onBlur={(e) => setStrokeColor(e.target.value, true)}
                                 className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border-none outline-none"
