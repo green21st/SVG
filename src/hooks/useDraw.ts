@@ -30,6 +30,7 @@ function useDraw() {
     const [isClosed, setIsClosed] = useState<boolean>(false);
     const [strokeOpacity, setStrokeOpacity] = useState<number>(1);
     const [fillOpacity, setFillOpacity] = useState<number>(1);
+    const [fontFamily, setFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [animation, setAnimation] = useState<AnimationSettings>({
         types: [],
         duration: 2,
@@ -97,6 +98,7 @@ function useDraw() {
                 const targetIsClosed = path.closed ?? false;
                 const targetStrokeOpacity = path.strokeOpacity ?? 1;
                 const targetFillOpacity = path.fillOpacity ?? 1;
+                const targetFontFamily = path.fontFamily || 'Inter, system-ui, sans-serif';
 
                 setStrokeColor(prev => prev !== targetStrokeColor ? targetStrokeColor : prev);
                 setFillColor(prev => prev !== targetFillColor ? targetFillColor : prev);
@@ -105,6 +107,7 @@ function useDraw() {
                 setIsClosed(prev => prev !== targetIsClosed ? targetIsClosed : prev);
                 setStrokeOpacity(prev => prev !== targetStrokeOpacity ? targetStrokeOpacity : prev);
                 setFillOpacity(prev => prev !== targetFillOpacity ? targetFillOpacity : prev);
+                setFontFamily(prev => prev !== targetFontFamily ? targetFontFamily : prev);
 
                 const newAnimation = path.animation ?? {
                     types: [],
@@ -193,6 +196,12 @@ function useDraw() {
         setIsInteracting(!commit);
         setFillOpacity(opacity);
         updateSelectedPathProperty(p => ({ ...p, fillOpacity: opacity }), commit);
+    }, [updateSelectedPathProperty]);
+
+    const setFontFamilyEnhanced = useCallback((font: string, commit: boolean = true) => {
+        setIsInteracting(!commit);
+        setFontFamily(font);
+        updateSelectedPathProperty(p => ({ ...p, fontFamily: font }), commit);
     }, [updateSelectedPathProperty]);
 
     const setAnimationEnhanced = useCallback((anim: AnimationSettings, commit: boolean = true) => {
@@ -732,6 +741,8 @@ function useDraw() {
         setStrokeWidth: setStrokeWidthEnhanced,
         isClosed,
         setIsClosed: setIsClosedEnhanced,
+        fontFamily,
+        setFontFamily: setFontFamilyEnhanced,
         mode,
         setMode,
         selectedPathId,

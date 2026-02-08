@@ -25,6 +25,9 @@ interface ToolbarProps {
     setMode: (mode: 'draw' | 'edit') => void;
     strokeOpacity: number;
     setStrokeOpacity: (val: number, commit?: boolean) => void;
+    fontFamily: string;
+    setFontFamily: (val: string, commit?: boolean) => void;
+    selectedPathType?: string;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -49,7 +52,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     mode,
     setMode,
     strokeOpacity,
-    setStrokeOpacity
+    setStrokeOpacity,
+    fontFamily,
+    setFontFamily,
+    selectedPathType
 }) => {
     const [showMaterialPicker, setShowMaterialPicker] = useState(false);
 
@@ -225,6 +231,26 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             {isClosed ? 'Closed Loop' : 'Open Path'}
                         </button>
                     </div>
+
+                    {/* Font Family (Only for Text) */}
+                    {selectedPathType === 'text' && (
+                        <div className="animate-in fade-in slide-in-from-top-1 duration-300 mt-2">
+                            <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold flex items-center justify-between">
+                                Font Family
+                            </h3>
+                            <select
+                                value={fontFamily}
+                                onChange={(e) => setFontFamily(e.target.value)}
+                                className="w-full bg-slate-900 border border-slate-800 text-white rounded-md p-2 text-xs focus:ring-1 focus:ring-primary outline-none transition-all cursor-pointer hover:bg-slate-800"
+                            >
+                                <option value="'Inter', system-ui, sans-serif">Inter (Sans)</option>
+                                <option value="'Roboto', sans-serif">Roboto</option>
+                                <option value="'Playfair Display', serif">Playfair (Serif)</option>
+                                <option value="'Quicksand', sans-serif">Quicksand (Rounded)</option>
+                                <option value="'Caveat', cursive">Handwriting</option>
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 <div className="h-px bg-border/50" />

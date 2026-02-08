@@ -57,7 +57,9 @@ function App() {
     animation,
     setAnimation,
     setPathsInternal,
-    handleAddText
+    handleAddText,
+    fontFamily,
+    setFontFamily
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -284,6 +286,9 @@ ${pathsCode}
             hasBg={!!backgroundImage} mode={mode} setMode={setMode}
             strokeOpacity={strokeOpacity}
             setStrokeOpacity={setStrokeOpacity}
+            fontFamily={fontFamily}
+            setFontFamily={setFontFamily}
+            selectedPathType={paths.find(p => p.id === selectedPathId)?.type}
           />
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
           <input type="file" ref={bgInputRef} className="hidden" accept="image/*" onChange={handleBgFileChange} />
