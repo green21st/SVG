@@ -138,10 +138,135 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
     const newPaths: PathLayer[] = [];
 
-    const transform = (x: number, y: number) => ({
-        x: x * scale + offsetX,
-        y: y * scale + offsetY
-    });
+    // Helper to parse transform string into matrix
+    const parseTransformAttribute = (transformStr: string | null): { a: number, b: number, c: number, d: number, e: number, f: number } => {
+        let matrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+        if (!transformStr) return matrix;
+
+        const transforms = transformStr.match(/[a-z]+\([^)]+\)/gi) || [];
+        // Apply transforms in order
+        for (const t of transforms) {
+            const name = t.match(/[a-z]+/i)?.[0].toLowerCase();
+            const values = t.match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g)?.map(parseFloat) || [];
+
+            if (name === 'translate') {
+                const tx = values[0] || 0;
+                const ty = values[1] || 0;
+                // Multiply matrix:
+                // [1 0 tx]   [a c e]   [a  c  e+tx]
+                // [0 1 ty] * [b d f] = [b  d  f+ty]
+                // [0 0 1 ]   [0 0 1]   [0  0  1   ]
+                // Wait, SVG transform order is right-to-left for matrix multiplication column vector
+                // But in attribute string "translate(...) scale(...)", translate applies first (left-to-right visual order? No).
+                // "The value of the transform attribute is a <transform-list>, which is defined as a list of transform definitions that are applied in the order provided."
+                // So if we have P_new = T2 * T1 * P_old
+                // The current matrix represents the accumulated transform.
+                // Let M be current matrix. New transform T. New M' = M * T.
+                
+                const ne = matrix.a * tx + matrix.c * ty + matrix.e;
+                const nf = matrix.b * tx + matrix.d * ty + matrix.f;
+                matrix.e = ne;
+                matrix.f = nf;
+            } else if (name === 'scale') {
+                const sx = values[0] || 1;
+                const sy = values[1] !== undefined ? values[1] : sx;
+                
+                matrix.a *= sx;
+                matrix.b *= sx;
+                matrix.c *= sy;
+                matrix.d *= sy;
+            } else if (name === 'rotate') {
+                const angle = (values[0] || 0) * Math.PI / 180;
+                const cx = values[1] || 0;
+                const cy = values[2] || 0;
+
+                // Rotate around cx, cy is: Translate(cx, cy) * Rotate(angle) * Translate(-cx, -cy)
+                // We simplify to just rotate around 0,0 for now as it's complex to implement full matrix mult here correctly without a library
+                // Implementing basic rotation around origin
+                const cos = Math.cos(angle);
+                const sin = Math.sin(angle);
+
+                const na = matrix.a * cos + matrix.c * sin;
+                const nb = matrix.b * cos + matrix.d * sin;
+                const nc = matrix.a * -sin + matrix.c * cos;
+                const nd = matrix.b * -sin + matrix.d * cos;
+                
+                matrix.a = na;
+                matrix.b = nb;
+                matrix.c = nc;
+                matrix.d = nd;
+                
+                if (cx !== 0 || cy !== 0) {
+                     // TODO: Handle rotation center if needed
+                }
+            } else if (name === 'matrix') {
+                 if (values.length === 6) {
+                     const [a, b, c, d, e, f] = values;
+                     const na = matrix.a * a + matrix.c * b;
+                     const nb = matrix.b * a + matrix.d * b;
+                     const nc = matrix.a * c + matrix.c * d;
+                     const nd = matrix.b * c + matrix.d * d;
+                     const ne = matrix.a * e + matrix.c * f + matrix.e;
+                     const nf = matrix.b * e + matrix.d * f + matrix.f;
+                     
+                     matrix = { a: na, b: nb, c: nc, d: nd, e: ne, f: nf };
+                 }
+            }
+        }
+        return matrix;
+    };
+
+    const getElementTransform = (el: Element): { a: number, b: number, c: number, d: number, e: number, f: number } => {
+        let matrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+        let current: Element | null = el;
+        const transforms = [];
+
+        // Collect transforms from leaf to root (but apply root to leaf order for point transformation? 
+        // No, parent transform applies to result of child transform.
+        // P_final = M_parent * M_child * P
+        // So we need to multiply matrices from parent to child.
+        
+        while (current && current.tagName !== 'svg') {
+            const t = current.getAttribute('transform');
+            if (t) transforms.unshift(t); // Add to beginning
+            current = current.parentElement;
+        }
+
+        for (const t of transforms) {
+             const m = parseTransformAttribute(t);
+             // Multiply current accumulated matrix by this new matrix
+             // M_acc = M_acc * M_new
+             // [A C E]   [a c e]
+             // [B D F] * [b d f]
+             // [0 0 1]   [0 0 1]
+             
+             const na = matrix.a * m.a + matrix.c * m.b;
+             const nb = matrix.b * m.a + matrix.d * m.b;
+             const nc = matrix.a * m.c + matrix.c * m.d;
+             const nd = matrix.b * m.c + matrix.d * m.d;
+             const ne = matrix.a * m.e + matrix.c * m.f + matrix.e;
+             const nf = matrix.b * m.e + matrix.d * m.f + matrix.f;
+             
+             matrix = { a: na, b: nb, c: nc, d: nd, e: ne, f: nf };
+        }
+        
+        return matrix;
+    };
+
+    const transform = (x: number, y: number, elementMatrix?: { a: number, b: number, c: number, d: number, e: number, f: number }) => {
+        let tx = x;
+        let ty = y;
+
+        if (elementMatrix) {
+            tx = elementMatrix.a * x + elementMatrix.c * y + elementMatrix.e;
+            ty = elementMatrix.b * x + elementMatrix.d * y + elementMatrix.f;
+        }
+
+        return {
+            x: tx * scale + offsetX,
+            y: ty * scale + offsetY
+        };
+    };
 
     // 2. Process Circles
     doc.querySelectorAll('circle').forEach((el, i) => {
@@ -149,10 +274,12 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const cy = parseFloat(el.getAttribute('cy') || '0');
         const r = parseFloat(el.getAttribute('r') || '0');
 
+        const elementMatrix = getElementTransform(el);
+
         const points = [];
         // Increased sampling for circles to 64 points for smoothness with tension 0
         for (let a = 0; a < Math.PI * 2; a += Math.PI / 32) {
-            points.push(transform(cx + Math.cos(a) * r, cy + Math.sin(a) * r));
+            points.push(transform(cx + Math.cos(a) * r, cy + Math.sin(a) * r, elementMatrix));
         }
 
         const strokeAttr = el.getAttribute('stroke');
@@ -185,6 +312,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
     // 3. Robust Path Parser
     doc.querySelectorAll('path').forEach((el, i) => {
         const d = el.getAttribute('d') || '';
+        const elementMatrix = getElementTransform(el);
         const strokeAttr = el.getAttribute('stroke');
         const fillAttr = el.getAttribute('fill');
         const widthAttr = el.getAttribute('stroke-width');
@@ -280,7 +408,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         const mt = 1 - t;
                         const bx = mt * mt * mt * curX + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x;
                         const by = mt * mt * mt * curY + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y;
-                        points.push(transform(bx, by));
+                        points.push(transform(bx, by, elementMatrix));
                     }
                     lastCPX = x2; lastCPY = y2;
                     curX = x; curY = y;
@@ -307,7 +435,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         const mt = 1 - t;
                         const bx = mt * mt * mt * curX + 3 * mt * mt * t * x1 + 3 * mt * t * t * x2 + t * t * t * x;
                         const by = mt * mt * mt * curY + 3 * mt * mt * t * y1 + 3 * mt * t * t * y2 + t * t * t * y;
-                        points.push(transform(bx, by));
+                        points.push(transform(bx, by, elementMatrix));
                     }
                     lastCPX = x2; lastCPY = y2;
                     curX = x; curY = y;
@@ -326,7 +454,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         const mt = 1 - t;
                         const bx = mt * mt * curX + 2 * mt * t * x1 + t * t * x;
                         const by = mt * mt * curY + 2 * mt * t * y1 + t * t * y;
-                        points.push(transform(bx, by));
+                        points.push(transform(bx, by, elementMatrix));
                     }
                     lastCPX = x1; lastCPY = y1;
                     curX = x; curY = y;
@@ -351,7 +479,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         const mt = 1 - t;
                         const bx = mt * mt * curX + 2 * mt * t * x1 + t * t * x;
                         const by = mt * mt * curY + 2 * mt * t * y1 + t * t * y;
-                        points.push(transform(bx, by));
+                        points.push(transform(bx, by, elementMatrix));
                     }
                     lastCPX = x1; lastCPY = y1;
                     curX = x; curY = y;
@@ -370,7 +498,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
                     if (curX === x && curY === y) break;
                     if (rx === 0 || ry === 0) {
-                        points.push(transform(x, y));
+                        points.push(transform(x, y, elementMatrix));
                         curX = x; curY = y;
                         lastCPX = curX; lastCPY = curY;
                         break;
@@ -419,7 +547,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         const syp = ry * Math.sin(angle);
                         const px = cosPhi * sxp - sinPhi * syp + cx;
                         const py = sinPhi * sxp + cosPhi * syp + cy;
-                        points.push(transform(px, py));
+                        points.push(transform(px, py, elementMatrix));
                     }
 
                     curX = x; curY = y;
@@ -430,7 +558,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             if (!/[cqst]/i.test(cmd)) {
                 lastCPX = curX; lastCPY = curY;
             }
-            points.push(transform(curX, curY));
+            points.push(transform(curX, curY, elementMatrix));
         }
         finishPath();
     });
