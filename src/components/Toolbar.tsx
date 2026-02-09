@@ -70,7 +70,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 {/* Mode Switcher */}
                 <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
                     <button
-                        onClick={() => setMode('draw')}
+                        onClick={() => {
+                            setMode('draw');
+                            if (activeTool === 'image') setActiveTool('brush');
+                        }}
                         className={`flex-1 flex items-center justify-center py-1.5 px-2 rounded-md text-xs font-medium transition-all ${mode === 'draw'
                             ? 'bg-primary text-background shadow-sm'
                             : 'text-secondary hover:text-white hover:bg-slate-800'
@@ -79,7 +82,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         Draw
                     </button>
                     <button
-                        onClick={() => setMode('edit')}
+                        onClick={() => {
+                            setMode('edit');
+                            if (activeTool === 'image') setActiveTool('brush');
+                        }}
                         className={`flex-1 flex items-center justify-center py-1.5 px-2 rounded-md text-xs font-medium transition-all ${mode === 'edit'
                             ? 'bg-primary text-background shadow-sm'
                             : 'text-secondary hover:text-white hover:bg-slate-800'
@@ -293,7 +299,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         {hasBg && (
                             <>
                                 <button
-                                    onClick={() => setBgVisible(!bgVisible)}
+                                    onClick={() => {
+                                        const nextVisible = !bgVisible;
+                                        setBgVisible(nextVisible);
+                                        if (!nextVisible && activeTool === 'image') {
+                                            setActiveTool('brush');
+                                        }
+                                    }}
                                     className={`flex items-center justify-center p-2 rounded border transition-colors ${bgVisible
                                         ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20'
                                         : 'bg-slate-800 text-secondary border-slate-700 hover:bg-slate-700'
@@ -313,7 +325,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     <Move size={16} />
                                 </button>
                                 <button
-                                    onClick={onBgClear}
+                                    onClick={() => {
+                                        onBgClear();
+                                        if (activeTool === 'image') setActiveTool('brush');
+                                    }}
                                     className="flex items-center justify-center p-2 rounded bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20 transition-colors"
                                     title="Remove Image"
                                 >
