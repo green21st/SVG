@@ -58,8 +58,24 @@ The output will be in the `dist` directory.
 
 ## Technologies
 
--   **React 18**: UI Framework
+-   **React 19**: UI Framework
 -   **TypeScript**: Type safety
 -   **Vite**: Build tool
 -   **Tailwind CSS**: Styling
 -   **Lucide React**: Icons
+
+## Deployment
+
+### GitHub Pages (Automated)
+
+This project is configured to automatically deploy to GitHub Pages via GitHub Actions.
+
+1.  Push your changes to the `main` branch.
+2.  GitHub Actions will build the project and push the output to the `gh-pages` branch.
+3.  Go to **Settings > Pages** in your GitHub repository.
+4.  Under **Build and deployment > Branch**, select `gh-pages` and folder `/ (root)`.
+5.  Save, and your site will be live at `https://<your-username>.github.io/SVG/`.
+
+### Vercel (Alternative)
+
+For faster performance and global CDN, you can also connect this repository to [Vercel](https://vercel.com/). Vercel will automatically detect the Vite setup and deploy it without additional configuration.
