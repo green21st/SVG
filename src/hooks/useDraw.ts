@@ -65,6 +65,12 @@ function useDraw() {
     const [pointSnappingEnabled, setPointSnappingEnabled] = useState<boolean>(true);
     const [guideSnappingEnabled, setGuideSnappingEnabled] = useState<boolean>(true);
 
+    // Zoom and Pan State
+    const [zoom, setZoom] = useState<number>(1);
+    const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 });
+    const [isSpacePressed, setIsSpacePressed] = useState<boolean>(false);
+
+    const [cursorPos, setCursorPos] = useState<Point | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
 
     // Bounding Box Helper
@@ -85,10 +91,8 @@ function useDraw() {
         };
     }, []);
 
-    // 1. Sync settings when selectedPathId changes, with guards to prevent infinite loops
     // 1. Sync settings when selectedPathId changes
     useEffect(() => {
-        // Skip syncing during dragging/transforming to prevent performance issues and infinite loops
         if (mode === 'edit' && selectedPathId && !isDraggingRef.current) {
             const path = paths.find(p => p.id === selectedPathId);
             if (path) {
@@ -232,6 +236,10 @@ function useDraw() {
         let x = clientX - rect.left;
         let y = clientY - rect.top;
 
+        // Apply inverse transform to map screen coordinates to "SVG space"
+        x = (x - panOffset.x) / zoom;
+        y = (y - panOffset.y) / zoom;
+
         // Only snap if not transforming
         if (transformMode === 'none' && draggingPointIndex === null) {
             const SNAP_THRESHOLD = 10;
@@ -245,7 +253,6 @@ function useDraw() {
             if (pointSnappingEnabled) {
                 // Iterate over all paths
                 for (const path of paths) {
-                    // Optimization: For brush paths, only snap to start/end points to avoid lag
                     const pointsToCheck = path.id.startsWith('brush-')
                         ? [path.points[0], path.points[path.points.length - 1]]
                         : path.points;
@@ -264,7 +271,6 @@ function useDraw() {
                     }
                 }
 
-                // Snap to current drawing points (only for pen tool)
                 if (mode === 'draw' && activeTool === 'pen') {
                     for (const p of currentPoints) {
                         const dx = x - p.x;
@@ -285,8 +291,8 @@ function useDraw() {
             }
 
             if (guideSnappingEnabled) {
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
+                const centerX = rect.width / (2 * zoom);
+                const centerY = rect.height / (2 * zoom);
                 if (symmetry.horizontal && Math.abs(x - centerX) < SNAP_THRESHOLD) x = centerX;
                 if (symmetry.vertical && Math.abs(y - centerY) < SNAP_THRESHOLD) y = centerY;
                 if (symmetry.center) {
@@ -297,12 +303,19 @@ function useDraw() {
         }
 
         return { x, y };
-    }, [symmetry, paths, currentPoints, mode, transformMode, draggingPointIndex, pointSnappingEnabled, guideSnappingEnabled]);
+    }, [symmetry, paths, currentPoints, mode, transformMode, draggingPointIndex, pointSnappingEnabled, guideSnappingEnabled, panOffset, zoom]);
 
     const handlePointerDown = useCallback((e: React.MouseEvent) => {
+        // Pan with space bar or middle mouse button
+        if (isSpacePressed || e.button === 1) {
+            setTransformMode('translate');
+            setInitialMousePos({ x: e.clientX, y: e.clientY });
+            setTransformHandle('pan');
+            return;
+        }
+
         if (e.button !== 0) return;
 
-        // Check for transform handles first (this information is passed via dataset/target)
         const target = e.target as HTMLElement;
         const handleType = target.dataset.handle;
 
@@ -373,20 +386,21 @@ function useDraw() {
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            // 1. Check if we clicked an existing point handle of the selected path
             if (selectedPathId) {
                 const path = paths.find(p => p.id === selectedPathId);
                 if (path) {
                     const HIT_RADIUS = 12;
                     const { width, height } = rect;
-                    const centerX = width / 2;
-                    const centerY = height / 2;
+                    const centerX = width / (2 * zoom);
+                    const centerY = height / (2 * zoom);
                     const variants = applySymmetry(path.points, path.symmetry, centerX, centerY);
 
                     let clickedPointIndex = -1;
                     for (const v of variants) {
                         const idx = v.points.findIndex(pt => {
-                            return Math.sqrt(Math.pow(pt.x - mouseX, 2) + Math.pow(pt.y - mouseY, 2)) <= HIT_RADIUS;
+                            // PT is in SVG space, mouse is in screen space. Need to map mouse to SVG space.
+                            const mouseSVG = { x: (mouseX - panOffset.x) / zoom, y: (mouseY - panOffset.y) / zoom };
+                            return Math.sqrt(Math.pow(pt.x - mouseSVG.x, 2) + Math.pow(pt.y - mouseSVG.y, 2)) <= (HIT_RADIUS / zoom);
                         });
                         if (idx !== -1) { clickedPointIndex = idx; break; }
                     }
@@ -399,7 +413,6 @@ function useDraw() {
                 }
             }
 
-            // 2. Check if we clicked on a path/text for translation or selection
             const pathId = target.dataset.pathId || (['path', 'text'].includes(target.tagName.toLowerCase()) ? (target as any).dataset.pathId : null);
             if (pathId) {
                 const path = paths.find(p => p.id === pathId);
@@ -413,62 +426,43 @@ function useDraw() {
                 }
             }
 
-            // 3. Deselect if clicking on empty space
             if (target === canvasRef.current || target.tagName === 'svg') {
                 setSelectedPathId(null);
             }
         }
-    }, [getPointFromEvent, mode, paths, selectedPathId, getBoundingBox, activeTool, initialAngle, initialDist]);
+    }, [getPointFromEvent, mode, paths, selectedPathId, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset]);
 
-    const handleContextMenu = useCallback((e: React.MouseEvent) => {
-        e.preventDefault();
-        if (mode === 'edit') return;
+    const handlePointerMove = useCallback((e: React.MouseEvent) => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
 
-        if (currentPoints.length < 2) {
-            setCurrentPoints([]);
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // 1. Handle Canvas Panning
+        if (transformMode === 'translate' && transformHandle === 'pan' && initialMousePos) {
+            const dx_canvas = e.clientX - initialMousePos.x;
+            const dy_canvas = e.clientY - initialMousePos.y;
+            setPanOffset(prev => ({
+                x: prev.x + dx_canvas,
+                y: prev.y + dy_canvas
+            }));
+            setInitialMousePos({ x: e.clientX, y: e.clientY });
             return;
         }
 
-        const timestamp = Date.now();
-
-        const newPath: PathLayer = {
-            id: `path-${timestamp}`,
-            points: [...currentPoints],
-            color: strokeColor,
-            fill: fillColor,
-            width: strokeWidth,
-            tension: tension,
-            closed: isClosed,
-            strokeOpacity,
-            fillOpacity,
-            animation: { ...animation },
-            symmetry: { ...symmetry },
-            visible: true,
-            name: `Path ${paths.length + 1}`
-        };
-
-        setPaths([...paths, newPath]);
-        setCurrentPoints([]);
-    }, [currentPoints, paths, setPaths, symmetry, strokeColor, fillColor, strokeWidth, tension, isClosed, mode, strokeOpacity, fillOpacity]);
-
-    const [cursorPos, setCursorPos] = useState<Point | null>(null);
-    const [isInteracting, setIsInteracting] = useState(false); // For sliders/color pickers
-
-    const handlePointerMove = useCallback((e: React.MouseEvent) => {
         const point = getPointFromEvent(e);
         if (point) {
             setCursorPos(point);
 
+            // 2. Handle Image Background Transform
             if (activeTool === 'image' && isDraggingRef.current) {
-                const rect = canvasRef.current!.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
                 const pivot = transformPivot || { x: 400, y: 300 };
 
                 if (transformMode === 'translate' && initialMousePos) {
-                    const dx = mouseX - initialMousePos.x;
-                    const dy = mouseY - initialMousePos.y;
-                    setBgTransform(prev => ({ ...prev, x: prev.x + dx, y: prev.y + dy }));
+                    const dx_i = mouseX - initialMousePos.x;
+                    const dy_i = mouseY - initialMousePos.y;
+                    setBgTransform(prev => ({ ...prev, x: prev.x + dx_i, y: prev.y + dy_i }));
                     setInitialMousePos({ x: mouseX, y: mouseY });
                 } else if (transformMode === 'rotate') {
                     const currentAngle = Math.atan2(mouseY - pivot.y, mouseX - pivot.x);
@@ -484,59 +478,59 @@ function useDraw() {
                 return;
             }
 
-            if (mode === 'draw' && isDrawingBrushRef.current) {
-                setCurrentPoints(prev => [...prev, point]);
-            } else if (mode === 'draw' && shapeStartPoint) {
-                const dx = point.x - shapeStartPoint.x;
-                const dy = point.y - shapeStartPoint.y;
-                let newPoints: Point[] = [];
-                switch (activeTool) {
-                    case 'square':
-                        newPoints = [{ x: shapeStartPoint.x, y: shapeStartPoint.y }, { x: point.x, y: shapeStartPoint.y }, { x: point.x, y: point.y }, { x: shapeStartPoint.x, y: point.y }];
-                        break;
-                    case 'circle': {
-                        const r = Math.sqrt(dx * dx + dy * dy);
-                        for (let i = 0; i < 32; i++) {
-                            const angle = (i / 32) * Math.PI * 2;
-                            newPoints.push({ x: shapeStartPoint.x + Math.cos(angle) * r, y: shapeStartPoint.y + Math.sin(angle) * r });
+            // 3. Handle Drawing or Editing
+            if (mode === 'draw') {
+                if (isDrawingBrushRef.current) {
+                    setCurrentPoints(prev => [...prev, point]);
+                } else if (shapeStartPoint) {
+                    const dx_s = point.x - shapeStartPoint.x;
+                    const dy_s = point.y - shapeStartPoint.y;
+                    let newPoints: Point[] = [];
+                    switch (activeTool) {
+                        case 'square':
+                            newPoints = [{ x: shapeStartPoint.x, y: shapeStartPoint.y }, { x: point.x, y: shapeStartPoint.y }, { x: point.x, y: point.y }, { x: shapeStartPoint.x, y: point.y }];
+                            break;
+                        case 'circle': {
+                            const r = Math.sqrt(dx_s * dx_s + dy_s * dy_s);
+                            for (let i = 0; i < 32; i++) {
+                                const angle = (i / 32) * Math.PI * 2;
+                                newPoints.push({ x: shapeStartPoint.x + Math.cos(angle) * r, y: shapeStartPoint.y + Math.sin(angle) * r });
+                            }
+                            break;
                         }
-                        break;
-                    }
-                    case 'triangle':
-                        newPoints = [{ x: shapeStartPoint.x + dx / 2, y: shapeStartPoint.y }, { x: point.x, y: point.y }, { x: shapeStartPoint.x, y: point.y }];
-                        break;
-                    case 'star': {
-                        const r = Math.sqrt(dx * dx + dy * dy);
-                        for (let i = 0; i < 10; i++) {
-                            const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
-                            const currentR = i % 2 === 0 ? r : r * 0.4;
-                            newPoints.push({ x: shapeStartPoint.x + Math.cos(angle) * currentR, y: shapeStartPoint.y + Math.sin(angle) * currentR });
+                        case 'triangle':
+                            newPoints = [{ x: shapeStartPoint.x + dx_s / 2, y: shapeStartPoint.y }, { x: point.x, y: point.y }, { x: shapeStartPoint.x, y: point.y }];
+                            break;
+                        case 'star': {
+                            const r = Math.sqrt(dx_s * dx_s + dy_s * dy_s);
+                            for (let i = 0; i < 10; i++) {
+                                const angle = (i / 10) * Math.PI * 2 - Math.PI / 2;
+                                const currentR = i % 2 === 0 ? r : r * 0.4;
+                                newPoints.push({ x: shapeStartPoint.x + Math.cos(angle) * currentR, y: shapeStartPoint.y + Math.sin(angle) * currentR });
+                            }
+                            break;
                         }
-                        break;
                     }
+                    setCurrentPoints(newPoints);
                 }
-                setCurrentPoints(newPoints);
             } else if (mode === 'edit' && selectedPathId) {
                 if (transformMode !== 'none' && initialPoints) {
-                    const updateFn = (prev: PathLayer[]) => prev.map(p => {
+                    const updateFn = (prev: PathLayer[]): PathLayer[] => prev.map(p => {
                         if (p.id === selectedPathId) {
                             let newPoints = [...initialPoints];
-                            const rect = canvasRef.current!.getBoundingClientRect();
-                            const mouseX = e.clientX - rect.left;
-                            const mouseY = e.clientY - rect.top;
 
                             if (transformMode === 'rotate' && transformPivot) {
                                 const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
                                 const deltaAngle = currentAngle - initialAngle;
 
                                 newPoints = initialPoints.map(pt => {
-                                    const dx = pt.x - transformPivot.x;
-                                    const dy = pt.y - transformPivot.y;
+                                    const dx_p = pt.x - transformPivot.x;
+                                    const dy_p = pt.y - transformPivot.y;
                                     const cos = Math.cos(deltaAngle);
                                     const sin = Math.sin(deltaAngle);
                                     return {
-                                        x: transformPivot.x + dx * cos - dy * sin,
-                                        y: transformPivot.y + dx * sin + dy * cos
+                                        x: transformPivot.x + dx_p * cos - dy_p * sin,
+                                        y: transformPivot.y + dx_p * sin + dy_p * cos
                                     };
                                 });
 
@@ -547,7 +541,7 @@ function useDraw() {
                                         points: newPoints,
                                         rotation: (initialRotation || 0) + deltaDegrees,
                                         d: undefined
-                                    };
+                                    } as PathLayer;
                                 }
                             } else if (transformMode === 'scale' && transformPivot) {
                                 const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
@@ -563,17 +557,20 @@ function useDraw() {
                                         points: newPoints,
                                         fontSize: (initialFontSize || 40) * scaleFactor,
                                         d: undefined
-                                    };
+                                    } as PathLayer;
                                 }
                             } else if (transformMode === 'translate' && initialMousePos) {
-                                const dx = mouseX - initialMousePos.x;
-                                const dy = mouseY - initialMousePos.y;
+                                const dx_m = mouseX - initialMousePos.x;
+                                const dy_m = mouseY - initialMousePos.y;
+                                const dx_s = dx_m / zoom;
+                                const dy_s = dy_m / zoom;
+
                                 newPoints = initialPoints.map(pt => ({
-                                    x: pt.x + dx,
-                                    y: pt.y + dy
+                                    x: pt.x + dx_s,
+                                    y: pt.y + dy_s
                                 }));
                             }
-                            return { ...p, points: newPoints, d: undefined };
+                            return { ...p, points: newPoints, d: undefined } as PathLayer;
                         }
                         return p;
                     });
@@ -585,11 +582,11 @@ function useDraw() {
                         setInternalState(updateFn);
                     }
                 } else if (draggingPointIndex !== null) {
-                    const updateFn = (prev: PathLayer[]) => prev.map(p => {
+                    const updateFn = (prev: PathLayer[]): PathLayer[] => prev.map(p => {
                         if (p.id === selectedPathId) {
                             const newPoints = [...p.points];
                             newPoints[draggingPointIndex] = point;
-                            return { ...p, points: newPoints, d: undefined };
+                            return { ...p, points: newPoints, d: undefined } as PathLayer;
                         }
                         return p;
                     });
@@ -602,12 +599,11 @@ function useDraw() {
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState, transformMode, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation]);
+    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
             const timestamp = Date.now();
-            // Optimize points based on tension
             const tolerance = Math.max(0.5, tension * 5);
             const optimizedPoints = simplifyPath(currentPoints, tolerance);
 
@@ -660,7 +656,7 @@ function useDraw() {
         setInitialPoints(null);
         isDraggingRef.current = false;
         setShapeStartPoint(null);
-    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths]);
+    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths, activeTool, animation, fillOpacity, paths.length, strokeOpacity]);
 
     const handlePointerLeave = useCallback(() => {
         setCursorPos(null);
@@ -672,12 +668,67 @@ function useDraw() {
         setShapeStartPoint(null);
     }, []);
 
+    const handleWheel = useCallback((e: WheelEvent) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            const delta = -e.deltaY;
+            const factor = delta > 0 ? 1.1 : 0.9;
+            const newZoom = Math.min(Math.max(zoom * factor, 0.1), 20);
+
+            if (newZoom !== zoom && canvasRef.current) {
+                const rect = canvasRef.current.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                setPanOffset(prev => ({
+                    x: mouseX - (mouseX - prev.x) * (newZoom / zoom),
+                    y: mouseY - (mouseY - prev.y) * (newZoom / zoom)
+                }));
+                setZoom(newZoom);
+            }
+        } else if (e.shiftKey) {
+            setPanOffset(prev => ({ ...prev, x: prev.x - e.deltaY }));
+        } else {
+            setPanOffset(prev => ({ ...prev, y: prev.y - e.deltaY }));
+        }
+    }, [zoom]);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+            // @ts-ignore
+            canvas.addEventListener('wheel', handleWheel, { passive: false });
+            return () => {
+                // @ts-ignore
+                canvas.removeEventListener('wheel', handleWheel);
+            };
+        }
+    }, [handleWheel]);
+
     useEffect(() => {
         const handleUp = () => {
             handlePointerUp();
         };
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) {
+                setIsSpacePressed(true);
+                if (e.target === document.body) e.preventDefault();
+            }
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.code === 'Space') {
+                setIsSpacePressed(false);
+            }
+        };
+
         window.addEventListener('mouseup', handleUp);
-        return () => window.removeEventListener('mouseup', handleUp);
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('mouseup', handleUp);
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
     }, [handlePointerUp]);
 
     const handleDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -720,6 +771,33 @@ function useDraw() {
         }));
     }, [mode, selectedPathId, paths, getPointFromEvent, setPaths]);
 
+    const handleContextMenu = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        if (mode === 'edit') return;
+        if (currentPoints.length < 2) {
+            setCurrentPoints([]);
+            return;
+        }
+        const timestamp = Date.now();
+        const newPath: PathLayer = {
+            id: `path-${timestamp}`,
+            points: [...currentPoints],
+            color: strokeColor,
+            fill: fillColor,
+            width: strokeWidth,
+            tension: tension,
+            closed: isClosed,
+            strokeOpacity,
+            fillOpacity,
+            animation: { ...animation },
+            symmetry: { ...symmetry },
+            visible: true,
+            name: `Path ${paths.length + 1}`
+        };
+        setPaths([...paths, newPath]);
+        setCurrentPoints([]);
+    }, [currentPoints, paths, setPaths, symmetry, strokeColor, fillColor, strokeWidth, tension, isClosed, mode, strokeOpacity, fillOpacity, animation]);
+
     const clearCanvas = useCallback(() => {
         setPaths([]);
         setCurrentPoints([]);
@@ -731,14 +809,14 @@ function useDraw() {
         setCurrentPoints([]);
     }, []);
 
+    const [isInteracting, setIsInteracting] = useState(false);
+
     const handleAddText = useCallback((content: string) => {
         if (!content) return;
 
         const timestamp = Date.now();
         const centerX = canvasRef.current?.clientWidth ? canvasRef.current.clientWidth / 2 : 400;
         const centerY = canvasRef.current?.clientHeight ? canvasRef.current.clientHeight / 2 : 300;
-
-        // Position in the top-left quadrant (approx "red box" area)
         const initialX = centerX / 2;
         const initialY = centerY / 2;
 
@@ -755,7 +833,7 @@ function useDraw() {
             fontSize: 40,
             fontFamily: 'Inter, system-ui, sans-serif',
             visible: true,
-            symmetry: { ...symmetry }, // Inherit global symmetry settings
+            symmetry: { ...symmetry },
             name: `Text: ${content.substring(0, 10)}...`
         };
 
@@ -822,7 +900,12 @@ function useDraw() {
         fillOpacity,
         setFillOpacity: setFillOpacityEnhanced,
         animation,
-        setAnimation: setAnimationEnhanced
+        setAnimation: setAnimationEnhanced,
+        zoom,
+        setZoom,
+        panOffset,
+        setPanOffset,
+        isSpacePressed
     };
 }
 

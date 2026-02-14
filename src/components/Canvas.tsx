@@ -582,6 +582,9 @@ interface CanvasProps {
     getBoundingBox: (points: Point[]) => any;
     animationPaused?: boolean;
     bgTransform: { x: number, y: number, scale: number, rotation: number, opacity: number };
+    zoom: number;
+    panOffset: Point;
+    isSpacePressed: boolean;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -608,7 +611,10 @@ const Canvas: React.FC<CanvasProps> = ({
     activeTool,
     getBoundingBox,
     animationPaused = false,
-    bgTransform
+    bgTransform,
+    zoom,
+    panOffset,
+    isSpacePressed
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -645,7 +651,8 @@ const Canvas: React.FC<CanvasProps> = ({
     return (
         <div
             className={cn(
-                "relative w-full h-full bg-[#050b14] overflow-hidden select-none cursor-crosshair border border-border shadow-2xl rounded-xl"
+                "relative w-full h-full bg-[#050b14] overflow-hidden select-none border border-border shadow-2xl rounded-xl",
+                isSpacePressed ? "cursor-grab" : "cursor-crosshair"
             )}
             onMouseDown={onPointerDown}
             onMouseMove={onPointerMove}
@@ -654,150 +661,158 @@ const Canvas: React.FC<CanvasProps> = ({
             onContextMenu={onContextMenu}
             ref={canvasRef}
         >
-            {/* Grid Background */}
-            <div className="absolute inset-0 opacity-10 pointer-events-none"
+            <div
+                className="w-full h-full will-change-transform"
                 style={{
-                    backgroundImage: 'radial-gradient(#22d3ee 1px, transparent 1px)',
-                    backgroundSize: '20px 20px'
+                    transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                    transformOrigin: '0 0'
                 }}
-            />
+            >
+                {/* Grid Background */}
+                <div className="absolute inset-0 opacity-10 pointer-events-none"
+                    style={{
+                        backgroundImage: 'radial-gradient(#22d3ee 1px, transparent 1px)',
+                        backgroundSize: '20px 20px'
+                    }}
+                />
 
-            {/* Background Image Logic */}
-            {backgroundImage && bgVisible && (
-                <div
-                    className={cn(
-                        "absolute inset-0 flex items-center justify-center transition-opacity duration-500",
-                        activeTool === 'image' ? "pointer-events-auto cursor-move z-10" : "pointer-events-none"
-                    )}
-                >
+                {/* Background Image Logic */}
+                {backgroundImage && bgVisible && (
                     <div
-                        style={{
-                            opacity: bgTransform.opacity,
-                            transform: `translate(${bgTransform.x}px, ${bgTransform.y}px) scale(${bgTransform.scale}) rotate(${bgTransform.rotation}deg)`
-                        }}
-                        className="w-full h-full flex items-center justify-center"
+                        className={cn(
+                            "absolute inset-0 flex items-center justify-center transition-opacity duration-500",
+                            activeTool === 'image' ? "pointer-events-auto cursor-move z-10" : "pointer-events-none"
+                        )}
                     >
-                        <img src={backgroundImage} alt="Reference" className="max-w-full max-h-full object-contain select-none outline-none" draggable={false} />
-                    </div>
-                    {activeTool === 'image' && (
-                        <div className="absolute top-4 left-4 bg-primary/90 text-background px-3 py-1.5 rounded-full text-[10px] font-bold shadow-xl animate-bounce pointer-events-none z-20">
-                            TRANSFORM MODE: DRAG TO MOVE | ALT+DRAG TO SCALE | SHIFT+DRAG TO ROTATE
+                        <div
+                            style={{
+                                opacity: bgTransform.opacity,
+                                transform: `translate(${bgTransform.x}px, ${bgTransform.y}px) scale(${bgTransform.scale}) rotate(${bgTransform.rotation}deg)`
+                            }}
+                            className="w-full h-full flex items-center justify-center"
+                        >
+                            <img src={backgroundImage} alt="Reference" className="max-w-full max-h-full object-contain select-none outline-none" draggable={false} />
                         </div>
+                        {activeTool === 'image' && (
+                            <div className="absolute top-4 left-4 bg-primary/90 text-background px-3 py-1.5 rounded-full text-[10px] font-bold shadow-xl animate-bounce pointer-events-none z-20">
+                                TRANSFORM MODE: DRAG TO MOVE | ALT+DRAG TO SCALE | SHIFT+DRAG TO ROTATE
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Main Path SVG - This stays mostly static during simple mouse moves */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none border border-white/5 bg-white/[0.02]" viewBox={`0 0 ${width} ${height}`} style={{ isolation: 'isolate' }}>
+                    <Defs />
+
+                    {/* Symmetry Guides (Always Visible) */}
+                    <line x1={centerX} y1={0} x2={centerX} y2={height} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.horizontal ? 0.5 : 0.1} />
+                    <line x1={0} y1={centerY} x2={width} y2={centerY} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.vertical ? 0.5 : 0.1} />
+                    {symmetry.center && (
+                        <g opacity={0.5}>
+                            <line x1={centerX - 20} y1={centerY} x2={centerX + 20} y2={centerY} stroke="#64748b" strokeWidth={1} />
+                            <line x1={centerX} y1={centerY - 20} x2={centerX} y2={centerY + 20} stroke="#64748b" strokeWidth={1} />
+                            <circle cx={centerX} cy={centerY} r={3} fill="#64748b" />
+                        </g>
                     )}
-                </div>
-            )}
 
-            {/* Main Path SVG - This stays mostly static during simple mouse moves */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${width} ${height}`} style={{ isolation: 'isolate' }}>
-                <Defs />
+                    {/* Render Completed Paths */}
+                    {paths.filter(p => p.visible !== false).map((path) => (
+                        <PathItem
+                            key={path.id}
+                            path={path}
+                            selected={path.id === selectedPathId}
+                            mode={mode}
+                            onSelect={onPathSelectSafe}
+                            isDragging={isDragging}
+                            getBoundingBox={getBoundingBox}
+                            animationPaused={animationPaused}
+                        />
+                    ))}
+                </svg>
 
-                {/* Symmetry Guides (Always Visible) */}
-                <line x1={centerX} y1={0} x2={centerX} y2={height} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.horizontal ? 0.5 : 0.1} />
-                <line x1={0} y1={centerY} x2={width} y2={centerY} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.vertical ? 0.5 : 0.1} />
-                {symmetry.center && (
-                    <g opacity={0.5}>
-                        <line x1={centerX - 20} y1={centerY} x2={centerX + 20} y2={centerY} stroke="#64748b" strokeWidth={1} />
-                        <line x1={centerX} y1={centerY - 20} x2={centerX} y2={centerY + 20} stroke="#64748b" strokeWidth={1} />
-                        <circle cx={centerX} cy={centerY} r={3} fill="#64748b" />
-                    </g>
-                )}
+                {/* High-Frequency Interaction Layer SVG - Handles real-time previews and cursor lines */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox={`0 0 ${width} ${height}`}>
+                    {/* Render Current Drawing Path (Polyline Preview) */}
+                    {currentPoints.length > 0 && (
+                        <path
+                            d={getPolylinePath(currentPoints)}
+                            stroke="#38bdf8"
+                            strokeWidth={2}
+                            strokeDasharray="5,5"
+                            fill="none"
+                            strokeLinecap="round"
+                            opacity={0.4}
+                        />
+                    )}
 
-                {/* Render Completed Paths */}
-                {paths.filter(p => p.visible !== false).map((path) => (
-                    <PathItem
-                        key={path.id}
-                        path={path}
-                        selected={path.id === selectedPathId}
-                        mode={mode}
-                        onSelect={onPathSelectSafe}
-                        isDragging={isDragging}
-                        getBoundingBox={getBoundingBox}
-                        animationPaused={animationPaused}
-                    />
-                ))}
-            </svg>
+                    {/* Render Real-time Symmetric Paths (Polyline Preview) */}
+                    {symmetricCurrentPaths.map((points, idx) => (
+                        <path
+                            key={`sym-poly-${idx}`}
+                            d={getPolylinePath(points)}
+                            stroke="#38bdf8"
+                            strokeWidth={2}
+                            strokeDasharray="5,5"
+                            fill="none"
+                            strokeLinecap="round"
+                            opacity={0.4}
+                        />
+                    ))}
 
-            {/* High-Frequency Interaction Layer SVG - Handles real-time previews and cursor lines */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox={`0 0 ${width} ${height}`}>
-                {/* Render Current Drawing Path (Polyline Preview) */}
-                {currentPoints.length > 0 && (
-                    <path
-                        d={getPolylinePath(currentPoints)}
-                        stroke="#38bdf8"
-                        strokeWidth={2}
-                        strokeDasharray="5,5"
-                        fill="none"
-                        strokeLinecap="round"
-                        opacity={0.4}
-                    />
-                )}
+                    {/* Render Smoothed Preview */}
+                    {currentPoints.length > 1 && activeTool !== 'brush' && (
+                        <path
+                            d={smoothPath(currentPoints, tension, activeTool !== 'pen' ? true : isClosed)}
+                            stroke="#22d3ee"
+                            strokeWidth={2}
+                            fill="none"
+                            strokeLinecap="round"
+                            opacity={0.6}
+                        />
+                    )}
 
-                {/* Render Real-time Symmetric Paths (Polyline Preview) */}
-                {symmetricCurrentPaths.map((points, idx) => (
-                    <path
-                        key={`sym-poly-${idx}`}
-                        d={getPolylinePath(points)}
-                        stroke="#38bdf8"
-                        strokeWidth={2}
-                        strokeDasharray="5,5"
-                        fill="none"
-                        strokeLinecap="round"
-                        opacity={0.4}
-                    />
-                ))}
+                    {/* Render Real-time Symmetric Smoothed Preview */}
+                    {activeTool !== 'brush' && symmetricCurrentPaths.map((points, idx) => points.length > 1 && (
+                        <path
+                            key={`sym-smooth-${idx}`}
+                            d={smoothPath(points, tension, activeTool !== 'pen' ? true : isClosed)}
+                            stroke="#22d3ee"
+                            strokeWidth={2}
+                            fill="none"
+                            strokeLinecap="round"
+                            opacity={0.6}
+                        />
+                    ))}
 
-                {/* Render Smoothed Preview */}
-                {currentPoints.length > 1 && activeTool !== 'brush' && (
-                    <path
-                        d={smoothPath(currentPoints, tension, activeTool !== 'pen' ? true : isClosed)}
-                        stroke="#22d3ee"
-                        strokeWidth={2}
-                        fill="none"
-                        strokeLinecap="round"
-                        opacity={0.6}
-                    />
-                )}
+                    {/* Render Points for feedback */}
+                    {activeTool !== 'brush' && currentPoints.map((p, i) => (
+                        <circle
+                            key={i}
+                            cx={p.x}
+                            cy={p.y}
+                            r={3}
+                            fill="#fff"
+                            stroke="#22d3ee"
+                            strokeWidth={1}
+                        />
+                    ))}
 
-                {/* Render Real-time Symmetric Smoothed Preview */}
-                {activeTool !== 'brush' && symmetricCurrentPaths.map((points, idx) => points.length > 1 && (
-                    <path
-                        key={`sym-smooth-${idx}`}
-                        d={smoothPath(points, tension, activeTool !== 'pen' ? true : isClosed)}
-                        stroke="#22d3ee"
-                        strokeWidth={2}
-                        fill="none"
-                        strokeLinecap="round"
-                        opacity={0.6}
-                    />
-                ))}
-
-                {/* Render Points for feedback */}
-                {activeTool !== 'brush' && currentPoints.map((p, i) => (
-                    <circle
-                        key={i}
-                        cx={p.x}
-                        cy={p.y}
-                        r={3}
-                        fill="#fff"
-                        stroke="#22d3ee"
-                        strokeWidth={1}
-                    />
-                ))}
-
-                {/* Render Rubber Band Line to Cursor */}
-                {activeTool !== 'brush' && currentPoints.length > 0 && cursorPos && (
-                    <line
-                        x1={currentPoints[currentPoints.length - 1].x}
-                        y1={currentPoints[currentPoints.length - 1].y}
-                        x2={cursorPos.x}
-                        y2={cursorPos.y}
-                        stroke="#94a3b8"
-                        strokeWidth={1}
-                        strokeDasharray="4,4"
-                        opacity={0.5}
-                    />
-                )}
-            </svg>
+                    {/* Render Rubber Band Line to Cursor */}
+                    {activeTool !== 'brush' && currentPoints.length > 0 && cursorPos && (
+                        <line
+                            x1={currentPoints[currentPoints.length - 1].x}
+                            y1={currentPoints[currentPoints.length - 1].y}
+                            x2={cursorPos.x}
+                            y2={cursorPos.y}
+                            stroke="#94a3b8"
+                            strokeWidth={1}
+                            strokeDasharray="4,4"
+                            opacity={0.5}
+                        />
+                    )}
+                </svg>
+            </div>
 
             {/* Optimized Coordinate Display using direct DOM access to avoid React re-renders */}
             <div

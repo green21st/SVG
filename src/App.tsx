@@ -4,9 +4,24 @@ import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
 import { smoothPath, applySymmetry } from './utils/geometry';
+import { cn } from './utils/cn';
 import { CodePanel } from './components/CodePanel';
 import { LayerPanel } from './components/LayerPanel';
 import { SVG_DEFS } from './utils/svgDefs';
+import { X } from 'lucide-react';
+
+const CHANGELOG = [
+  {
+    version: 'v26.0214.1135',
+    date: '2026-02-14',
+    items: ['新增缩放/平移功能', '新增缩放比例指示器', '画布增加边界线', '新增精美版本日志对话框']
+  },
+  {
+    version: 'v26.0209.0930',
+    date: '2026-02-09',
+    items: ['基础绘图功能', '图层管理器', '动画系统']
+  }
+];
 
 function App() {
   const {
@@ -60,7 +75,10 @@ function App() {
     handleAddText,
     fontFamily,
     setFontFamily,
-    bgTransform
+    bgTransform,
+    zoom,
+    panOffset,
+    isSpacePressed
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +91,22 @@ function App() {
   /* Animation Control */
   const [animationPaused, setAnimationPaused] = React.useState(false);
   const [topTextInput, setTopTextInput] = useState('');
+  const [showZoomIndicator, setShowZoomIndicator] = useState(false);
+  const zoomTimeoutRef = useRef<any>(null);
+  const [showChangelog, setShowChangelog] = useState(false);
+
+  // Monitor zoom changes to show indicator
+  React.useEffect(() => {
+    if (zoom === 1) return; // Optional: skip initial render if needed, but usually zoom change is enough
+    setShowZoomIndicator(true);
+    if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+    zoomTimeoutRef.current = setTimeout(() => {
+      setShowZoomIndicator(false);
+    }, 1500);
+    return () => {
+      if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+    };
+  }, [zoom]);
 
   const handleBgUploadClick = () => {
     bgInputRef.current?.click();
@@ -259,7 +293,12 @@ ${pathsCode}
           </div>
           <h1 className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
             Fantastic <span className="text-primary/50 font-normal">SVG</span>
-            <span className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70">v26.0209.0930</span>
+            <button
+              onClick={() => setShowChangelog(true)}
+              className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
+            >
+              v26.0214.1135
+            </button>
           </h1>
         </div>
         <div className="flex items-center gap-4 bg-slate-900/50 px-3 py-1 rounded-full border border-white/5">
@@ -428,7 +467,25 @@ ${pathsCode}
                 getBoundingBox={getBoundingBox}
                 animationPaused={animationPaused}
                 bgTransform={bgTransform}
+                zoom={zoom}
+                panOffset={panOffset}
+                isSpacePressed={isSpacePressed}
               />
+
+              {/* Zoom Indicator Overlay */}
+              <div
+                className={cn(
+                  "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-500 z-[100]",
+                  showZoomIndicator ? "opacity-100 scale-100" : "opacity-0 scale-90"
+                )}
+              >
+                <div className="bg-slate-900/80 backdrop-blur-xl border border-white/20 px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+                  <div className="text-primary-foreground/50 text-[10px] font-black uppercase tracking-[0.2em]">Zoom</div>
+                  <div className="text-3xl font-black text-white tabular-nums tracking-tighter">
+                    {Math.round(zoom * 100)}%
+                  </div>
+                </div>
+              </div>
             </div>
 
             {mode === 'edit' && selectedPathId && (
@@ -618,6 +675,52 @@ ${pathsCode}
           </div>
         </aside>
       </main>
+
+      {/* Changelog Modal */}
+      {showChangelog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-slate-800/50">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                更新日志
+              </h2>
+              <button
+                onClick={() => setShowChangelog(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6 custom-scrollbar">
+              {CHANGELOG.map((log) => (
+                <div key={log.version} className="relative pl-6 border-l-2 border-primary/20 hover:border-primary/50 transition-colors">
+                  <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                  <div className="flex items-baseline justify-between mb-2">
+                    <span className="text-sm font-black text-white font-mono">{log.version}</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{log.date}</span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {log.items.map((item, idx) => (
+                      <li key={idx} className="text-xs text-slate-300 flex items-start gap-2 leading-relaxed">
+                        <span className="mt-1.5 w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 py-4 bg-slate-800/30 border-t border-white/5 text-center">
+              <p className="text-[10px] text-slate-500 font-medium tracking-wide">
+                感谢使用 Fantastic SVG · 祝您创作愉快
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
