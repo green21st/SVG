@@ -214,6 +214,15 @@ function useDraw() {
         });
     }, [selectedPathIds, setPaths]);
 
+    const moveSelectedToTop = useCallback(() => {
+        if (selectedPathIds.length === 0) return;
+        setPaths(prev => {
+            const selectedPaths = prev.filter(p => selectedPathIds.includes(p.id));
+            const otherPaths = prev.filter(p => !selectedPathIds.includes(p.id));
+            return [...otherPaths, ...selectedPaths];
+        });
+    }, [selectedPathIds, setPaths]);
+
     const mergeSelected = useCallback(() => {
         const selectedPaths = paths.filter(p => selectedPathIds.includes(p.id) && p.type !== 'text');
         if (selectedPaths.length <= 1) return;
@@ -1275,7 +1284,8 @@ function useDraw() {
         mergeSelected,
         splitSelected,
         moveSelectedUp,
-        moveSelectedDown
+        moveSelectedDown,
+        moveSelectedToTop
     };
 }
 

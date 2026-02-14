@@ -1,6 +1,6 @@
 import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Eye, EyeOff, Trash2, GripVertical, Layers, ChevronUp, ChevronDown, Combine, Ungroup } from 'lucide-react';
+import { Eye, EyeOff, Trash2, GripVertical, Layers, ChevronUp, ChevronDown, Combine, Ungroup, ArrowUpToLine } from 'lucide-react';
 import type { PathLayer } from '../types';
 import { cn } from '../utils/cn';
 
@@ -16,6 +16,7 @@ interface LayerPanelProps {
     onSplit: () => void;
     onMoveUp: () => void;
     onMoveDown: () => void;
+    onMoveToTop: () => void;
 }
 
 export const LayerPanel: React.FC<LayerPanelProps> = ({
@@ -29,7 +30,8 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
     onMerge,
     onSplit,
     onMoveUp,
-    onMoveDown
+    onMoveDown,
+    onMoveToTop
 }) => {
     // We want the most recent path (top of list) to be rendered on top.
     // SVG renders from first to last, so last in array is on top.
@@ -88,6 +90,14 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
 
             <div className="p-2 border-t border-white/5 bg-white/5 flex items-center justify-between gap-1">
                 <div className="flex items-center gap-1">
+                    <button
+                        onClick={onMoveToTop}
+                        disabled={selectedPathIds.length === 0}
+                        className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                        title="Move to top"
+                    >
+                        <ArrowUpToLine size={16} />
+                    </button>
                     <button
                         onClick={onMoveUp}
                         disabled={selectedPathIds.length === 0}

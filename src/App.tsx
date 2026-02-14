@@ -129,6 +129,7 @@ function App() {
     splitSelected,
     moveSelectedUp,
     moveSelectedDown,
+    moveSelectedToTop,
     strokeOpacity,
     setStrokeOpacity,
     animation,
@@ -809,6 +810,7 @@ ${pathsCode}
               onSplit={splitSelected}
               onMoveUp={moveSelectedUp}
               onMoveDown={moveSelectedDown}
+              onMoveToTop={moveSelectedToTop}
             />
           </div>
           <div className="flex-[2] min-h-0 flex flex-col">
