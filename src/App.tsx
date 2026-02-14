@@ -11,6 +11,7 @@ import { SVG_DEFS } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0214.1705', date: '2026-02-14', items: ['修复合并图层后，子图案动画在编辑模式下无法正常播放的问题'] },
   { version: 'v26.0214.1655', date: '2026-02-14', items: ['UI调整：移除右上角的版本号显示'] },
   { version: 'v26.0214.1650', date: '2026-02-14', items: ['UI调整：移除动画面板中的标题和版本号显示'] },
   { version: 'v26.0214.1645', date: '2026-02-14', items: ['修复代码面板应用更改后，动画丢失的问题'] },
@@ -422,7 +423,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0214.1655
+              v26.0214.1705
             </button>
           </h1>
         </div>

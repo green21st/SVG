@@ -101,11 +101,15 @@ function useDraw() {
             const firstId = selectedPathIds[0];
             const path = paths.find(p => p.id === firstId);
             if (path) {
-                const targetStrokeColor = path.color || '#22d3ee';
-                const targetFillColor = path.fill || 'none';
-                const targetStrokeWidth = path.width || 2;
-                const targetTension = path.tension ?? 0.5;
-                const targetIsClosed = path.closed ?? false;
+                // Determine source of truth: focused segment or path
+                const hasFocusedSegment = focusedSegmentIndices.length > 0 && path.multiPathPoints;
+                const segmentIndex = hasFocusedSegment ? focusedSegmentIndices[0] : -1;
+
+                const targetStrokeColor = (hasFocusedSegment ? path.segmentColors?.[segmentIndex] : undefined) || path.color || '#22d3ee';
+                const targetFillColor = (hasFocusedSegment ? path.segmentFills?.[segmentIndex] : undefined) || path.fill || 'none';
+                const targetStrokeWidth = (hasFocusedSegment ? path.segmentWidths?.[segmentIndex] : undefined) ?? path.width ?? 2;
+                const targetTension = (hasFocusedSegment ? path.segmentTensions?.[segmentIndex] : undefined) ?? path.tension ?? 0.5;
+                const targetIsClosed = (hasFocusedSegment ? path.segmentClosed?.[segmentIndex] : undefined) ?? path.closed ?? false;
                 const targetStrokeOpacity = path.strokeOpacity ?? 1;
                 const targetFillOpacity = path.fillOpacity ?? 1;
                 const targetFontFamily = path.fontFamily || 'Inter, system-ui, sans-serif';
@@ -119,7 +123,7 @@ function useDraw() {
                 setFillOpacity(prev => prev !== targetFillOpacity ? targetFillOpacity : prev);
                 setFontFamily(prev => prev !== targetFontFamily ? targetFontFamily : prev);
 
-                const newAnimation = path.animation ?? {
+                const targetAnimation = (hasFocusedSegment ? path.segmentAnimations?.[segmentIndex] : undefined) || path.animation || {
                     types: [],
                     duration: 2,
                     delay: 0,
@@ -129,12 +133,12 @@ function useDraw() {
 
                 setAnimation(prev => {
                     const s1 = JSON.stringify(prev);
-                    const s2 = JSON.stringify(newAnimation);
-                    return s1 !== s2 ? newAnimation : prev;
+                    const s2 = JSON.stringify(targetAnimation);
+                    return s1 !== s2 ? targetAnimation : prev;
                 });
             }
         }
-    }, [selectedPathIds, mode, paths]);
+    }, [selectedPathIds, mode, paths, focusedSegmentIndices]);
 
     // 2. Helper to update selected path property
     const updateSelectedPathProperty = useCallback((updater: (path: PathLayer) => PathLayer, commit: boolean = true) => {
@@ -324,32 +328,92 @@ function useDraw() {
     const setStrokeColorEnhanced = useCallback((color: string, commit: boolean = true) => {
         setIsInteracting(!commit);
         setStrokeColor(color);
-        updateSelectedPathProperty(p => ({ ...p, color }), commit);
-    }, [updateSelectedPathProperty]);
+        updateSelectedPathProperty(p => {
+            if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                const newSegmentColors = [...(p.segmentColors || [])];
+                while (newSegmentColors.length < p.multiPathPoints.length) {
+                    newSegmentColors.push(p.color);
+                }
+                focusedSegmentIndices.forEach(idx => {
+                    if (idx >= 0 && idx < newSegmentColors.length) newSegmentColors[idx] = color;
+                });
+                return { ...p, segmentColors: newSegmentColors };
+            }
+            return { ...p, color };
+        }, commit);
+    }, [updateSelectedPathProperty, focusedSegmentIndices]);
 
     const setFillColorEnhanced = useCallback((fill: string, commit: boolean = true) => {
         setIsInteracting(!commit);
         setFillColor(fill);
-        updateSelectedPathProperty(p => ({ ...p, fill }), commit);
-    }, [updateSelectedPathProperty]);
+        updateSelectedPathProperty(p => {
+            if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                const newSegmentFills = [...(p.segmentFills || [])];
+                while (newSegmentFills.length < p.multiPathPoints.length) {
+                    newSegmentFills.push(p.fill);
+                }
+                focusedSegmentIndices.forEach(idx => {
+                    if (idx >= 0 && idx < newSegmentFills.length) newSegmentFills[idx] = fill;
+                });
+                return { ...p, segmentFills: newSegmentFills };
+            }
+            return { ...p, fill };
+        }, commit);
+    }, [updateSelectedPathProperty, focusedSegmentIndices]);
 
     const setStrokeWidthEnhanced = useCallback((width: number, commit: boolean = true) => {
         setIsInteracting(!commit);
         setStrokeWidth(width);
-        updateSelectedPathProperty(p => ({ ...p, width }), commit);
-    }, [updateSelectedPathProperty]);
+        updateSelectedPathProperty(p => {
+            if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                const newSegmentWidths = [...(p.segmentWidths || [])];
+                while (newSegmentWidths.length < p.multiPathPoints.length) {
+                    newSegmentWidths.push(p.width);
+                }
+                focusedSegmentIndices.forEach(idx => {
+                    if (idx >= 0 && idx < newSegmentWidths.length) newSegmentWidths[idx] = width;
+                });
+                return { ...p, segmentWidths: newSegmentWidths };
+            }
+            return { ...p, width };
+        }, commit);
+    }, [updateSelectedPathProperty, focusedSegmentIndices]);
 
     const setTensionEnhanced = useCallback((t: number, commit: boolean = true) => {
         setIsInteracting(!commit);
         setTension(t);
-        updateSelectedPathProperty(p => ({ ...p, tension: t, d: undefined }), commit);
-    }, [updateSelectedPathProperty]);
+        updateSelectedPathProperty(p => {
+            if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                const newSegmentTensions = [...(p.segmentTensions || [])];
+                while (newSegmentTensions.length < p.multiPathPoints.length) {
+                    newSegmentTensions.push(p.tension ?? 0.5);
+                }
+                focusedSegmentIndices.forEach(idx => {
+                    if (idx >= 0 && idx < newSegmentTensions.length) newSegmentTensions[idx] = t;
+                });
+                return { ...p, segmentTensions: newSegmentTensions, d: undefined };
+            }
+            return { ...p, tension: t, d: undefined };
+        }, commit);
+    }, [updateSelectedPathProperty, focusedSegmentIndices]);
 
     const setIsClosedEnhanced = useCallback((closed: boolean, commit: boolean = true) => {
         setIsInteracting(!commit);
         setIsClosed(closed);
-        updateSelectedPathProperty(p => ({ ...p, closed, d: undefined }), commit);
-    }, [updateSelectedPathProperty]);
+        updateSelectedPathProperty(p => {
+            if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                const newSegmentClosed = [...(p.segmentClosed || [])];
+                while (newSegmentClosed.length < p.multiPathPoints.length) {
+                    newSegmentClosed.push(p.closed ?? false);
+                }
+                focusedSegmentIndices.forEach(idx => {
+                    if (idx >= 0 && idx < newSegmentClosed.length) newSegmentClosed[idx] = closed;
+                });
+                return { ...p, segmentClosed: newSegmentClosed, d: undefined };
+            }
+            return { ...p, closed, d: undefined };
+        }, commit);
+    }, [updateSelectedPathProperty, focusedSegmentIndices]);
 
     const setStrokeOpacityEnhanced = useCallback((opacity: number, commit: boolean = true) => {
         setIsInteracting(!commit);
@@ -372,8 +436,20 @@ function useDraw() {
     const setAnimationEnhanced = useCallback((anim: AnimationSettings, commit: boolean = true) => {
         setIsInteracting(!commit);
         setAnimation(anim);
-        updateSelectedPathProperty(p => ({ ...p, animation: anim }), commit);
-    }, [updateSelectedPathProperty]);
+        updateSelectedPathProperty(p => {
+            if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                const newSegmentAnimations = [...(p.segmentAnimations || [])];
+                while (newSegmentAnimations.length < p.multiPathPoints.length) {
+                    newSegmentAnimations.push(p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' });
+                }
+                focusedSegmentIndices.forEach(idx => {
+                    if (idx >= 0 && idx < newSegmentAnimations.length) newSegmentAnimations[idx] = anim;
+                });
+                return { ...p, segmentAnimations: newSegmentAnimations };
+            }
+            return { ...p, animation: anim };
+        }, commit);
+    }, [updateSelectedPathProperty, focusedSegmentIndices]);
 
     const toggleSymmetry = useCallback((key: keyof SymmetrySettings) => {
         setSymmetry(prev => ({ ...prev, [key]: !prev[key] }));
