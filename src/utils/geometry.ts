@@ -252,6 +252,49 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         return matrix;
     };
 
+    const getAnimationSettings = (el: Element) => {
+        let current: Element | null = el;
+        let style = '';
+
+        // Check element and parent <g>
+        while (current && current.tagName !== 'svg') {
+            const s = current.getAttribute('style');
+            if (s && s.includes('animation:')) {
+                style = s;
+                break;
+            }
+            current = current.parentElement;
+        }
+
+        if (!style) return undefined;
+
+        const animMatch = style.match(/animation:\s*([^;]+)/);
+        if (!animMatch) return undefined;
+
+        const parts = animMatch[1].trim().split(/\s+/);
+        const name = parts[0].replace('Path', '');
+        const validTypes = ['draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'];
+
+        if (!validTypes.includes(name)) return undefined;
+
+        const duration = parseFloat(parts[1]) || 2;
+        const ease = parts[2] || 'linear';
+        const delay = parseFloat(parts[3]) || 0;
+
+        let direction: 'forward' | 'reverse' | 'alternate' = 'forward';
+        // Check separate property or shorthand
+        if (style.includes('animation-direction: reverse') || parts.includes('reverse')) direction = 'reverse';
+        if (style.includes('animation-direction: alternate') || parts.includes('alternate')) direction = 'alternate';
+
+        return {
+            types: [name] as any,
+            duration,
+            delay,
+            ease,
+            direction
+        };
+    };
+
     const getElementTransform = (el: Element): { a: number, b: number, c: number, d: number, e: number, f: number } => {
         let matrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
         let current: Element | null = el;
@@ -341,7 +384,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             width,
             tension: 0,
             closed: true,
-            symmetry: { horizontal: false, vertical: false, center: false }
+            symmetry: { horizontal: false, vertical: false, center: false },
+            animation: getAnimationSettings(el)
         });
     });
 
@@ -394,7 +438,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         width,
                         tension: 0, // Using 0 tension to keep straight lines straight
                         closed: d.toLowerCase().includes('z'),
-                        symmetry: { horizontal: false, vertical: false, center: false }
+                        symmetry: { horizontal: false, vertical: false, center: false },
+                        animation: getAnimationSettings(el)
                     });
                 }
                 points = [];

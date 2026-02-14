@@ -34,6 +34,15 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                     if (type !== 'none') usedAnimations.add(type);
                 });
             }
+            if (path.segmentAnimations) {
+                path.segmentAnimations.forEach(anim => {
+                    if (anim?.types) {
+                        anim.types.forEach(type => {
+                            if (type !== 'none') usedAnimations.add(type);
+                        });
+                    }
+                });
+            }
         });
 
         // Only generate keyframes for used animations
@@ -55,11 +64,56 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
             .join('\n  ');
 
         const pathsCode = paths.filter(p => p.visible !== false).flatMap(path => {
-            const variants = applySymmetry(path.points, path.symmetry, width / 2, height / 2);
+            const variants = applySymmetry(path.multiPathPoints || path.points, path.symmetry, width / 2, height / 2);
 
             return variants.map(v => {
-                const d = smoothPath(v.points, path.tension ?? tension, path.closed);
-                let finalCode = `  <path d="${d}" stroke="${path.color}" stroke-width="${path.width}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+                let finalCode = '';
+
+                if (path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
+                    const segments = v.multiPoints.map((seg, sIdx) => {
+                        const segColor = path.segmentColors?.[sIdx] || path.color || '#22d3ee';
+                        const segFill = path.segmentFills?.[sIdx] || path.fill || 'none';
+                        const segWidth = path.segmentWidths?.[sIdx] ?? (path.width || 2);
+                        const segAnim = path.segmentAnimations?.[sIdx];
+                        const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
+                        const segTension = path.segmentTensions?.[sIdx] ?? (path.tension ?? tension);
+
+                        const d = smoothPath(seg, segTension, segClosed);
+
+                        let animWrapperStart = '';
+                        let animWrapperEnd = '';
+
+                        if (segAnim && segAnim.types && segAnim.types.length > 0) {
+                            const { types, duration, delay, ease, direction = 'forward' } = segAnim;
+                            types.filter(t => t !== 'none').forEach(type => {
+                                let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
+                                    direction === 'forward' ? 'normal' : direction === 'alternate' ? 'alternate' : 'reverse';
+
+                                if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
+                                    if (finalDirection === 'normal') finalDirection = 'reverse';
+                                    else if (finalDirection === 'reverse') finalDirection = 'normal';
+                                }
+
+                                let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards; `;
+                                if (type.includes('glow')) animStyle += `--glow-color: ${segColor}; `;
+                                if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
+                                if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
+                                if (['spin', 'bounce', 'swing', 'tada'].includes(type)) animStyle += 'transform-origin: center; transform-box: fill-box; ';
+                                if (type === 'float' && (v.type === 'V' || v.type === 'C')) animStyle += '--float-dist: 10px; ';
+
+                                animWrapperStart += `<g style="${animStyle}">`;
+                                animWrapperEnd = `</g>` + animWrapperEnd;
+                            });
+                        }
+
+                        return `${animWrapperStart}<path d="${d}" stroke="${segColor}" stroke-opacity="${path.strokeOpacity ?? 1}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round" />${animWrapperEnd}`;
+                    }).join('\n');
+
+                    finalCode = `<g>${segments}</g>`;
+                } else {
+                    const d = smoothPath(v.multiPoints || v.points, path.tension ?? tension, path.closed);
+                    finalCode = `<path d="${d}" stroke="${path.color}" stroke-width="${path.width}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+                }
 
                 if (path.animation && path.animation.types.length > 0) {
                     const { types, duration, delay, ease, direction = 'forward' } = path.animation;
@@ -70,6 +124,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                                 direction === 'alternate' ? 'alternate' : 'reverse';
 
                         let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
+                        if (path.animation?.types.includes('glow')) styleStr += ` --glow-color: ${path.color || '#22d3ee'};`;
 
                         // Replicate Canvas.tsx logic for variants
                         if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
@@ -97,6 +152,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
         const code = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
   <style>
+    /* Animation Keyframes */
 ${keyframes}
   </style>
 ${pathsCode}
@@ -178,7 +234,6 @@ ${pathsCode}
                         setLocalCode(e.target.value);
                         setIsEditing(true);
                     }}
-                    onFocus={() => setIsEditing(true)}
                     className="w-full h-full p-3 bg-transparent text-xs font-mono text-slate-300 resize-none outline-none focus:ring-1 focus:ring-primary/30 transition-all border-none"
                     spellCheck={false}
                     placeholder="Paste SVG code here..."

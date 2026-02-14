@@ -11,6 +11,9 @@ import { SVG_DEFS } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0214.1645', date: '2026-02-14', items: ['修复代码面板应用更改后，动画丢失的问题'] },
+  { version: 'v26.0214.1635', date: '2026-02-14', items: ['优化代码面板：显示动画关键帧，防止误触锁定代码更新'] },
+  { version: 'v26.0214.1610', date: '2026-02-14', items: ['修复导出 SVG 和代码预览时，合并图层的样式（颜色、动画）与画布显示不一致的问题'] },
   { version: 'v26.0214.1522', date: '2026-02-14', items: ['修复合并图层后材质和动画丢失的问题，支持保留子图形的独立样式和动画'] },
   {
     version: 'v26.0214.1425',
@@ -241,6 +244,15 @@ function App() {
           if (type !== 'none') usedAnimations.add(type);
         });
       }
+      if (path.segmentAnimations) {
+        path.segmentAnimations.forEach(anim => {
+          if (anim?.types) {
+            anim.types.forEach(type => {
+              if (type !== 'none') usedAnimations.add(type);
+            });
+          }
+        });
+      }
     });
 
     // Only generate keyframes for used animations
@@ -262,7 +274,7 @@ function App() {
       .join('\n  ');
 
     const pathsCode = paths.filter(p => p.visible !== false).flatMap(path => {
-      const variants = applySymmetry(path.points, path.symmetry, width / 2, height / 2);
+      const variants = applySymmetry(path.multiPathPoints || path.points, path.symmetry, width / 2, height / 2);
 
       return variants.map(v => {
         const sOp = path.strokeOpacity ?? 1;
@@ -279,8 +291,48 @@ function App() {
           const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : '';
           finalCode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
         } else {
-          const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
-          finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+          if (path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
+            const segments = v.multiPoints.map((seg, sIdx) => {
+              const segColor = path.segmentColors?.[sIdx] || path.color || '#22d3ee';
+              const segFill = path.segmentFills?.[sIdx] || path.fill || 'none';
+              const segWidth = path.segmentWidths?.[sIdx] ?? (path.width || 2);
+              const segAnim = path.segmentAnimations?.[sIdx];
+              const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
+              const segTension = path.segmentTensions?.[sIdx] ?? path.tension;
+
+              const d = smoothPath(seg, segTension, segClosed);
+
+              let animWrapperStart = '';
+              let animWrapperEnd = '';
+
+              if (segAnim && segAnim.types && segAnim.types.length > 0) {
+                const { types, duration, delay, ease, direction = 'forward' } = segAnim;
+                types.filter(t => t !== 'none').forEach(type => {
+                  let finalDirection = direction === 'forward' ? 'normal' : direction === 'alternate' ? 'alternate' : 'reverse';
+                  if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
+                    if (finalDirection === 'normal') finalDirection = 'reverse';
+                    else if (finalDirection === 'reverse') finalDirection = 'normal';
+                  }
+
+                  let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards; `;
+                  if (type.includes('glow')) animStyle += `--glow-color: ${segColor}; `;
+                  if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
+                  if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
+                  if (['spin', 'bounce', 'swing', 'tada'].includes(type)) animStyle += 'transform-origin: center; transform-box: fill-box; ';
+                  if (type === 'float' && (v.type === 'V' || v.type === 'C')) animStyle += '--float-dist: 10px; ';
+
+                  animWrapperStart += `<g style="${animStyle}">`;
+                  animWrapperEnd = `</g>` + animWrapperEnd;
+                });
+              }
+
+              return `${animWrapperStart}<path d="${d}" stroke="${segColor}" stroke-opacity="${sOp}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round" />${animWrapperEnd}`;
+            }).join('\n');
+            finalCode = `<g>${segments}</g>`;
+          } else {
+            const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
+            finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+          }
         }
 
         if (path.animation && path.animation.types.length > 0) {
@@ -659,7 +711,7 @@ ${pathsCode}
                 <div className="flex-1 grid grid-cols-5 gap-3 animate-in fade-in slide-in-from-left-2 duration-300 items-center">
                   <div className="flex flex-col">
                     <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">SVG Editor</h1>
-                    <span className="text-xs text-gray-500 font-mono">v26.0214.1522</span>
+                    <span className="text-xs text-gray-500 font-mono">v26.0214.1645</span>
                   </div>
                   <div className="flex flex-col gap-1">
                     <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
