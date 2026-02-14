@@ -6,7 +6,7 @@ import { Defs } from './Defs';
 
 interface PathItemProps {
     path: PathLayer;
-    selected: boolean;
+    selectedPathIds: string[];
     mode: 'draw' | 'edit';
     onSelect: (id: string) => void;
     isDragging: boolean;
@@ -14,7 +14,8 @@ interface PathItemProps {
     animationPaused: boolean;
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, getBoundingBox, animationPaused }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused }) => {
+    const selected = selectedPathIds.includes(path.id);
     // Canvas dimensions for symmetry center
     const width = 800;
     const height = 600;
@@ -22,8 +23,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
     const centerY = height / 2;
 
     const variants = useMemo(() => {
-        return applySymmetry(path.points, path.symmetry, centerX, centerY);
-    }, [path.points, path.symmetry, centerX, centerY]);
+        return applySymmetry(path.multiPathPoints || path.points, path.symmetry, centerX, centerY);
+    }, [path.multiPathPoints, path.points, path.symmetry, centerX, centerY]);
 
     const box = useMemo(() => {
         if (!selected) return null;
@@ -51,7 +52,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
     const variantConfigs = useMemo(() => {
         return variants.map(v => {
             if (!path.animation || !path.animation.types || path.animation.types.length === 0) {
-                return { points: v.points, pathStyles: {}, groupAnimations: [], variantType: v.type };
+                return { points: v.points, multiPoints: v.multiPoints, pathStyles: {}, groupAnimations: [], variantType: v.type };
             }
 
             const { types, duration, delay, ease, direction = 'forward' } = path.animation;
@@ -126,7 +127,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                 }
             });
 
-            return { points: v.points, pathStyles, groupAnimations, variantType: v.type };
+            return { points: v.points, multiPoints: v.multiPoints, pathStyles, groupAnimations, variantType: v.type };
         });
     }, [path.animation, variants, path.color, isDragging, animationPaused]);
 
@@ -196,13 +197,13 @@ const PathItem = React.memo<PathItemProps>(({ path, selected, mode, isDragging, 
                 };
 
                 // Create a stable key that includes animation state
-                const animKey = config.groupAnimations.map(s => s.animationName).join('-') || 'no-group-anim';
-                const pathStyleKey = config.pathStyles.animationName || 'no-path-anim';
+                const animKey = (config.groupAnimations as React.CSSProperties[]).map(s => s.animationName).join('-') || 'no-group-anim';
+                const pathStyleKey = (config.pathStyles as React.CSSProperties).animationName || 'no-path-anim';
                 const fullKey = `${path.id}-v${vIdx}-${pathStyleKey}-${animKey}`;
 
-                const d = (config.variantType === 'I' && path.d)
+                const d = (config.variantType === 'I' && path.d && !isDragging)
                     ? path.d
-                    : smoothPath(config.points, path.tension, path.closed);
+                    : smoothPath(path.multiPathPoints || config.points, path.tension, path.closed);
 
                 const element = path.type === 'text' ? (
                     <text
@@ -575,7 +576,7 @@ interface CanvasProps {
     backgroundImage?: string | null;
     bgVisible?: boolean;
     mode: 'draw' | 'edit';
-    selectedPathId: string | null;
+    selectedPathIds: string[];
     onPathSelect: (id: string | null) => void;
     isDragging: boolean;
     activeTool: 'brush' | 'pen' | 'square' | 'circle' | 'triangle' | 'star' | 'image';
@@ -605,7 +606,7 @@ const Canvas: React.FC<CanvasProps> = ({
     backgroundImage,
     bgVisible = true,
     mode,
-    selectedPathId,
+    selectedPathIds,
     onPathSelect,
     isDragging,
     activeTool,
@@ -721,7 +722,7 @@ const Canvas: React.FC<CanvasProps> = ({
                         <PathItem
                             key={path.id}
                             path={path}
-                            selected={path.id === selectedPathId}
+                            selectedPathIds={selectedPathIds}
                             mode={mode}
                             onSelect={onPathSelectSafe}
                             isDragging={isDragging}

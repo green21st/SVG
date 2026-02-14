@@ -41,7 +41,7 @@ function useDraw() {
 
     // Edit Mode State
     const [mode, setMode] = useState<'draw' | 'edit'>('draw');
-    const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
+    const [selectedPathIds, setSelectedPathIds] = useState<string[]>([]);
     const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
     const isDraggingRef = useRef(false);
 
@@ -60,6 +60,7 @@ function useDraw() {
     const [initialMousePos, setInitialMousePos] = useState<Point | null>(null);
     const [initialFontSize, setInitialFontSize] = useState<number>(40);
     const [initialRotation, setInitialRotation] = useState<number>(0);
+
 
     // Snapping Settings
     const [pointSnappingEnabled, setPointSnappingEnabled] = useState<boolean>(true);
@@ -91,10 +92,11 @@ function useDraw() {
         };
     }, []);
 
-    // 1. Sync settings when selectedPathId changes
+    // 1. Sync settings when selectedPathIds changes
     useEffect(() => {
-        if (mode === 'edit' && selectedPathId && !isDraggingRef.current) {
-            const path = paths.find(p => p.id === selectedPathId);
+        if (mode === 'edit' && selectedPathIds.length > 0 && !isDraggingRef.current) {
+            const firstId = selectedPathIds[0];
+            const path = paths.find(p => p.id === firstId);
             if (path) {
                 const targetStrokeColor = path.color || '#22d3ee';
                 const targetFillColor = path.fill || 'none';
@@ -129,37 +131,114 @@ function useDraw() {
                 });
             }
         }
-    }, [selectedPathId, mode, paths]);
+    }, [selectedPathIds, mode, paths]);
 
     // 2. Helper to update selected path property
     const updateSelectedPathProperty = useCallback((updater: (path: PathLayer) => PathLayer, commit: boolean = true) => {
-        if (mode === 'edit' && selectedPathId) {
+        if (mode === 'edit' && selectedPathIds.length > 0) {
             const updateType = commit ? setPaths : setInternalState;
-            updateType(prev => prev.map(p => p.id === selectedPathId ? updater(p) : p));
+            updateType(prev => prev.map(p => selectedPathIds.includes(p.id) ? updater(p) : p));
         }
-    }, [mode, selectedPathId, setPaths, setInternalState]);
+    }, [mode, selectedPathIds, setPaths, setInternalState]);
 
     const deleteSelectedPath = useCallback(() => {
-        if (selectedPathId) {
-            setPaths(prev => prev.filter(p => p.id !== selectedPathId));
-            setSelectedPathId(null);
+        if (selectedPathIds.length > 0) {
+            setPaths(prev => prev.filter(p => !selectedPathIds.includes(p.id)));
+            setSelectedPathIds([]);
         }
-    }, [selectedPathId, setPaths]);
+    }, [selectedPathIds, setPaths]);
 
     const duplicateSelectedPath = useCallback(() => {
-        if (selectedPathId) {
-            const path = paths.find(p => p.id === selectedPathId);
-            if (path) {
-                const newPath: PathLayer = {
-                    ...path,
-                    id: `path-${Date.now()}`,
-                    points: path.points.map(pt => ({ x: pt.x + 20, y: pt.y + 20 }))
-                };
-                setPaths(prev => [...prev, newPath]);
-                setSelectedPathId(newPath.id);
+        if (selectedPathIds.length > 0) {
+            const newPaths: PathLayer[] = [];
+            const newIds: string[] = [];
+
+            selectedPathIds.forEach(id => {
+                const path = paths.find(p => p.id === id);
+                if (path) {
+                    const newPath: PathLayer = {
+                        ...path,
+                        id: `path-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                        points: path.points.map(pt => ({ x: pt.x + 20, y: pt.y + 20 }))
+                    };
+                    newPaths.push(newPath);
+                    newIds.push(newPath.id);
+                }
+            });
+
+            if (newPaths.length > 0) {
+                setPaths(prev => [...prev, ...newPaths]);
+                setSelectedPathIds(newIds);
             }
         }
-    }, [selectedPathId, paths, setPaths]);
+    }, [selectedPathIds, paths, setPaths]);
+
+    const moveSelectedUp = useCallback(() => {
+        if (selectedPathIds.length === 0) return;
+        setPaths(prev => {
+            const newPaths = [...prev];
+            // Sort selected indices descending to avoid shifting issues
+            const indices = selectedPathIds
+                .map(id => newPaths.findIndex(p => p.id === id))
+                .filter(idx => idx !== -1)
+                .sort((a, b) => b - a);
+
+            indices.forEach(idx => {
+                if (idx < newPaths.length - 1) {
+                    [newPaths[idx], newPaths[idx + 1]] = [newPaths[idx + 1], newPaths[idx]];
+                }
+            });
+            return newPaths;
+        });
+    }, [selectedPathIds, setPaths]);
+
+    const moveSelectedDown = useCallback(() => {
+        if (selectedPathIds.length === 0) return;
+        setPaths(prev => {
+            const newPaths = [...prev];
+            // Sort selected indices ascending
+            const indices = selectedPathIds
+                .map(id => newPaths.findIndex(p => p.id === id))
+                .filter(idx => idx !== -1)
+                .sort((a, b) => a - b);
+
+            indices.forEach(idx => {
+                if (idx > 0) {
+                    [newPaths[idx], newPaths[idx - 1]] = [newPaths[idx - 1], newPaths[idx]];
+                }
+            });
+            return newPaths;
+        });
+    }, [selectedPathIds, setPaths]);
+
+    const mergeSelected = useCallback(() => {
+        const selectedPaths = paths.filter(p => selectedPathIds.includes(p.id) && p.type !== 'text');
+        if (selectedPaths.length <= 1) return;
+
+        // Keep the order as they appear in the paths array
+        const sortedSelected = paths.filter(p => selectedPathIds.includes(p.id) && p.type !== 'text');
+        const first = sortedSelected[0];
+        const mergedSegments = sortedSelected.flatMap(p => p.multiPathPoints || [p.points]);
+
+        const mergedPath: PathLayer = {
+            ...first,
+            id: `merged-${Date.now()}`,
+            name: 'Merged Layers',
+            points: mergedSegments.flat(),
+            multiPathPoints: mergedSegments,
+            d: undefined
+        };
+
+        // Remove old paths and insert the merged one at the position of the first selected path
+        const firstIdx = paths.findIndex(p => p.id === first.id);
+        const filteredPaths = paths.filter(p => !selectedPathIds.includes(p.id) || p.type === 'text');
+
+        const newPaths = [...filteredPaths];
+        newPaths.splice(firstIdx, 0, mergedPath);
+
+        setPaths(newPaths);
+        setSelectedPathIds([mergedPath.id]);
+    }, [selectedPathIds, paths, setPaths]);
 
     const setStrokeColorEnhanced = useCallback((color: string, commit: boolean = true) => {
         setIsInteracting(!commit);
@@ -319,21 +398,25 @@ function useDraw() {
         const target = e.target as HTMLElement;
         const handleType = target.dataset.handle;
 
-        if (handleType && selectedPathId) {
-            const path = paths.find(p => p.id === selectedPathId);
-            if (path) {
-                const box = getBoundingBox(path.points);
+        if (handleType && selectedPathIds.length > 0) {
+            const selectedPaths = paths.filter(p => selectedPathIds.includes(p.id));
+            if (selectedPaths.length > 0) {
+                // For multiple paths, calculate collective bounding box
+                const allPoints = selectedPaths.flatMap(p => p.points);
+                const box = getBoundingBox(allPoints);
                 const pivot = { x: box.centerX, y: box.centerY };
                 const rect = canvasRef.current!.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
 
-                setInitialPoints([...path.points]);
                 setTransformPivot(pivot);
                 setTransformHandle(handleType);
-                if (path.type === 'text') {
-                    setInitialFontSize(path.fontSize || 40);
-                    setInitialRotation(path.rotation || 0);
+
+                // Text specific initial states (use first selected if multiple?)
+                const firstText = selectedPaths.find(p => p.type === 'text');
+                if (firstText) {
+                    setInitialFontSize(firstText.fontSize || 40);
+                    setInitialRotation(firstText.rotation || 0);
                 }
 
                 if (handleType === 'rotate') {
@@ -343,7 +426,15 @@ function useDraw() {
                     setTransformMode('scale');
                     setInitialDist(Math.sqrt(Math.pow(mouseX - pivot.x, 2) + Math.pow(mouseY - pivot.y, 2)));
                 }
+
+                // IMPORTANT: Synchronize all selected points for transformation
+                setInitialPoints(null); // We don't use a single initialPoints for multi-transform anymore
+                // We'll need a way to store ALL initial points. Let's use a temporary state or just capture them in the update logic.
+                // For simplicity, let's keep initialPoints for the "primary" or first path, but for multi, we'll map them all.
+                // Actually, let's keep it simple: we'll use the current paths state as the base during dragging.
+
                 isDraggingRef.current = false;
+                setDraggingPointIndex(null);
                 return;
             }
         }
@@ -386,8 +477,11 @@ function useDraw() {
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
 
-            if (selectedPathId) {
-                const path = paths.find(p => p.id === selectedPathId);
+            const pathId = target.dataset.pathId || (['path', 'text'].includes(target.tagName.toLowerCase()) ? (target as any).dataset.pathId : null);
+
+            // Handle individual point dragging (only for single selection or first of multi?)
+            if (selectedPathIds.length === 1) {
+                const path = paths.find(p => p.id === selectedPathIds[0]);
                 if (path) {
                     const HIT_RADIUS = 12;
                     const { width, height } = rect;
@@ -396,13 +490,21 @@ function useDraw() {
                     const variants = applySymmetry(path.points, path.symmetry, centerX, centerY);
 
                     let clickedPointIndex = -1;
-                    for (const v of variants) {
-                        const idx = v.points.findIndex(pt => {
-                            // PT is in SVG space, mouse is in screen space. Need to map mouse to SVG space.
-                            const mouseSVG = { x: (mouseX - panOffset.x) / zoom, y: (mouseY - panOffset.y) / zoom };
-                            return Math.sqrt(Math.pow(pt.x - mouseSVG.x, 2) + Math.pow(pt.y - mouseSVG.y, 2)) <= (HIT_RADIUS / zoom);
-                        });
-                        if (idx !== -1) { clickedPointIndex = idx; break; }
+                    // Check original path points first
+                    const mouseSVG = { x: (mouseX - panOffset.x) / zoom, y: (mouseY - panOffset.y) / zoom };
+                    const originalPathPoints = path.multiPathPoints ? path.multiPathPoints.flat() : path.points;
+                    clickedPointIndex = originalPathPoints.findIndex(pt => {
+                        return Math.sqrt(Math.pow(pt.x - mouseSVG.x, 2) + Math.pow(pt.y - mouseSVG.y, 2)) <= (HIT_RADIUS / zoom);
+                    });
+
+                    // If not found in original points, check symmetric variants
+                    if (clickedPointIndex === -1) {
+                        for (const v of variants) {
+                            const idx = v.points.findIndex(pt => {
+                                return Math.sqrt(Math.pow(pt.x - mouseSVG.x, 2) + Math.pow(pt.y - mouseSVG.y, 2)) <= (HIT_RADIUS / zoom);
+                            });
+                            if (idx !== -1) { clickedPointIndex = idx; break; } // Found in a variant, but we need the index for the original path
+                        }
                     }
 
                     if (clickedPointIndex !== -1) {
@@ -413,24 +515,34 @@ function useDraw() {
                 }
             }
 
-            const pathId = target.dataset.pathId || (['path', 'text'].includes(target.tagName.toLowerCase()) ? (target as any).dataset.pathId : null);
             if (pathId) {
+                const isCtrl = e.ctrlKey || e.metaKey;
+                if (isCtrl) {
+                    setSelectedPathIds(prev =>
+                        prev.includes(pathId) ? prev.filter(id => id !== pathId) : [...prev, pathId]
+                    );
+                } else {
+                    setSelectedPathIds([pathId]);
+                }
+
+                setTransformMode('translate');
+                setInitialMousePos({ x: mouseX, y: mouseY });
+
                 const path = paths.find(p => p.id === pathId);
                 if (path) {
-                    setSelectedPathId(pathId);
-                    setTransformMode('translate');
-                    setInitialPoints([...path.points]);
-                    setInitialMousePos({ x: mouseX, y: mouseY });
-                    isDraggingRef.current = false;
-                    return;
+                    const box = getBoundingBox(path.points);
+                    setTransformPivot({ x: box.centerX, y: box.centerY });
                 }
+
+                isDraggingRef.current = false;
+                return;
             }
 
             if (target === canvasRef.current || target.tagName === 'svg') {
-                setSelectedPathId(null);
+                setSelectedPathIds([]);
             }
         }
-    }, [getPointFromEvent, mode, paths, selectedPathId, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset]);
+    }, [getPointFromEvent, mode, paths, selectedPathIds, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset]);
 
     const handlePointerMove = useCallback((e: React.MouseEvent) => {
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -513,67 +625,104 @@ function useDraw() {
                     }
                     setCurrentPoints(newPoints);
                 }
-            } else if (mode === 'edit' && selectedPathId) {
-                if (transformMode !== 'none' && initialPoints) {
-                    const updateFn = (prev: PathLayer[]): PathLayer[] => prev.map(p => {
-                        if (p.id === selectedPathId) {
-                            let newPoints = [...initialPoints];
+            } else if (mode === 'edit' && selectedPathIds.length > 0) {
+                if (transformMode !== 'none') {
+                    const updateFn = (prevList: PathLayer[]): PathLayer[] => prevList.map(p => {
+                        if (selectedPathIds.includes(p.id)) {
+                            // Use the path's current points as the "initial" state for this specific path
+                            // This assumes `setPaths` or `setInternalState` is called frequently enough
+                            // or that `initialPoints` was set for each path individually.
+                            // Since `setInitialPoints(null)` in handlePointerDown, we use `p.points` directly.
+                            let newPoints = [...p.points];
+                            let newMultiPoints = p.multiPathPoints ? p.multiPathPoints.map(seg => [...seg]) : undefined;
 
                             if (transformMode === 'rotate' && transformPivot) {
                                 const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
-                                const deltaAngle = currentAngle - initialAngle;
+                                const deltaAngle = currentAngle - initialAngle; // Use global initialAngle for delta
+                                const cos = Math.cos(deltaAngle);
+                                const sin = Math.sin(deltaAngle);
 
-                                newPoints = initialPoints.map(pt => {
-                                    const dx_p = pt.x - transformPivot.x;
-                                    const dy_p = pt.y - transformPivot.y;
-                                    const cos = Math.cos(deltaAngle);
-                                    const sin = Math.sin(deltaAngle);
+                                newPoints = p.points.map(pt => { // Use p.points as base
+                                    const dx = pt.x - transformPivot.x;
+                                    const dy = pt.y - transformPivot.y;
                                     return {
-                                        x: transformPivot.x + dx_p * cos - dy_p * sin,
-                                        y: transformPivot.y + dx_p * sin + dy_p * cos
+                                        x: transformPivot.x + dx * cos - dy * sin,
+                                        y: transformPivot.y + dx * sin + dy * cos
                                     };
                                 });
+
+                                if (newMultiPoints) {
+                                    newMultiPoints = newMultiPoints.map(seg => seg.map(pt => { // Use seg points as base
+                                        const dx = pt.x - transformPivot.x;
+                                        const dy = pt.y - transformPivot.y;
+                                        return {
+                                            x: transformPivot.x + dx * cos - dy * sin,
+                                            y: transformPivot.y + dx * sin + dy * cos
+                                        };
+                                    }));
+                                }
 
                                 if (p.type === 'text') {
                                     const deltaDegrees = (deltaAngle * 180) / Math.PI;
                                     return {
                                         ...p,
                                         points: newPoints,
-                                        rotation: (initialRotation || 0) + deltaDegrees,
+                                        rotation: (p.rotation || 0) + deltaDegrees, // Apply delta to path's current rotation
                                         d: undefined
                                     } as PathLayer;
                                 }
                             } else if (transformMode === 'scale' && transformPivot) {
                                 const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
-                                const scaleFactor = currentDist / initialDist;
-                                newPoints = initialPoints.map(pt => ({
+                                const scaleFactor = currentDist / initialDist; // Use global initialDist for factor
+
+                                newPoints = p.points.map(pt => ({ // Use p.points as base
                                     x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
                                     y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
                                 }));
+
+                                if (newMultiPoints) {
+                                    newMultiPoints = newMultiPoints.map(seg => seg.map(pt => ({ // Use seg points as base
+                                        x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
+                                        y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
+                                    })));
+                                }
 
                                 if (p.type === 'text') {
                                     return {
                                         ...p,
                                         points: newPoints,
-                                        fontSize: (initialFontSize || 40) * scaleFactor,
+                                        fontSize: (p.fontSize || 40) * scaleFactor, // Apply factor to path's current fontSize
                                         d: undefined
                                     } as PathLayer;
                                 }
                             } else if (transformMode === 'translate' && initialMousePos) {
-                                const dx_m = mouseX - initialMousePos.x;
-                                const dy_m = mouseY - initialMousePos.y;
-                                const dx_s = dx_m / zoom;
-                                const dy_s = dy_m / zoom;
+                                const dx_s = (mouseX - initialMousePos.x) / zoom;
+                                const dy_s = (mouseY - initialMousePos.y) / zoom;
 
-                                newPoints = initialPoints.map(pt => ({
-                                    x: pt.x + dx_s,
-                                    y: pt.y + dy_s
-                                }));
+                                newPoints = p.points.map(pt => ({ x: pt.x + dx_s, y: pt.y + dy_s })); // Use p.points as base
+
+                                if (newMultiPoints) {
+                                    newMultiPoints = newMultiPoints.map(seg => seg.map(pt => ({
+                                        x: pt.x + dx_s, y: pt.y + dy_s
+                                    })));
+                                }
                             }
-                            return { ...p, points: newPoints, d: undefined } as PathLayer;
+
+                            return { ...p, points: newPoints, multiPathPoints: newMultiPoints, d: undefined } as PathLayer;
                         }
                         return p;
                     });
+
+                    // Update local mouse for relative translate
+                    if (transformMode === 'translate') {
+                        setInitialMousePos({ x: mouseX, y: mouseY });
+                    } else if (transformMode === 'rotate') {
+                        const currentAngle = Math.atan2(mouseY - transformPivot!.y, mouseX - transformPivot!.x);
+                        setInitialAngle(currentAngle);
+                    } else if (transformMode === 'scale') {
+                        const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot!.x, 2) + Math.pow(mouseY - transformPivot!.y, 2));
+                        setInitialDist(currentDist);
+                    }
 
                     if (!isDraggingRef.current) {
                         setPaths(updateFn);
@@ -581,12 +730,28 @@ function useDraw() {
                     } else {
                         setInternalState(updateFn);
                     }
-                } else if (draggingPointIndex !== null) {
+                } else if (draggingPointIndex !== null && selectedPathIds.length === 1) {
                     const updateFn = (prev: PathLayer[]): PathLayer[] => prev.map(p => {
-                        if (p.id === selectedPathId) {
+                        if (p.id === selectedPathIds[0]) {
                             const newPoints = [...p.points];
                             newPoints[draggingPointIndex] = point;
-                            return { ...p, points: newPoints, d: undefined } as PathLayer;
+
+                            let newMultiPoints = undefined;
+                            if (p.multiPathPoints) {
+                                let remainingIdx = draggingPointIndex;
+                                newMultiPoints = p.multiPathPoints.map(seg => {
+                                    if (remainingIdx >= 0 && remainingIdx < seg.length) {
+                                        const newSeg = [...seg];
+                                        newSeg[remainingIdx] = point;
+                                        remainingIdx = -1; // Found it
+                                        return newSeg;
+                                    }
+                                    remainingIdx -= seg.length;
+                                    return seg;
+                                });
+                            }
+
+                            return { ...p, points: newPoints, multiPathPoints: newMultiPoints, d: undefined } as PathLayer;
                         }
                         return p;
                     });
@@ -599,7 +764,7 @@ function useDraw() {
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathId, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom]);
+    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
@@ -732,15 +897,16 @@ function useDraw() {
     }, [handlePointerUp]);
 
     const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-        if (mode !== 'edit' || !selectedPathId) return;
+        if (mode !== 'edit' || selectedPathIds.length !== 1) return;
+        const selectedId = selectedPathIds[0];
 
-        const path = paths.find(p => p.id === selectedPathId);
+        const path = paths.find(p => p.id === selectedId);
         if (!path) return;
 
         if (path.type === 'text') {
             const newText = prompt('Edit text:', path.text);
             if (newText !== null && newText !== path.text) {
-                setPaths(prev => prev.map(p => p.id === selectedPathId ? { ...p, text: newText, name: `Text: ${newText.substring(0, 10)}...` } : p));
+                setPaths(prev => prev.map(p => p.id === selectedId ? { ...p, text: newText, name: `Text: ${newText.substring(0, 10)}...` } : p));
             }
             return;
         }
@@ -749,7 +915,7 @@ function useDraw() {
         if (!point) return;
 
         setPaths(prev => prev.map(path => {
-            if (path.id === selectedPathId) {
+            if (path.id === selectedId) {
                 const newPoints = [...path.points];
                 let bestIdx = -1;
                 let minDist = 20;
@@ -769,7 +935,7 @@ function useDraw() {
             }
             return path;
         }));
-    }, [mode, selectedPathId, paths, getPointFromEvent, setPaths]);
+    }, [mode, selectedPathIds, paths, getPointFromEvent, setPaths]);
 
     const handleContextMenu = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -838,7 +1004,7 @@ function useDraw() {
         };
 
         setPaths(prev => [...prev, newPath]);
-        setSelectedPathId(newPath.id);
+        setSelectedPathIds([newPath.id]);
         setMode('edit');
     }, [strokeColor, symmetry, setPaths]);
 
@@ -869,8 +1035,8 @@ function useDraw() {
         setFontFamily: setFontFamilyEnhanced,
         mode,
         setMode,
-        selectedPathId,
-        setSelectedPathId,
+        selectedPathIds,
+        setSelectedPathIds,
         undo,
         redo,
         canUndo,
@@ -905,7 +1071,10 @@ function useDraw() {
         setZoom,
         panOffset,
         setPanOffset,
-        isSpacePressed
+        isSpacePressed,
+        mergeSelected,
+        moveSelectedUp,
+        moveSelectedDown
     };
 }
 

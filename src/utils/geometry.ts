@@ -5,21 +5,25 @@ export interface Point {
 
 // Convert a set of points to a Catmull-Rom spline path
 // k is tension: 1 is standard, 0 is sharp
-export const smoothPath = (points: Point[], k: number = 1, closed: boolean = false): string => {
-    if (points.length === 0) return '';
-    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+export const smoothPath = (points: Point[] | Point[][], k: number = 1, closed: boolean = false): string => {
+    if (Array.isArray(points[0]) || (points.length > 0 && Array.isArray(points[0]))) {
+        const segments = points as Point[][];
+        return segments.map(seg => smoothPath(seg, k, closed)).join(' ');
+    }
+
+    const pts = points as Point[];
+    if (pts.length === 0) return '';
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
 
     // If tension is 0, return a simple polyline (straight lines)
     if (k <= 0) {
-        let d = `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-        for (let i = 1; i < points.length; i++) {
-            d += ` L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)}`;
+        let d = `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)}`;
+        for (let i = 1; i < pts.length; i++) {
+            d += ` L ${pts[i].x.toFixed(2)} ${pts[i].y.toFixed(2)}`;
         }
         if (closed) d += ' Z';
         return d;
     }
-
-    const pts = [...points];
 
     if (closed) {
         let d = `M ${pts[0].x} ${pts[0].y}`;
@@ -41,13 +45,13 @@ export const smoothPath = (points: Point[], k: number = 1, closed: boolean = fal
         d += ' Z';
         return d;
     } else {
-        let d = `M ${points[0].x} ${points[0].y}`;
+        let d = `M ${pts[0].x} ${pts[0].y}`;
 
-        for (let i = 0; i < points.length - 1; i++) {
-            const p0 = points[i - 1] || points[i];
-            const p1 = points[i];
-            const p2 = points[i + 1];
-            const p3 = points[i + 2] || p2;
+        for (let i = 0; i < pts.length - 1; i++) {
+            const p0 = pts[i - 1] || pts[i];
+            const p1 = pts[i];
+            const p2 = pts[i + 1];
+            const p3 = pts[i + 2] || p2;
 
             const cp1x = p1.x + (p2.x - p0.x) / 6 * k;
             const cp1y = p1.y + (p2.y - p0.y) / 6 * k;
@@ -62,24 +66,56 @@ export const smoothPath = (points: Point[], k: number = 1, closed: boolean = fal
 };
 
 // Generate SVG path data for a polyline (raw input)
-export const getPolylinePath = (points: Point[]): string => {
+export const getPolylinePath = (points: Point[] | Point[][]): string => {
     if (points.length === 0) return '';
-    return `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+    if (Array.isArray(points[0])) {
+        return (points as Point[][]).map(seg => getPolylinePath(seg)).join(' ');
+    }
+    const pts = points as Point[];
+    return `M ${pts[0].x} ${pts[0].y} ` + pts.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
 };
 
 import type { SymmetrySettings } from '../types';
 
 export interface SymmetryVariant {
     points: Point[];
+    multiPoints?: Point[][];
     type: 'I' | 'H' | 'V' | 'C';
 }
 
 export const applySymmetry = (
-    points: Point[],
+    points: Point[] | Point[][],
     settings: SymmetrySettings,
     centerX: number,
     centerY: number
 ): SymmetryVariant[] => {
+    if (points.length > 0 && Array.isArray(points[0])) {
+        const segments = points as Point[][];
+        const variants: { type: 'I' | 'H' | 'V' | 'C', multiPoints: Point[][] }[] = [
+            { type: 'I', multiPoints: [] },
+            { type: 'H', multiPoints: [] },
+            { type: 'V', multiPoints: [] },
+            { type: 'C', multiPoints: [] }
+        ];
+
+        segments.forEach(seg => {
+            const segVariants = applySymmetry(seg, settings, centerX, centerY);
+            segVariants.forEach(sv => {
+                const target = variants.find(v => v.type === sv.type);
+                if (target) {
+                    target.multiPoints.push(sv.points);
+                }
+            });
+        });
+
+        return variants.filter(v => v.multiPoints.length > 0).map(v => ({
+            points: v.multiPoints.flat(),
+            multiPoints: v.multiPoints,
+            type: v.type
+        }));
+    }
+
+    const pts = points as Point[];
     const flipH = (p: Point) => ({ x: centerX + (centerX - p.x), y: p.y });
     const flipV = (p: Point) => ({ x: p.x, y: centerY + (centerY - p.y) });
     const flipC = (p: Point) => ({ x: centerX + (centerX - p.x), y: centerY + (centerY - p.y) });
@@ -90,10 +126,10 @@ export const applySymmetry = (
 
     const variants: SymmetryVariant[] = [];
 
-    variants.push({ points: [...points], type: 'I' });
-    if (activeH) variants.push({ points: points.map(flipH), type: 'H' });
-    if (activeV) variants.push({ points: points.map(flipV), type: 'V' });
-    if (activeC) variants.push({ points: points.map(flipC), type: 'C' });
+    variants.push({ points: [...pts], type: 'I' });
+    if (activeH) variants.push({ points: pts.map(flipH), type: 'H' });
+    if (activeV) variants.push({ points: pts.map(flipV), type: 'V' });
+    if (activeC) variants.push({ points: pts.map(flipC), type: 'C' });
 
     return variants;
 };
@@ -162,7 +198,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                 // So if we have P_new = T2 * T1 * P_old
                 // The current matrix represents the accumulated transform.
                 // Let M be current matrix. New transform T. New M' = M * T.
-                
+
                 const ne = matrix.a * tx + matrix.c * ty + matrix.e;
                 const nf = matrix.b * tx + matrix.d * ty + matrix.f;
                 matrix.e = ne;
@@ -170,7 +206,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             } else if (name === 'scale') {
                 const sx = values[0] || 1;
                 const sy = values[1] !== undefined ? values[1] : sx;
-                
+
                 matrix.a *= sx;
                 matrix.b *= sx;
                 matrix.c *= sy;
@@ -190,27 +226,27 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                 const nb = matrix.b * cos + matrix.d * sin;
                 const nc = matrix.a * -sin + matrix.c * cos;
                 const nd = matrix.b * -sin + matrix.d * cos;
-                
+
                 matrix.a = na;
                 matrix.b = nb;
                 matrix.c = nc;
                 matrix.d = nd;
-                
+
                 if (cx !== 0 || cy !== 0) {
-                     // TODO: Handle rotation center if needed
+                    // TODO: Handle rotation center if needed
                 }
             } else if (name === 'matrix') {
-                 if (values.length === 6) {
-                     const [a, b, c, d, e, f] = values;
-                     const na = matrix.a * a + matrix.c * b;
-                     const nb = matrix.b * a + matrix.d * b;
-                     const nc = matrix.a * c + matrix.c * d;
-                     const nd = matrix.b * c + matrix.d * d;
-                     const ne = matrix.a * e + matrix.c * f + matrix.e;
-                     const nf = matrix.b * e + matrix.d * f + matrix.f;
-                     
-                     matrix = { a: na, b: nb, c: nc, d: nd, e: ne, f: nf };
-                 }
+                if (values.length === 6) {
+                    const [a, b, c, d, e, f] = values;
+                    const na = matrix.a * a + matrix.c * b;
+                    const nb = matrix.b * a + matrix.d * b;
+                    const nc = matrix.a * c + matrix.c * d;
+                    const nd = matrix.b * c + matrix.d * d;
+                    const ne = matrix.a * e + matrix.c * f + matrix.e;
+                    const nf = matrix.b * e + matrix.d * f + matrix.f;
+
+                    matrix = { a: na, b: nb, c: nc, d: nd, e: ne, f: nf };
+                }
             }
         }
         return matrix;
@@ -225,7 +261,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         // No, parent transform applies to result of child transform.
         // P_final = M_parent * M_child * P
         // So we need to multiply matrices from parent to child.
-        
+
         while (current && current.tagName !== 'svg') {
             const t = current.getAttribute('transform');
             if (t) transforms.unshift(t); // Add to beginning
@@ -233,23 +269,23 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         }
 
         for (const t of transforms) {
-             const m = parseTransformAttribute(t);
-             // Multiply current accumulated matrix by this new matrix
-             // M_acc = M_acc * M_new
-             // [A C E]   [a c e]
-             // [B D F] * [b d f]
-             // [0 0 1]   [0 0 1]
-             
-             const na = matrix.a * m.a + matrix.c * m.b;
-             const nb = matrix.b * m.a + matrix.d * m.b;
-             const nc = matrix.a * m.c + matrix.c * m.d;
-             const nd = matrix.b * m.c + matrix.d * m.d;
-             const ne = matrix.a * m.e + matrix.c * m.f + matrix.e;
-             const nf = matrix.b * m.e + matrix.d * m.f + matrix.f;
-             
-             matrix = { a: na, b: nb, c: nc, d: nd, e: ne, f: nf };
+            const m = parseTransformAttribute(t);
+            // Multiply current accumulated matrix by this new matrix
+            // M_acc = M_acc * M_new
+            // [A C E]   [a c e]
+            // [B D F] * [b d f]
+            // [0 0 1]   [0 0 1]
+
+            const na = matrix.a * m.a + matrix.c * m.b;
+            const nb = matrix.b * m.a + matrix.d * m.b;
+            const nc = matrix.a * m.c + matrix.c * m.d;
+            const nd = matrix.b * m.c + matrix.d * m.d;
+            const ne = matrix.a * m.e + matrix.c * m.f + matrix.e;
+            const nf = matrix.b * m.e + matrix.d * m.f + matrix.f;
+
+            matrix = { a: na, b: nb, c: nc, d: nd, e: ne, f: nf };
         }
-        
+
         return matrix;
     };
 

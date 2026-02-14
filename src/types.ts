@@ -19,6 +19,7 @@ export interface PathLayer {
     name?: string;
     d?: string; // Cache the smoothed path data to avoid re-calculation
     type?: 'path' | 'text';
+    multiPathPoints?: Point[][]; // Support for compound paths (merged layers)
     text?: string;
     fontSize?: number;
     fontFamily?: string;

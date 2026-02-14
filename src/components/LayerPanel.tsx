@@ -1,27 +1,33 @@
 import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Eye, EyeOff, Trash2, GripVertical, Layers } from 'lucide-react';
+import { Eye, EyeOff, Trash2, GripVertical, Layers, ChevronUp, ChevronDown, ArrowDownToLine, Combine } from 'lucide-react';
 import type { PathLayer } from '../types';
 import { cn } from '../utils/cn';
 
 interface LayerPanelProps {
     paths: PathLayer[];
-    selectedPathId: string | null;
-    onSelect: (id: string) => void;
+    selectedPathIds: string[];
+    onSelect: (id: string, isMulti?: boolean) => void;
     onReorder: (newPaths: PathLayer[]) => void;
     onReorderEnd: (newPaths: PathLayer[]) => void;
     onToggleVisibility: (id: string) => void;
     onDelete: (id: string) => void;
+    onMerge: () => void;
+    onMoveUp: () => void;
+    onMoveDown: () => void;
 }
 
 export const LayerPanel: React.FC<LayerPanelProps> = ({
     paths,
-    selectedPathId,
+    selectedPathIds,
     onSelect,
     onReorder,
     onReorderEnd,
     onToggleVisibility,
-    onDelete
+    onDelete,
+    onMerge,
+    onMoveUp,
+    onMoveDown
 }) => {
     // We want the most recent path (top of list) to be rendered on top.
     // SVG renders from first to last, so last in array is on top.
@@ -67,8 +73,8 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                             <LayerItem
                                 key={path.id}
                                 path={path}
-                                isSelected={selectedPathId === path.id}
-                                onSelect={() => onSelect(path.id)}
+                                isSelected={selectedPathIds.includes(path.id)}
+                                onSelect={(e) => onSelect(path.id, e.ctrlKey || e.metaKey)}
                                 onToggleVisibility={() => onToggleVisibility(path.id)}
                                 onDelete={() => onDelete(path.id)}
                                 onDragEnd={handleReorderEnd}
@@ -77,6 +83,38 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                     </Reorder.Group>
                 )}
             </div>
+
+            <div className="p-2 border-t border-white/5 bg-white/5 flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={onMoveUp}
+                        disabled={selectedPathIds.length === 0}
+                        className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                        title="Move layer up"
+                    >
+                        <ChevronUp size={16} />
+                    </button>
+                    <button
+                        onClick={onMoveDown}
+                        disabled={selectedPathIds.length === 0}
+                        className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                        title="Move layer down"
+                    >
+                        <ChevronDown size={16} />
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={onMerge}
+                        disabled={selectedPathIds.length < 2}
+                        className="p-1.5 rounded-md text-primary hover:text-cyan-300 hover:bg-primary/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                        title="Merge selected layers"
+                    >
+                        <Combine size={16} />
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -84,7 +122,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
 interface LayerItemProps {
     path: PathLayer;
     isSelected: boolean;
-    onSelect: () => void;
+    onSelect: (e: React.MouseEvent) => void;
     onToggleVisibility: () => void;
     onDelete: () => void;
     onDragEnd: () => void;

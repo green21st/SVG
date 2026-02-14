@@ -12,6 +12,36 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0214.1620',
+    date: '2026-02-14',
+    items: ['实现图层面板 Ctrl + 点击多选功能', '修改图层合并逻辑为仅合并当前选中的多个图层', '支持多图层同步旋转、缩放与平移变换', '重构选择状态管理以支持批量操作']
+  },
+  {
+    version: 'v26.0214.1205',
+    date: '2026-02-14',
+    items: ['修复合并图层在旋转/缩放时的路径畸变（破坏）问题', '优化 Canvas 渲染层的路径数据实时更新逻辑', '统一变换操作时的初始状态捕获机制', '修复编辑模式下的点击判定与变量引用错误']
+  },
+  {
+    version: 'v26.0214.1200',
+    date: '2026-02-14',
+    items: ['修复合并图层后的旋转、缩放与平移变换失效问题', '优化复合路径（Multi-Path）在变换时的同步逻辑', '修复单点拖拽编辑在复合路径下的响应异常']
+  },
+  {
+    version: 'v26.0214.1152',
+    date: '2026-02-14',
+    items: ['彻底修复合并图层后的异常连接线条', '优化无动画状态下的复合路径渲染', '恢复合并后所有顶点的编辑手柄显示']
+  },
+  {
+    version: 'v26.0214.1143',
+    date: '2026-02-14',
+    items: ['修复图层合并导致的形状变形问题', '新增复合路径 (Compound Path) 支持', '优化 SVG 导出时的路径生成逻辑']
+  },
+  {
+    version: 'v26.0214.1141',
+    date: '2026-02-14',
+    items: ['图层面板新增操作栏', '新增图层向下合并与全显合并功能', '支持图层上移/下移调整', '优化图层状态同步']
+  },
+  {
     version: 'v26.0214.1135',
     date: '2026-02-14',
     items: ['新增缩放/平移功能', '新增缩放比例指示器', '画布增加边界线', '新增精美版本日志对话框']
@@ -46,16 +76,8 @@ function App() {
     setStrokeWidth,
     isClosed,
     setIsClosed,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    clearCanvas,
-    setPaths,
-    mode,
-    setMode,
-    selectedPathId,
-    setSelectedPathId,
+    selectedPathIds,
+    setSelectedPathIds,
     isDragging,
     handleAddShape,
     activeTool,
@@ -67,6 +89,9 @@ function App() {
     setGuideSnappingEnabled,
     deleteSelectedPath,
     duplicateSelectedPath,
+    mergeSelected,
+    moveSelectedUp,
+    moveSelectedDown,
     strokeOpacity,
     setStrokeOpacity,
     animation,
@@ -78,7 +103,15 @@ function App() {
     bgTransform,
     zoom,
     panOffset,
-    isSpacePressed
+    isSpacePressed,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    clearCanvas,
+    setPaths,
+    mode,
+    setMode
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,7 +245,7 @@ function App() {
           const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : '';
           finalCode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
         } else {
-          const d = smoothPath(v.points, path.tension, path.closed);
+          const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
           finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
         }
 
@@ -275,12 +308,12 @@ ${pathsCode}
       const ctrl = e.ctrlKey || e.metaKey;
       if (ctrl && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
       else if (ctrl && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
-      else if (ctrl && e.key.toLowerCase() === 'd') { if (selectedPathId) { e.preventDefault(); duplicateSelectedPath(); } }
-      else if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedPathId) { e.preventDefault(); deleteSelectedPath(); } }
+      else if (ctrl && e.key.toLowerCase() === 'd') { if (selectedPathIds.length > 0) { e.preventDefault(); duplicateSelectedPath(); } }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedPathIds.length > 0) { e.preventDefault(); deleteSelectedPath(); } }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, duplicateSelectedPath, deleteSelectedPath, selectedPathId]);
+  }, [undo, redo, duplicateSelectedPath, deleteSelectedPath, selectedPathIds]);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary/30">
@@ -297,11 +330,12 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0214.1135
+              v26.0214.1205
             </button>
           </h1>
         </div>
         <div className="flex items-center gap-4 bg-slate-900/50 px-3 py-1 rounded-full border border-white/5">
+          <span className="text-[10px] font-black tracking-[0.2em] text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20">v26.0214.1620</span>
           <span id="busuanzi_container_site_pv" className="text-[10px] font-medium text-slate-400 flex items-center gap-1.5">
             <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></span>
             VIEWS: <span id="busuanzi_value_site_pv" className="text-primary tracking-wider">-</span>
@@ -329,7 +363,7 @@ ${pathsCode}
             setStrokeOpacity={setStrokeOpacity}
             fontFamily={fontFamily}
             setFontFamily={setFontFamily}
-            selectedPathType={paths.find(p => p.id === selectedPathId)?.type}
+            selectedPathType={paths.find(p => selectedPathIds.includes(p.id))?.type}
             activeTool={activeTool}
             setActiveTool={setActiveTool}
           />
@@ -461,7 +495,10 @@ ${pathsCode}
                 canvasRef={canvasRef as React.RefObject<HTMLDivElement>}
                 isClosed={isClosed} backgroundImage={backgroundImage}
                 bgVisible={bgVisible} mode={mode}
-                selectedPathId={selectedPathId} onPathSelect={setSelectedPathId}
+                selectedPathIds={selectedPathIds} onPathSelect={(id) => {
+                  if (id) setSelectedPathIds([id]);
+                  else setSelectedPathIds([]);
+                }}
                 isDragging={isDragging}
                 activeTool={activeTool}
                 getBoundingBox={getBoundingBox}
@@ -488,7 +525,7 @@ ${pathsCode}
               </div>
             </div>
 
-            {mode === 'edit' && selectedPathId && (
+            {mode === 'edit' && selectedPathIds.length > 0 && (
               <div className="absolute -right-16 top-0 flex flex-col gap-2 p-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 shadow-2xl transition-all animate-in fade-in slide-in-from-left-2">
                 <button
                   onClick={duplicateSelectedPath}
@@ -656,9 +693,15 @@ ${pathsCode}
           <div className="flex-[3] min-h-0 flex flex-col">
             <LayerPanel
               paths={paths}
-              selectedPathId={selectedPathId}
-              onSelect={(id) => {
-                setSelectedPathId(id);
+              selectedPathIds={selectedPathIds}
+              onSelect={(id, isMulti) => {
+                if (isMulti) {
+                  setSelectedPathIds(prev =>
+                    prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+                  );
+                } else {
+                  setSelectedPathIds([id]);
+                }
                 setMode('edit');
               }}
               onReorder={setPathsInternal}
@@ -666,8 +709,11 @@ ${pathsCode}
               onToggleVisibility={(id) => setPaths(prev => prev.map(p => p.id === id ? { ...p, visible: !p.visible } : p))}
               onDelete={(id) => {
                 setPaths(prev => prev.filter(p => p.id !== id));
-                if (selectedPathId === id) setSelectedPathId(null);
+                setSelectedPathIds(prev => prev.filter(item => item !== id));
               }}
+              onMerge={mergeSelected}
+              onMoveUp={moveSelectedUp}
+              onMoveDown={moveSelectedDown}
             />
           </div>
           <div className="flex-[2] min-h-0 flex flex-col">
