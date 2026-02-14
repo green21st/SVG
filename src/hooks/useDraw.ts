@@ -221,13 +221,40 @@ function useDraw() {
         const first = sortedSelected[0];
         const mergedSegments = sortedSelected.flatMap(p => p.multiPathPoints || [p.points]);
 
+        // Aggregate segment styles
+        const segmentColors = sortedSelected.flatMap(p =>
+            p.segmentColors || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.color) : [p.color])
+        );
+        const segmentFills = sortedSelected.flatMap(p =>
+            p.segmentFills || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.fill) : [p.fill])
+        );
+        const segmentWidths = sortedSelected.flatMap(p =>
+            p.segmentWidths || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.width) : [p.width])
+        );
+        const segmentAnimations = sortedSelected.flatMap(p =>
+            p.segmentAnimations || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.animation || { types: [], duration: 0, delay: 0, ease: 'linear' }) : [p.animation || { types: [], duration: 0, delay: 0, ease: 'linear' }])
+        );
+        const segmentClosed = sortedSelected.flatMap(p =>
+            p.segmentClosed || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.closed) : [p.closed])
+        );
+        const segmentTensions = sortedSelected.flatMap(p =>
+            p.segmentTensions || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.tension) : [p.tension])
+        );
+
         const mergedPath: PathLayer = {
             ...first,
             id: `merged-${Date.now()}`,
             name: 'Merged Layers',
             points: mergedSegments.flat(),
             multiPathPoints: mergedSegments,
-            d: undefined
+            d: undefined,
+            segmentColors,
+            segmentFills,
+            segmentWidths,
+            segmentAnimations,
+            segmentClosed,
+            segmentTensions,
+            animation: { types: [], duration: 0, delay: 0, ease: 'linear' } // Reset global animation to prevent it from applying to all segments
         };
 
         // Remove old paths and insert the merged one at the position of the first selected path
@@ -258,7 +285,20 @@ function useDraw() {
                             name: `${p.name} (Part ${sIdx + 1})`,
                             points: seg,
                             multiPathPoints: undefined,
-                            d: undefined
+                            segmentColors: undefined,
+                            segmentFills: undefined,
+                            segmentWidths: undefined,
+                            segmentAnimations: undefined,
+                            segmentClosed: undefined,
+                            segmentTensions: undefined,
+                            d: undefined,
+                            // Restore individual properties
+                            color: p.segmentColors?.[sIdx] || p.color,
+                            fill: p.segmentFills?.[sIdx] || p.fill,
+                            width: p.segmentWidths?.[sIdx] ?? p.width,
+                            animation: p.segmentAnimations?.[sIdx] || p.animation,
+                            closed: p.segmentClosed?.[sIdx] ?? p.closed,
+                            tension: p.segmentTensions?.[sIdx] ?? p.tension
                         });
                     });
                 } else {

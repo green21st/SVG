@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback } from 'react';
-import type { Point, PathLayer, SymmetrySettings } from '../types';
+import type { PathLayer, Point, AnimationSettings, SymmetrySettings } from '../types';
 import { smoothPath, getPolylinePath, applySymmetry } from '../utils/geometry';
 import { cn } from '../utils/cn';
 import { Defs } from './Defs';
@@ -67,85 +67,109 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         return getBoundingBox(path.points);
     }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, path.type, path.fontSize, path.text, getBoundingBox]);
 
+    // Helper to generate animation styles
+    const getStylesForAnimation = (
+        anim: AnimationSettings | undefined,
+        color: string,
+        variantType: string | undefined,
+        isPaused: boolean
+    ) => {
+        if (!anim || !anim.types || anim.types.length === 0) {
+            return { pathStyles: {}, groupAnimations: [] };
+        }
+
+        const { types, duration, delay, ease, direction = 'forward' } = anim;
+        let pathStyles: React.CSSProperties = {};
+        const groupAnimations: React.CSSProperties[] = [];
+
+        types.filter(t => t !== 'none').forEach(type => {
+            const baseStyle: React.CSSProperties = {
+                animationDuration: `${duration}s`,
+                animationDelay: `${delay}s`,
+                animationTimingFunction: ease,
+                animationIterationCount: 'infinite',
+                animationFillMode: 'forwards',
+                animationPlayState: isPaused ? 'paused' : 'running'
+            };
+
+            let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
+                direction === 'forward' ? 'normal' :
+                    direction === 'alternate' ? 'alternate' : 'reverse';
+
+            switch (type) {
+                case 'draw':
+                    if (!pathStyles.animationName) {
+                        pathStyles = {
+                            ...baseStyle,
+                            animationName: 'drawPath',
+                            strokeDasharray: '1000',
+                            strokeDashoffset: '1000',
+                            animationDirection: finalDirection
+                        };
+                    }
+                    break;
+                case 'pulse':
+                    groupAnimations.push({ ...baseStyle, animationName: 'pulsePath', animationDirection: finalDirection });
+                    break;
+                case 'float':
+                    const floatStyle = { ...baseStyle, animationName: 'floatPath', animationDirection: finalDirection };
+                    if (variantType === 'V' || variantType === 'C') {
+                        // @ts-ignore
+                        floatStyle['--float-dist'] = '10px';
+                    }
+                    groupAnimations.push(floatStyle);
+                    break;
+                case 'spin':
+                    if (variantType === 'H' || variantType === 'V') {
+                        if (finalDirection === 'normal') finalDirection = 'reverse';
+                        else if (finalDirection === 'reverse') finalDirection = 'normal';
+                    }
+                    groupAnimations.push({ ...baseStyle, animationName: 'spinPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                    break;
+                case 'bounce':
+                    groupAnimations.push({ ...baseStyle, animationName: 'bouncePath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                    break;
+                case 'glow':
+                    const glowStyle = { ...baseStyle, animationName: 'glowPath', animationDirection: finalDirection };
+                    // @ts-ignore
+                    glowStyle['--glow-color'] = color;
+                    groupAnimations.push(glowStyle);
+                    break;
+                case 'shake':
+                    groupAnimations.push({ ...baseStyle, animationName: 'shakePath', animationDirection: finalDirection });
+                    break;
+                case 'swing':
+                    groupAnimations.push({ ...baseStyle, animationName: 'swingPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                    break;
+                case 'tada':
+                    groupAnimations.push({ ...baseStyle, animationName: 'tadaPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                    break;
+            }
+        });
+
+        return { pathStyles, groupAnimations };
+    };
+
     const variantConfigs = useMemo(() => {
         return variants.map(v => {
-            if (!path.animation || !path.animation.types || path.animation.types.length === 0) {
-                return { points: v.points, multiPoints: v.multiPoints, pathStyles: {}, groupAnimations: [], variantType: v.type };
-            }
+            const { pathStyles, groupAnimations } = getStylesForAnimation(
+                path.animation,
+                path.color || '#22d3ee',
+                v.type,
+                isDragging || animationPaused
+            );
 
-            const { types, duration, delay, ease, direction = 'forward' } = path.animation;
-
-            let pathStyles: React.CSSProperties = {};
-            const groupAnimations: React.CSSProperties[] = [];
-
-            types.filter(t => t !== 'none').forEach(type => {
-                const baseStyle: React.CSSProperties = {
-                    animationDuration: `${duration}s`,
-                    animationDelay: `${delay}s`,
-                    animationTimingFunction: ease,
-                    animationIterationCount: 'infinite',
-                    animationFillMode: 'forwards',
-                    animationPlayState: (isDragging || animationPaused) ? 'paused' : 'running'
-                };
-
-                let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
-                    direction === 'forward' ? 'normal' :
-                        direction === 'alternate' ? 'alternate' : 'reverse';
-
-                switch (type) {
-                    case 'draw':
-                        // Draw animation MUST be on the path itself, not in a group
-                        // Only set if not already set (in case of multiple draw in types array)
-                        if (!pathStyles.animationName) {
-                            pathStyles = {
-                                ...baseStyle,
-                                animationName: 'drawPath',
-                                strokeDasharray: '1000',
-                                strokeDashoffset: '1000',
-                                animationDirection: finalDirection
-                            };
-                        }
-                        break;
-                    case 'pulse':
-                        groupAnimations.push({ ...baseStyle, animationName: 'pulsePath', animationDirection: finalDirection });
-                        break;
-                    case 'float':
-                        const floatStyle = { ...baseStyle, animationName: 'floatPath', animationDirection: finalDirection };
-                        if (v.type === 'V' || v.type === 'C') {
-                            // @ts-ignore
-                            floatStyle['--float-dist'] = '10px';
-                        }
-                        groupAnimations.push(floatStyle);
-                        break;
-                    case 'spin':
-                        if (v.type === 'H' || v.type === 'V') {
-                            if (finalDirection === 'normal') finalDirection = 'reverse';
-                            else if (finalDirection === 'reverse') finalDirection = 'normal';
-                        }
-                        groupAnimations.push({ ...baseStyle, animationName: 'spinPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
-                        break;
-                    case 'bounce':
-                        groupAnimations.push({ ...baseStyle, animationName: 'bouncePath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
-                        break;
-                    case 'glow':
-                        const glowStyle = { ...baseStyle, animationName: 'glowPath', animationDirection: finalDirection };
-                        // @ts-ignore
-                        glowStyle['--glow-color'] = path.color || '#22d3ee';
-                        groupAnimations.push(glowStyle);
-                        break;
-                    case 'shake':
-                        groupAnimations.push({ ...baseStyle, animationName: 'shakePath', animationDirection: finalDirection });
-                        break;
-                    case 'swing':
-                        groupAnimations.push({ ...baseStyle, animationName: 'swingPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
-                        break;
-                    case 'tada':
-                        groupAnimations.push({ ...baseStyle, animationName: 'tadaPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
-                        break;
-                }
-            });
-
-            return { points: v.points, multiPoints: v.multiPoints, pathStyles, groupAnimations, variantType: v.type };
+            // Need to return multiD if it exists in v
+            // v structure comes from applySymmetry: { points, type, multiPoints?, multiD? }
+            return {
+                points: v.points,
+                multiPoints: v.multiPoints,
+                pathStyles,
+                groupAnimations,
+                variantType: v.type,
+                // @ts-ignore
+                multiD: v.multiD
+            };
         });
     }, [path.animation, variants, path.color, isDragging, animationPaused]);
 
@@ -225,18 +249,31 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     // To satisfy "only select clicked element", we highlight all only if no segment focus is possible (not multi-path)
                     // For multi-path, if no segments are focused, we don't highlight any segment with the selection color.
                     // If focusedSegmentIndices is empty, we assume the whole group is selected (e.g. via Layer Panel or Box Select)
-                    // So we highlight ALL segments in that case.
-                    // If focusedSegmentIndices has items, we only highlight those specific segments.
                     const shouldHighlight = selected && (path.multiPathPoints ? (focusedSegmentIndices.length === 0 || isFocused) : true);
 
-                    return (
+                    const segmentColor = (sIdx !== undefined && path.segmentColors?.[sIdx]) || path.color || '#22d3ee';
+                    const segmentFill = (sIdx !== undefined && path.segmentFills?.[sIdx]) || path.fill || 'none';
+                    const segmentWidth = (sIdx !== undefined ? path.segmentWidths?.[sIdx] : undefined) ?? (path.width || 2);
+                    const segmentAnim = (sIdx !== undefined ? path.segmentAnimations?.[sIdx] : undefined) || undefined;
+
+                    // Calculate segment-specific animations
+                    // Note: variantType is inherited from the parent configuration if applicable, but for merged layers it might be less relevant unless symmetry is involved.
+                    // We use config.variantType if available.
+                    const { pathStyles: segPathStyles, groupAnimations: segGroupAnimations } = getStylesForAnimation(
+                        segmentAnim,
+                        segmentColor,
+                        config.variantType,
+                        isDragging || animationPaused
+                    );
+
+                    const pathElement = (
                         <path
                             key={sIdx ?? 'main'}
                             d={dStr}
-                            stroke={shouldHighlight ? '#f59e0b' : (path.color || '#22d3ee')}
+                            stroke={shouldHighlight ? '#f59e0b' : segmentColor}
                             strokeOpacity={path.strokeOpacity ?? 1}
-                            strokeWidth={path.width || 2}
-                            fill={path.fill || 'none'}
+                            strokeWidth={segmentWidth}
+                            fill={segmentFill}
                             fillOpacity={path.fillOpacity ?? 1}
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -247,10 +284,16 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                             )}
                             style={{
                                 pointerEvents: mode === 'edit' ? 'all' : 'none',
-                                ...config.pathStyles
+                                ...config.pathStyles, // Apply global path styles (e.g. from global animation if any)
+                                ...segPathStyles     // Apply segment specific path styles (overrides global if collision, but usually distinct)
                             }}
                         />
                     );
+
+                    if (segGroupAnimations.length > 0) {
+                        return wrapInAnimations(pathElement, segGroupAnimations, `seg-${sIdx ?? 'main'}`);
+                    }
+                    return pathElement;
                 };
 
                 const element = path.type === 'text' ? (

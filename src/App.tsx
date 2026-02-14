@@ -11,10 +11,11 @@ import { SVG_DEFS } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0214.1522', date: '2026-02-14', items: ['修复合并图层后材质和动画丢失的问题，支持保留子图形的独立样式和动画'] },
   {
     version: 'v26.0214.1425',
     date: '2026-02-14',
-    items: ['新增Ctrl多选子图形功能', '支持按住Ctrl点击合并图层中的多个子图形', '可对多个选中的子图形进行整体变换(平移/旋转/缩放)', '显示所有选中子图形的整体边界框和控制手柄']
+    items: ['优化合并图层内的子图形选择逻辑，支持使用Ctrl键多选子图形并进行批量变换', '支持按住Ctrl点击合并图层中的多个子图形', '可对多个选中的子图形进行整体变换(平移/旋转/缩放)', '显示所有选中子图形的整体边界框和控制手柄']
   },
   {
     version: 'v26.0214.1418',
@@ -656,6 +657,10 @@ ${pathsCode}
 
               {animation.types.length > 0 && (
                 <div className="flex-1 grid grid-cols-5 gap-3 animate-in fade-in slide-in-from-left-2 duration-300 items-center">
+                  <div className="flex flex-col">
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">SVG Editor</h1>
+                    <span className="text-xs text-gray-500 font-mono">v26.0214.1522</span>
+                  </div>
                   <div className="flex flex-col gap-1">
                     <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
                       <span>Time</span>

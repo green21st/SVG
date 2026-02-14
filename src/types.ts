@@ -24,6 +24,13 @@ export interface PathLayer {
     fontSize?: number;
     fontFamily?: string;
     rotation?: number;
+    // Segment-specific styles for merged paths
+    segmentColors?: string[];
+    segmentFills?: string[];
+    segmentWidths?: number[];
+    segmentAnimations?: AnimationSettings[];
+    segmentClosed?: boolean[];
+    segmentTensions?: number[];
 }
 
 export type AnimationType = 'none' | 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';
