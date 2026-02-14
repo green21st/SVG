@@ -43,6 +43,7 @@ function useDraw() {
     const [mode, setMode] = useState<'draw' | 'edit'>('draw');
     const [selectedPathIds, setSelectedPathIds] = useState<string[]>([]);
     const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
+    const [focusedSegmentIndices, setFocusedSegmentIndices] = useState<number[]>([]);
     const isDraggingRef = useRef(false);
 
     const [activeTool, setActiveTool] = useState<'brush' | 'pen' | 'square' | 'circle' | 'triangle' | 'star' | 'image'>('brush');
@@ -240,6 +241,35 @@ function useDraw() {
         setSelectedPathIds([mergedPath.id]);
     }, [selectedPathIds, paths, setPaths]);
 
+    const splitSelected = useCallback(() => {
+        if (selectedPathIds.length === 0) return;
+
+        setPaths(prev => {
+            const newPaths: PathLayer[] = [];
+            let splitOccurred = false;
+
+            prev.forEach(p => {
+                if (selectedPathIds.includes(p.id) && p.multiPathPoints && p.multiPathPoints.length > 1) {
+                    splitOccurred = true;
+                    p.multiPathPoints.forEach((seg, sIdx) => {
+                        newPaths.push({
+                            ...p,
+                            id: `split-${p.id}-${sIdx}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                            name: `${p.name} (Part ${sIdx + 1})`,
+                            points: seg,
+                            multiPathPoints: undefined,
+                            d: undefined
+                        });
+                    });
+                } else {
+                    newPaths.push(p);
+                }
+            });
+
+            return splitOccurred ? newPaths : prev;
+        });
+    }, [selectedPathIds, setPaths]);
+
     const setStrokeColorEnhanced = useCallback((color: string, commit: boolean = true) => {
         setIsInteracting(!commit);
         setStrokeColor(color);
@@ -402,7 +432,13 @@ function useDraw() {
             const selectedPaths = paths.filter(p => selectedPathIds.includes(p.id));
             if (selectedPaths.length > 0) {
                 // For multiple paths, calculate collective bounding box
-                const allPoints = selectedPaths.flatMap(p => p.points);
+                const allPoints = selectedPaths.flatMap(p => {
+                    if (selectedPaths.length === 1 && focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                        // Collect points from all focused segments
+                        return focusedSegmentIndices.flatMap(idx => p.multiPathPoints![idx] || []);
+                    }
+                    return p.points;
+                });
                 const box = getBoundingBox(allPoints);
                 const pivot = { x: box.centerX, y: box.centerY };
                 const rect = canvasRef.current!.getBoundingClientRect();
@@ -515,34 +551,103 @@ function useDraw() {
                 }
             }
 
-            if (pathId) {
-                const isCtrl = e.ctrlKey || e.metaKey;
-                if (isCtrl) {
-                    setSelectedPathIds(prev =>
-                        prev.includes(pathId) ? prev.filter(id => id !== pathId) : [...prev, pathId]
-                    );
-                } else {
-                    setSelectedPathIds([pathId]);
+            const path = paths.find(p => p.id === pathId);
+            if (path) {
+                // 1. Detect clicked segment index first
+                let bestSegIdx = -1;
+                if (path.multiPathPoints) {
+                    const target = e.target as HTMLElement;
+                    const segmentIndexAttr = target.closest('[data-segment-index]')?.getAttribute('data-segment-index');
+                    bestSegIdx = (segmentIndexAttr !== null && segmentIndexAttr !== undefined) ? parseInt(segmentIndexAttr) : -1;
+
+                    if (bestSegIdx === -1) {
+                        const mouseSVG = { x: (mouseX - panOffset.x) / zoom, y: (mouseY - panOffset.y) / zoom };
+                        let minSegDist = 15 / zoom;
+
+                        path.multiPathPoints.forEach((seg, sIdx) => {
+                            for (let i = 0; i < seg.length - 1; i++) {
+                                const d = distToSegment(mouseSVG, seg[i], seg[i + 1]);
+                                if (d < minSegDist) { minSegDist = d; bestSegIdx = sIdx; }
+                            }
+                            if (path.closed && seg.length > 2) {
+                                const d = distToSegment(mouseSVG, seg[seg.length - 1], seg[0]);
+                                if (d < minSegDist) { minSegDist = d; bestSegIdx = sIdx; }
+                            }
+                        });
+                    }
                 }
+
+                const isCtrl = e.ctrlKey || e.metaKey;
+                let nextFocusedIndices: number[] = [];
+
+                if (bestSegIdx !== -1) {
+                    // Clicked on a sub-shape
+                    if (isCtrl) {
+                        if (!selectedPathIds.includes(pathId)) {
+                            // If path not selected yet, select path and this segment
+                            setSelectedPathIds(prev => [...prev, pathId]);
+                            nextFocusedIndices = [bestSegIdx];
+                            setFocusedSegmentIndices(nextFocusedIndices);
+                        } else {
+                            // Path already selected, toggle segment
+                            if (focusedSegmentIndices.includes(bestSegIdx)) {
+                                nextFocusedIndices = focusedSegmentIndices.filter(i => i !== bestSegIdx);
+                            } else {
+                                nextFocusedIndices = [...focusedSegmentIndices, bestSegIdx];
+                            }
+                            setFocusedSegmentIndices(nextFocusedIndices);
+                        }
+                    } else {
+                        // Single select (or keep multi-select if clicking existing to allow drag)
+                        setSelectedPathIds([pathId]);
+                        if (focusedSegmentIndices.includes(bestSegIdx)) {
+                            nextFocusedIndices = focusedSegmentIndices;
+                        } else {
+                            nextFocusedIndices = [bestSegIdx];
+                        }
+                        setFocusedSegmentIndices(nextFocusedIndices);
+                    }
+                } else {
+                    // Clicked on path background (no sub-shape hit)
+                    nextFocusedIndices = [];
+                    if (isCtrl) {
+                        setSelectedPathIds(prev =>
+                            prev.includes(pathId) ? prev.filter(id => id !== pathId) : [...prev, pathId]
+                        );
+                        setFocusedSegmentIndices([]);
+                    } else {
+                        setSelectedPathIds([pathId]);
+                        setFocusedSegmentIndices([]);
+                    }
+                }
+
+                // 2. Calculate Bounding Box (Pivot) using the NEXT state
+                let pointsForBox: Point[] = [];
+                if (path.multiPathPoints && nextFocusedIndices.length > 0) {
+                    nextFocusedIndices.forEach(idx => {
+                        if (path.multiPathPoints![idx]) pointsForBox.push(...path.multiPathPoints![idx]);
+                    });
+                } else {
+                    pointsForBox = path.points;
+                }
+
+                const box = getBoundingBox(pointsForBox);
+                setTransformPivot({ x: box.centerX, y: box.centerY });
 
                 setTransformMode('translate');
                 setInitialMousePos({ x: mouseX, y: mouseY });
 
-                const path = paths.find(p => p.id === pathId);
-                if (path) {
-                    const box = getBoundingBox(path.points);
-                    setTransformPivot({ x: box.centerX, y: box.centerY });
+
+            } else {
+                // If we didn't click a path, check if we clicked the background to deselect
+                if (!pathId && !handleType) {
+                    setSelectedPathIds([]);
+                    setFocusedSegmentIndices([]);
                 }
-
-                isDraggingRef.current = false;
-                return;
             }
-
-            if (target === canvasRef.current || target.tagName === 'svg') {
-                setSelectedPathIds([]);
-            }
+            isDraggingRef.current = false;
         }
-    }, [getPointFromEvent, mode, paths, selectedPathIds, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset]);
+    }, [getPointFromEvent, mode, paths, selectedPathIds, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset, focusedSegmentIndices]);
 
     const handlePointerMove = useCallback((e: React.MouseEvent) => {
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -636,75 +741,109 @@ function useDraw() {
                             let newPoints = [...p.points];
                             let newMultiPoints = p.multiPathPoints ? p.multiPathPoints.map(seg => [...seg]) : undefined;
 
-                            if (transformMode === 'rotate' && transformPivot) {
-                                const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
-                                const deltaAngle = currentAngle - initialAngle; // Use global initialAngle for delta
-                                const cos = Math.cos(deltaAngle);
-                                const sin = Math.sin(deltaAngle);
+                            if (transformPivot) {
+                                if (transformMode === 'rotate') {
+                                    const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
+                                    const deltaAngle = currentAngle - initialAngle;
+                                    const cos = Math.cos(deltaAngle);
+                                    const sin = Math.sin(deltaAngle);
 
-                                newPoints = p.points.map(pt => { // Use p.points as base
-                                    const dx = pt.x - transformPivot.x;
-                                    const dy = pt.y - transformPivot.y;
-                                    return {
-                                        x: transformPivot.x + dx * cos - dy * sin,
-                                        y: transformPivot.y + dx * sin + dy * cos
-                                    };
-                                });
+                                    if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                                        newMultiPoints = p.multiPathPoints.map((seg, sIdx) =>
+                                            focusedSegmentIndices.includes(sIdx)
+                                                ? seg.map(pt => {
+                                                    const dx = pt.x - transformPivot.x;
+                                                    const dy = pt.y - transformPivot.y;
+                                                    return {
+                                                        x: transformPivot.x + dx * cos - dy * sin,
+                                                        y: transformPivot.y + dx * sin + dy * cos
+                                                    };
+                                                })
+                                                : seg
+                                        );
+                                        newPoints = newMultiPoints.flat();
+                                    } else {
+                                        newPoints = p.points.map(pt => {
+                                            const dx = pt.x - transformPivot.x;
+                                            const dy = pt.y - transformPivot.y;
+                                            return {
+                                                x: transformPivot.x + dx * cos - dy * sin,
+                                                y: transformPivot.y + dx * sin + dy * cos
+                                            };
+                                        });
+                                        if (newMultiPoints) {
+                                            newMultiPoints = newMultiPoints.map(seg => seg.map(pt => {
+                                                const dx = pt.x - transformPivot.x;
+                                                const dy = pt.y - transformPivot.y;
+                                                return {
+                                                    x: transformPivot.x + dx * cos - dy * sin,
+                                                    y: transformPivot.y + dx * sin + dy * cos
+                                                };
+                                            }));
+                                        }
+                                        if (p.type === 'text') {
+                                            const deltaDegrees = (deltaAngle * 180) / Math.PI;
+                                            return {
+                                                ...p,
+                                                points: newPoints,
+                                                rotation: (p.rotation || 0) + deltaDegrees,
+                                                d: undefined
+                                            } as PathLayer;
+                                        }
+                                    }
+                                } else if (transformMode === 'scale') {
+                                    const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
+                                    const scaleFactor = currentDist / initialDist;
 
-                                if (newMultiPoints) {
-                                    newMultiPoints = newMultiPoints.map(seg => seg.map(pt => { // Use seg points as base
-                                        const dx = pt.x - transformPivot.x;
-                                        const dy = pt.y - transformPivot.y;
-                                        return {
-                                            x: transformPivot.x + dx * cos - dy * sin,
-                                            y: transformPivot.y + dx * sin + dy * cos
-                                        };
-                                    }));
-                                }
+                                    if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                                        newMultiPoints = p.multiPathPoints.map((seg, sIdx) =>
+                                            focusedSegmentIndices.includes(sIdx)
+                                                ? seg.map(pt => ({
+                                                    x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
+                                                    y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
+                                                }))
+                                                : seg
+                                        );
+                                        newPoints = newMultiPoints.flat();
+                                    } else {
+                                        newPoints = p.points.map(pt => ({
+                                            x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
+                                            y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
+                                        }));
+                                        if (newMultiPoints) {
+                                            newMultiPoints = newMultiPoints.map(seg => seg.map(pt => ({
+                                                x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
+                                                y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
+                                            })));
+                                        }
+                                        if (p.type === 'text') {
+                                            return {
+                                                ...p,
+                                                points: newPoints,
+                                                fontSize: (p.fontSize || 40) * scaleFactor,
+                                                d: undefined
+                                            } as PathLayer;
+                                        }
+                                    }
+                                } else if (transformMode === 'translate' && initialMousePos) {
+                                    const dx_s = (mouseX - initialMousePos.x) / zoom;
+                                    const dy_s = (mouseY - initialMousePos.y) / zoom;
 
-                                if (p.type === 'text') {
-                                    const deltaDegrees = (deltaAngle * 180) / Math.PI;
-                                    return {
-                                        ...p,
-                                        points: newPoints,
-                                        rotation: (p.rotation || 0) + deltaDegrees, // Apply delta to path's current rotation
-                                        d: undefined
-                                    } as PathLayer;
-                                }
-                            } else if (transformMode === 'scale' && transformPivot) {
-                                const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
-                                const scaleFactor = currentDist / initialDist; // Use global initialDist for factor
-
-                                newPoints = p.points.map(pt => ({ // Use p.points as base
-                                    x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
-                                    y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
-                                }));
-
-                                if (newMultiPoints) {
-                                    newMultiPoints = newMultiPoints.map(seg => seg.map(pt => ({ // Use seg points as base
-                                        x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
-                                        y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
-                                    })));
-                                }
-
-                                if (p.type === 'text') {
-                                    return {
-                                        ...p,
-                                        points: newPoints,
-                                        fontSize: (p.fontSize || 40) * scaleFactor, // Apply factor to path's current fontSize
-                                        d: undefined
-                                    } as PathLayer;
-                                }
-                            } else if (transformMode === 'translate' && initialMousePos) {
-                                const dx_s = (mouseX - initialMousePos.x) / zoom;
-                                const dy_s = (mouseY - initialMousePos.y) / zoom;
-
-                                newPoints = p.points.map(pt => ({ x: pt.x + dx_s, y: pt.y + dy_s })); // Use p.points as base
-
-                                if (newMultiPoints) {
-                                    newMultiPoints = newMultiPoints.map(seg => seg.map(pt => ({
-                                        x: pt.x + dx_s, y: pt.y + dy_s
-                                    })));
+                                    if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                                        newMultiPoints = p.multiPathPoints.map((seg, sIdx) =>
+                                            focusedSegmentIndices.includes(sIdx)
+                                                ? seg.map(pt => ({ x: pt.x + dx_s, y: pt.y + dy_s }))
+                                                : seg
+                                        );
+                                        newPoints = newMultiPoints.flat();
+                                    } else {
+                                        newPoints = p.points.map(pt => ({ x: pt.x + dx_s, y: pt.y + dy_s }));
+                                        if (newMultiPoints) {
+                                            newMultiPoints = newMultiPoints.map(seg => seg.map(pt => ({
+                                                x: pt.x + dx_s, y: pt.y + dy_s
+                                            })));
+                                        }
+                                    }
                                 }
                             }
 
@@ -764,7 +903,7 @@ function useDraw() {
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom]);
+    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
@@ -791,6 +930,7 @@ function useDraw() {
             setPaths(prev => [...prev, newPath]);
             setCurrentPoints([]);
             isDrawingBrushRef.current = false;
+            setFocusedSegmentIndices([]);
         } else if (mode === 'draw' && shapeStartPoint && currentPoints.length > 2) {
             const timestamp = Date.now();
             const newPath: PathLayer = {
@@ -812,16 +952,25 @@ function useDraw() {
             setPaths(prev => [...prev, newPath]);
             setCurrentPoints([]);
             setShapeStartPoint(null);
+            setFocusedSegmentIndices([]);
         }
 
         setCursorPos(null);
+
+        // Only clear focusedSegmentIndices when dragging individual points, not during transform operations
+        if (draggingPointIndex !== null) {
+            setFocusedSegmentIndices([]);
+        }
+        // Keep focusedSegmentIndices intact for transform operations (translate/rotate/scale)
+        // This allows continuous transformations on the selected sub-shapes
+
         setDraggingPointIndex(null);
         setTransformMode('none');
         setTransformHandle(null);
         setInitialPoints(null);
         isDraggingRef.current = false;
         setShapeStartPoint(null);
-    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths, activeTool, animation, fillOpacity, paths.length, strokeOpacity]);
+    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths, activeTool, animation, fillOpacity, paths.length, strokeOpacity, draggingPointIndex]);
 
     const handlePointerLeave = useCallback(() => {
         setCursorPos(null);
@@ -1005,7 +1154,6 @@ function useDraw() {
 
         setPaths(prev => [...prev, newPath]);
         setSelectedPathIds([newPath.id]);
-        setMode('edit');
     }, [strokeColor, symmetry, setPaths]);
 
     return {
@@ -1037,6 +1185,8 @@ function useDraw() {
         setMode,
         selectedPathIds,
         setSelectedPathIds,
+        focusedSegmentIndices,
+        setFocusedSegmentIndices,
         undo,
         redo,
         canUndo,
@@ -1073,6 +1223,7 @@ function useDraw() {
         setPanOffset,
         isSpacePressed,
         mergeSelected,
+        splitSelected,
         moveSelectedUp,
         moveSelectedDown
     };

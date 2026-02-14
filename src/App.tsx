@@ -12,6 +12,36 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0214.1425',
+    date: '2026-02-14',
+    items: ['新增Ctrl多选子图形功能', '支持按住Ctrl点击合并图层中的多个子图形', '可对多个选中的子图形进行整体变换(平移/旋转/缩放)', '显示所有选中子图形的整体边界框和控制手柄']
+  },
+  {
+    version: 'v26.0214.1418',
+    date: '2026-02-14',
+    items: ['修复合并图层中子图形选中后控制框立即消失的问题', '变换操作(平移/旋转/缩放)完成后保持子图形选中状态', '支持对单个子图形进行连续的变换操作']
+  },
+  {
+    version: 'v26.0214.1400',
+    date: '2026-02-14',
+    items: ['彻底修复合并图层中子图形的控制框显示问题', '优化基于 data-segment-index 的点击命中逻辑，确保子图形变换（平移/旋转/缩放）独立生效', '完善未选中子图形时的整体变换回退机制']
+  },
+  {
+    version: 'v26.0214.1350',
+    date: '2026-02-14',
+    items: ['完善合并图层中单个图形的选择高亮逻辑', '实现基于 data-segment-index 的子图形精准点击判定', '重构 PathItem 渲染方式，支持合并图层子路径的独立交互']
+  },
+  {
+    version: 'v26.0214.1342',
+    date: '2026-02-14',
+    items: ['增强编辑模式下的背景点击检测，确保点击空白区域可正确取消选择', '修复合并图层点击判定逻辑，支持子图形的精准再次选中', '优化变换控制框的显示逻辑，仅在子图形被激活时呈现']
+  },
+  {
+    version: 'v26.0214.1258',
+    date: '2026-02-14',
+    items: ['支持合并图层内部图形的单独编辑（位移）', '新增图层拆分 (Split) 功能，可将合并图层恢复为独立图层', '优化编辑模式下的图形碰撞判定算法']
+  },
+  {
     version: 'v26.0214.1620',
     date: '2026-02-14',
     items: ['实现图层面板 Ctrl + 点击多选功能', '修改图层合并逻辑为仅合并当前选中的多个图层', '支持多图层同步旋转、缩放与平移变换', '重构选择状态管理以支持批量操作']
@@ -90,6 +120,7 @@ function App() {
     deleteSelectedPath,
     duplicateSelectedPath,
     mergeSelected,
+    splitSelected,
     moveSelectedUp,
     moveSelectedDown,
     strokeOpacity,
@@ -111,7 +142,9 @@ function App() {
     clearCanvas,
     setPaths,
     mode,
-    setMode
+    setMode,
+    focusedSegmentIndices,
+    setFocusedSegmentIndices
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -330,12 +363,12 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0214.1205
+              v26.0214.1425
             </button>
           </h1>
         </div>
         <div className="flex items-center gap-4 bg-slate-900/50 px-3 py-1 rounded-full border border-white/5">
-          <span className="text-[10px] font-black tracking-[0.2em] text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20">v26.0214.1620</span>
+          <span className="text-[10px] font-black tracking-[0.2em] text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20">v26.0214.1425</span>
           <span id="busuanzi_container_site_pv" className="text-[10px] font-medium text-slate-400 flex items-center gap-1.5">
             <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></span>
             VIEWS: <span id="busuanzi_value_site_pv" className="text-primary tracking-wider">-</span>
@@ -507,6 +540,7 @@ ${pathsCode}
                 zoom={zoom}
                 panOffset={panOffset}
                 isSpacePressed={isSpacePressed}
+                focusedSegmentIndices={focusedSegmentIndices}
               />
 
               {/* Zoom Indicator Overlay */}
@@ -695,6 +729,7 @@ ${pathsCode}
               paths={paths}
               selectedPathIds={selectedPathIds}
               onSelect={(id, isMulti) => {
+                setFocusedSegmentIndices([]); // Clear any specific segment focus when selecting from panel
                 if (isMulti) {
                   setSelectedPathIds(prev =>
                     prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -702,7 +737,6 @@ ${pathsCode}
                 } else {
                   setSelectedPathIds([id]);
                 }
-                setMode('edit');
               }}
               onReorder={setPathsInternal}
               onReorderEnd={setPaths}
@@ -712,6 +746,7 @@ ${pathsCode}
                 setSelectedPathIds(prev => prev.filter(item => item !== id));
               }}
               onMerge={mergeSelected}
+              onSplit={splitSelected}
               onMoveUp={moveSelectedUp}
               onMoveDown={moveSelectedDown}
             />

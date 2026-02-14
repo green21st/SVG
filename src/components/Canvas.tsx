@@ -12,9 +12,10 @@ interface PathItemProps {
     isDragging: boolean;
     getBoundingBox: (points: Point[]) => any;
     animationPaused: boolean;
+    focusedSegmentIndices: number[];
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices }) => {
     const selected = selectedPathIds.includes(path.id);
     // Canvas dimensions for symmetry center
     const width = 800;
@@ -46,8 +47,25 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 centerY
             };
         }
+        if (path.multiPathPoints) {
+            if (focusedSegmentIndices.length > 0) {
+                // Calculate bounding box for all focused segments
+                const allPoints: Point[] = [];
+                focusedSegmentIndices.forEach(idx => {
+                    if (path.multiPathPoints && path.multiPathPoints[idx]) {
+                        allPoints.push(...path.multiPathPoints[idx]);
+                    }
+                });
+                if (allPoints.length > 0) {
+                    return getBoundingBox(allPoints);
+                }
+            }
+            // User requested to disable overall selection box for merged layers.
+            // Only show box if specific segments are focused.
+            return null;
+        }
         return getBoundingBox(path.points);
-    }, [selected, path.points, path.type, path.fontSize, path.text, getBoundingBox]);
+    }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, path.type, path.fontSize, path.text, getBoundingBox]);
 
     const variantConfigs = useMemo(() => {
         return variants.map(v => {
@@ -201,9 +219,39 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 const pathStyleKey = (config.pathStyles as React.CSSProperties).animationName || 'no-path-anim';
                 const fullKey = `${path.id}-v${vIdx}-${pathStyleKey}-${animKey}`;
 
-                const d = (config.variantType === 'I' && path.d && !isDragging)
-                    ? path.d
-                    : smoothPath(path.multiPathPoints || config.points, path.tension, path.closed);
+                const renderPathElement = (dStr: string, sIdx?: number) => {
+                    const isFocused = sIdx !== undefined && focusedSegmentIndices.includes(sIdx);
+                    // If focusedSegmentIndices is empty, we can either highlight all or none. 
+                    // To satisfy "only select clicked element", we highlight all only if no segment focus is possible (not multi-path)
+                    // For multi-path, if no segments are focused, we don't highlight any segment with the selection color.
+                    // If focusedSegmentIndices is empty, we assume the whole group is selected (e.g. via Layer Panel or Box Select)
+                    // So we highlight ALL segments in that case.
+                    // If focusedSegmentIndices has items, we only highlight those specific segments.
+                    const shouldHighlight = selected && (path.multiPathPoints ? (focusedSegmentIndices.length === 0 || isFocused) : true);
+
+                    return (
+                        <path
+                            key={sIdx ?? 'main'}
+                            d={dStr}
+                            stroke={shouldHighlight ? '#f59e0b' : (path.color || '#22d3ee')}
+                            strokeOpacity={path.strokeOpacity ?? 1}
+                            strokeWidth={path.width || 2}
+                            fill={path.fill || 'none'}
+                            fillOpacity={path.fillOpacity ?? 1}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            data-path-id={path.id}
+                            data-segment-index={sIdx}
+                            className={cn(
+                                mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
+                            )}
+                            style={{
+                                pointerEvents: mode === 'edit' ? 'all' : 'none',
+                                ...config.pathStyles
+                            }}
+                        />
+                    );
+                };
 
                 const element = path.type === 'text' ? (
                     <text
@@ -232,24 +280,19 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         {path.text}
                     </text>
                 ) : (
-                    <path
-                        d={d}
-                        stroke={selected ? '#f59e0b' : (path.color || '#22d3ee')}
-                        strokeOpacity={path.strokeOpacity ?? 1}
-                        strokeWidth={path.width || 2}
-                        fill={path.fill || 'none'}
-                        fillOpacity={path.fillOpacity ?? 1}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        data-path-id={path.id}
-                        className={cn(
-                            mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
-                        )}
-                        style={{
-                            pointerEvents: mode === 'edit' ? 'all' : 'none',
-                            ...config.pathStyles
-                        }}
-                    />
+                    (config.variantType === 'I' && path.d && !isDragging && !config.multiPoints) ? (
+                        renderPathElement(path.d)
+                    ) : (
+                        config.multiPoints ? (
+                            <g data-path-id={path.id}>
+                                {config.multiPoints.map((segPoints, sIdx) =>
+                                    renderPathElement(smoothPath(segPoints, path.tension, path.closed), sIdx)
+                                )}
+                            </g>
+                        ) : (
+                            renderPathElement(smoothPath(config.points, path.tension, path.closed))
+                        )
+                    )
                 );
 
                 return (
@@ -377,8 +420,13 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                             </g>
                                         )}
 
-                                        {/* Direct Point Edit Handles */}
-                                        {config.points.map((p, i) => (
+                                        {/* Direct Point Edit Handles - Show Focused Segments if MultiPath and focused, otherwise show all */}
+                                        {(path.multiPathPoints
+                                            ? (focusedSegmentIndices.length > 0 && config.multiPoints
+                                                ? focusedSegmentIndices.flatMap(idx => config.multiPoints![idx] || [])
+                                                : config.points)
+                                            : config.points
+                                        ).map((p, i) => (
                                             <g key={`handle-group-${i}`} className="group pointer-events-auto">
                                                 <circle
                                                     cx={p.x}
@@ -586,6 +634,7 @@ interface CanvasProps {
     zoom: number;
     panOffset: Point;
     isSpacePressed: boolean;
+    focusedSegmentIndices: number[];
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -615,7 +664,8 @@ const Canvas: React.FC<CanvasProps> = ({
     bgTransform,
     zoom,
     panOffset,
-    isSpacePressed
+    isSpacePressed,
+    focusedSegmentIndices
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -728,6 +778,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             isDragging={isDragging}
                             getBoundingBox={getBoundingBox}
                             animationPaused={animationPaused}
+                            focusedSegmentIndices={focusedSegmentIndices}
                         />
                     ))}
                 </svg>

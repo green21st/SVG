@@ -1,6 +1,6 @@
 import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Eye, EyeOff, Trash2, GripVertical, Layers, ChevronUp, ChevronDown, ArrowDownToLine, Combine } from 'lucide-react';
+import { Eye, EyeOff, Trash2, GripVertical, Layers, ChevronUp, ChevronDown, Combine, Ungroup } from 'lucide-react';
 import type { PathLayer } from '../types';
 import { cn } from '../utils/cn';
 
@@ -13,6 +13,7 @@ interface LayerPanelProps {
     onToggleVisibility: (id: string) => void;
     onDelete: (id: string) => void;
     onMerge: () => void;
+    onSplit: () => void;
     onMoveUp: () => void;
     onMoveDown: () => void;
 }
@@ -26,6 +27,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
     onToggleVisibility,
     onDelete,
     onMerge,
+    onSplit,
     onMoveUp,
     onMoveDown
 }) => {
@@ -105,6 +107,14 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1">
+                    <button
+                        onClick={onSplit}
+                        disabled={selectedPathIds.length === 0}
+                        className="p-1.5 rounded-md text-amber-400 hover:text-amber-300 hover:bg-amber-400/10 transition-all disabled:opacity-30 disabled:pointer-events-none"
+                        title="Split merged layer"
+                    >
+                        <Ungroup size={16} />
+                    </button>
                     <button
                         onClick={onMerge}
                         disabled={selectedPathIds.length < 2}
