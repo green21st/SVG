@@ -678,6 +678,9 @@ interface CanvasProps {
     panOffset: Point;
     isSpacePressed: boolean;
     focusedSegmentIndices: number[];
+    transformMode: 'none' | 'rotate' | 'scale' | 'translate';
+    transformPivot: Point | null;
+    currentRotationDelta: number;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -708,7 +711,10 @@ const Canvas: React.FC<CanvasProps> = ({
     zoom,
     panOffset,
     isSpacePressed,
-    focusedSegmentIndices
+    focusedSegmentIndices,
+    transformMode,
+    transformPivot,
+    currentRotationDelta
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -905,6 +911,86 @@ const Canvas: React.FC<CanvasProps> = ({
                             strokeDasharray="4,4"
                             opacity={0.5}
                         />
+                    )}
+
+                    {/* Rotation Center and Angle Visualization */}
+                    {transformMode === 'rotate' && transformPivot && (
+                        <g className="pointer-events-none">
+                            {/* Rotation Center */}
+                            <circle
+                                cx={transformPivot.x}
+                                cy={transformPivot.y}
+                                r={12}
+                                fill="rgba(245, 158, 11, 0.1)"
+                                stroke="#f59e0b"
+                                strokeWidth={2}
+                                opacity={0.6}
+                            />
+                            <circle
+                                cx={transformPivot.x}
+                                cy={transformPivot.y}
+                                r={4}
+                                fill="#f59e0b"
+                                stroke="#fff"
+                                strokeWidth={2}
+                            />
+                            <line
+                                x1={transformPivot.x - 8}
+                                y1={transformPivot.y}
+                                x2={transformPivot.x + 8}
+                                y2={transformPivot.y}
+                                stroke="#f59e0b"
+                                strokeWidth={1}
+                                opacity={0.6}
+                            />
+                            <line
+                                x1={transformPivot.x}
+                                y1={transformPivot.y - 8}
+                                x2={transformPivot.x}
+                                y2={transformPivot.y + 8}
+                                stroke="#f59e0b"
+                                strokeWidth={1}
+                                opacity={0.6}
+                            />
+
+                            {/* Angle Arc */}
+                            {(() => {
+                                const radius = 50;
+                                const normalizedAngle = ((currentRotationDelta % 360) + 360) % 360;
+                                const angleRadians = (currentRotationDelta * Math.PI) / 180;
+                                const startX = transformPivot.x + radius;
+                                const startY = transformPivot.y;
+                                const endX = transformPivot.x + radius * Math.cos(angleRadians);
+                                const endY = transformPivot.y + radius * Math.sin(angleRadians);
+                                const largeArcFlag = Math.abs(normalizedAngle) > 180 ? 1 : 0;
+                                const sweepFlag = currentRotationDelta > 0 ? 1 : 0;
+
+                                return (
+                                    <g>
+                                        {/* Arc */}
+                                        <path
+                                            d={`M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${endX} ${endY}`}
+                                            fill="none"
+                                            stroke="#f59e0b"
+                                            strokeWidth={2}
+                                            opacity={0.6}
+                                        />
+                                        {/* Angle Display */}
+                                        <text
+                                            x={transformPivot.x}
+                                            y={transformPivot.y - radius - 15}
+                                            textAnchor="middle"
+                                            fill="#f59e0b"
+                                            fontSize={14}
+                                            fontWeight="bold"
+                                            fontFamily="Inter, system-ui, sans-serif"
+                                        >
+                                            {currentRotationDelta.toFixed(1)}°
+                                        </text>
+                                    </g>
+                                );
+                            })()}
+                        </g>
                     )}
                 </svg>
             </div>

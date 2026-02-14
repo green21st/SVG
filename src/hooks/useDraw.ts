@@ -61,6 +61,8 @@ function useDraw() {
     const [initialMousePos, setInitialMousePos] = useState<Point | null>(null);
     const [initialFontSize, setInitialFontSize] = useState<number>(40);
     const [initialRotation, setInitialRotation] = useState<number>(0);
+    const [currentRotationDelta, setCurrentRotationDelta] = useState<number>(0);
+    const [rotationStartAngle, setRotationStartAngle] = useState<number>(0);
 
 
     // Snapping Settings
@@ -497,7 +499,10 @@ function useDraw() {
 
                 if (handleType === 'rotate') {
                     setTransformMode('rotate');
-                    setInitialAngle(Math.atan2(mouseY - pivot.y, mouseX - pivot.x));
+                    const startAngle = Math.atan2(mouseY - pivot.y, mouseX - pivot.x);
+                    setInitialAngle(startAngle);
+                    setRotationStartAngle(startAngle);
+                    setCurrentRotationDelta(0);
                 } else {
                     setTransformMode('scale');
                     setInitialDist(Math.sqrt(Math.pow(mouseX - pivot.x, 2) + Math.pow(mouseY - pivot.y, 2)));
@@ -785,6 +790,9 @@ function useDraw() {
                                 if (transformMode === 'rotate') {
                                     const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
                                     const deltaAngle = currentAngle - initialAngle;
+                                    const totalDeltaAngle = currentAngle - rotationStartAngle;
+                                    const deltaDegrees = (totalDeltaAngle * 180) / Math.PI;
+                                    setCurrentRotationDelta(deltaDegrees);
                                     const cos = Math.cos(deltaAngle);
                                     const sin = Math.sin(deltaAngle);
 
@@ -1243,6 +1251,8 @@ function useDraw() {
         getBoundingBox,
         transformMode,
         transformHandle,
+        transformPivot,
+        currentRotationDelta,
         pointSnappingEnabled,
         setPointSnappingEnabled,
         guideSnappingEnabled,

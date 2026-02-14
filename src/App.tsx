@@ -150,7 +150,10 @@ function App() {
     mode,
     setMode,
     focusedSegmentIndices,
-    setFocusedSegmentIndices
+    setFocusedSegmentIndices,
+    transformMode,
+    transformPivot,
+    currentRotationDelta
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -595,6 +598,9 @@ ${pathsCode}
                 panOffset={panOffset}
                 isSpacePressed={isSpacePressed}
                 focusedSegmentIndices={focusedSegmentIndices}
+                transformMode={transformMode}
+                transformPivot={transformPivot}
+                currentRotationDelta={currentRotationDelta}
               />
 
               {/* Zoom Indicator Overlay */}
