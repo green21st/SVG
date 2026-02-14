@@ -368,19 +368,21 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const hasFill = fillAttr && fillAttr !== 'none';
         const hasStroke = strokeAttr && strokeAttr !== 'none';
 
-        let color = strokeAttr || 'none';
+        let color = strokeAttr || '#000000';
+        let fill = fillAttr || '#000000';
         let width = widthAttr ? parseFloat(widthAttr) : (hasStroke ? 2 : 0);
 
         if (!hasFill && !hasStroke) {
-            color = '#ffffff';
-            width = 2;
+            fill = '#000000';
+            color = 'none';
+            width = 0;
         }
 
         newPaths.push({
             id: `imported-circle-${Date.now()}-${i}`,
             points,
             color,
-            fill: fillAttr || 'none',
+            fill,
             width,
             tension: 0,
             closed: true,
@@ -400,13 +402,14 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const hasFill = fillAttr && fillAttr !== 'none';
         const hasStroke = strokeAttr && strokeAttr !== 'none';
 
-        let color = strokeAttr || 'none';
-        let fill = fillAttr || 'none';
+        let color = strokeAttr || '#000000';
+        let fill = fillAttr || '#000000';
         let width = widthAttr ? parseFloat(widthAttr) : (hasStroke ? 2 : 0);
 
         if (!hasFill && !hasStroke) {
-            color = '#ffffff';
-            width = 2;
+            fill = '#000000';
+            color = 'none';
+            width = 0;
         }
 
         let curX = 0, curY = 0;
@@ -436,10 +439,14 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         color,
                         fill,
                         width,
-                        tension: 0, // Using 0 tension to keep straight lines straight
+                        tension: 0,
                         closed: d.toLowerCase().includes('z'),
                         symmetry: { horizontal: false, vertical: false, center: false },
-                        animation: getAnimationSettings(el)
+                        animation: getAnimationSettings(el),
+                        d: d,
+                        importedScale: scale,
+                        importedOffsetX: offsetX,
+                        importedOffsetY: offsetY
                     });
                 }
                 points = [];

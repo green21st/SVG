@@ -324,7 +324,13 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     </text>
                 ) : (
                     (config.variantType === 'I' && path.d && !isDragging && !config.multiPoints) ? (
-                        renderPathElement(path.d)
+                        path.importedScale !== undefined ? (
+                            <g transform={`translate(${path.importedOffsetX || 0}, ${path.importedOffsetY || 0}) scale(${path.importedScale})`}>
+                                {renderPathElement(path.d)}
+                            </g>
+                        ) : (
+                            renderPathElement(path.d)
+                        )
                     ) : (
                         config.multiPoints ? (
                             <g data-path-id={path.id}>
