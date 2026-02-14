@@ -24,6 +24,10 @@ export interface PathLayer {
     fontSize?: number;
     fontFamily?: string;
     rotation?: number;
+    // For imported SVG with original path data
+    importedScale?: number;
+    importedOffsetX?: number;
+    importedOffsetY?: number;
     // Segment-specific styles for merged paths
     segmentColors?: string[];
     segmentFills?: string[];
