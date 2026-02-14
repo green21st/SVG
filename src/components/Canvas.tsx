@@ -334,9 +334,11 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     ) : (
                         config.multiPoints ? (
                             <g data-path-id={path.id}>
-                                {config.multiPoints.map((segPoints, sIdx) =>
-                                    renderPathElement(smoothPath(segPoints, path.tension, path.closed), sIdx)
-                                )}
+                                {config.multiPoints.map((segPoints, sIdx) => {
+                                    const segTension = path.segmentTensions?.[sIdx] ?? path.tension;
+                                    const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
+                                    return renderPathElement(smoothPath(segPoints, segTension, segClosed), sIdx);
+                                })}
                             </g>
                         ) : (
                             renderPathElement(smoothPath(config.points, path.tension, path.closed))
@@ -737,6 +739,22 @@ const Canvas: React.FC<CanvasProps> = ({
         return variants.slice(1).map(v => v.points);
     }, [currentPoints, symmetry, centerX, centerY]);
 
+    // Optimize: cache filtered and sorted paths
+    const sortedPaths = useMemo(() => {
+        return paths
+            .filter(p => p.visible !== false)
+            .sort((a, b) => {
+                // Selected paths render last (on top), but only in edit mode
+                if (mode === 'edit') {
+                    const aSelected = selectedPathIds.includes(a.id);
+                    const bSelected = selectedPathIds.includes(b.id);
+                    if (aSelected && !bSelected) return 1;
+                    if (!aSelected && bSelected) return -1;
+                }
+                return 0;
+            });
+    }, [paths, mode, selectedPathIds]);
+
     // Manual DOM Update for maximum performance (skips React re-render cycle)
     React.useEffect(() => {
         const xEl = document.getElementById('coord-x');
@@ -823,7 +841,7 @@ const Canvas: React.FC<CanvasProps> = ({
                     )}
 
                     {/* Render Completed Paths */}
-                    {paths.filter(p => p.visible !== false).map((path) => (
+                    {sortedPaths.map((path) => (
                         <PathItem
                             key={path.id}
                             path={path}
