@@ -11,6 +11,8 @@ import { SVG_DEFS } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0214.1655', date: '2026-02-14', items: ['UI调整：移除右上角的版本号显示'] },
+  { version: 'v26.0214.1650', date: '2026-02-14', items: ['UI调整：移除动画面板中的标题和版本号显示'] },
   { version: 'v26.0214.1645', date: '2026-02-14', items: ['修复代码面板应用更改后，动画丢失的问题'] },
   { version: 'v26.0214.1635', date: '2026-02-14', items: ['优化代码面板：显示动画关键帧，防止误触锁定代码更新'] },
   { version: 'v26.0214.1610', date: '2026-02-14', items: ['修复导出 SVG 和代码预览时，合并图层的样式（颜色、动画）与画布显示不一致的问题'] },
@@ -416,12 +418,11 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0214.1425
+              v26.0214.1655
             </button>
           </h1>
         </div>
         <div className="flex items-center gap-4 bg-slate-900/50 px-3 py-1 rounded-full border border-white/5">
-          <span className="text-[10px] font-black tracking-[0.2em] text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full border border-cyan-400/20">v26.0214.1425</span>
           <span id="busuanzi_container_site_pv" className="text-[10px] font-medium text-slate-400 flex items-center gap-1.5">
             <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></span>
             VIEWS: <span id="busuanzi_value_site_pv" className="text-primary tracking-wider">-</span>
@@ -709,10 +710,6 @@ ${pathsCode}
 
               {animation.types.length > 0 && (
                 <div className="flex-1 grid grid-cols-5 gap-3 animate-in fade-in slide-in-from-left-2 duration-300 items-center">
-                  <div className="flex flex-col">
-                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">SVG Editor</h1>
-                    <span className="text-xs text-gray-500 font-mono">v26.0214.1645</span>
-                  </div>
                   <div className="flex flex-col gap-1">
                     <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
                       <span>Time</span>
