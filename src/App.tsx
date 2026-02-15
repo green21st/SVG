@@ -12,6 +12,7 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0215.1600', date: '2026-02-15', items: ['深度压缩关键帧与动画面板：缩小字体、边距及轨道高度，最大化绘图区空间'] },
   { version: 'v26.0215.1545', date: '2026-02-15', items: ['界面布局优化：绘图区上移并缩小面板间距，提升垂直空间利用率'] },
   { version: 'v26.0215.1530', date: '2026-02-15', items: ['优化关键帧动画编辑的撤销/重做体验：将拖拽过程视为单一操作，避免产生大量冗余历史记录'] },
   { version: 'v26.0215.1515', date: '2026-02-15', items: ['优化关键帧初始化逻辑：开启 KeyFrame 模式时，自动为选中对象在 0 秒处创建初始关键帧'] },
@@ -213,7 +214,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0215.1545`);
+    console.log(`Fantastic SVG v26.0215.1600`);
   }, []);
 
   const handleBgUploadClick = () => {
@@ -526,7 +527,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1545
+              v26.0215.1600
             </button>
           </h1>
         </div>
@@ -822,9 +823,9 @@ ${pathsCode}
               </div>
 
               {animation.types.length > 0 && (
-                <div className="flex-1 grid grid-cols-5 gap-3 animate-in fade-in slide-in-from-left-2 duration-300 items-center">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
+                <div className="flex-1 grid grid-cols-5 gap-2 animate-in fade-in slide-in-from-left-2 duration-300 items-center">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
                       <span>Time</span>
                       <span className="text-indigo-400">{animation.duration}s</span>
                     </div>
@@ -835,8 +836,8 @@ ${pathsCode}
                     />
                   </div>
 
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
                       <span>Delay</span>
                       <span className="text-indigo-400">{animation.delay}s</span>
                     </div>
@@ -847,14 +848,14 @@ ${pathsCode}
                     />
                   </div>
 
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
                       <span>Ease</span>
                     </div>
                     <select
                       value={animation.ease}
                       onChange={(e) => setAnimation({ ...animation, ease: e.target.value })}
-                      className="bg-black/40 border border-white/5 rounded-md px-2 py-0.5 text-[10px] text-white focus:outline-none"
+                      className="bg-black/40 border border-white/5 rounded px-1.5 py-0.5 text-[9px] text-white focus:outline-none"
                     >
                       <option value="linear">Linear</option>
                       <option value="ease">Ease</option>
@@ -863,16 +864,16 @@ ${pathsCode}
                     </select>
                   </div>
 
-                  <div className="flex flex-col gap-1 col-span-2">
-                    <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
+                  <div className="flex flex-col gap-0.5 col-span-2">
+                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
                       <span>Direction</span>
                     </div>
-                    <div className="flex bg-black/40 rounded-lg p-0.5 border border-white/5">
+                    <div className="flex bg-black/40 rounded p-0.5 border border-white/5">
                       {(['forward', 'reverse', 'alternate'] as const).map((dir) => (
                         <button
                           key={dir}
                           onClick={() => setAnimation({ ...animation, direction: dir })}
-                          className={`flex-1 py-1 rounded text-[10px] font-medium transition-all ${animation.direction === dir ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}
+                          className={`flex-1 py-0.5 rounded text-[9px] font-medium transition-all ${animation.direction === dir ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}
                         >
                           {dir.charAt(0).toUpperCase()}
                         </button>
