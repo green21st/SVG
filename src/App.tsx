@@ -12,6 +12,17 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  {
+    version: 'v26.0215.1700',
+    date: '2026-02-15',
+    items: ['编辑模式支持按住 Shift 约束变换：平移约束至轴向，旋转约束至 15 度步进', '新增变换实时数据提示 (Tooltip)，显示位移、旋转角度及缩放比例', '重构变换逻辑为绝对坐标模型，消除累计误差并支持精确捕捉']
+  },
+  {
+    version: 'v26.0215.1630', date: '2026-02-15', items: ['支持按住 Shift 键绘制正比例图形（正方形、正圆等）', '同步更新实时尺寸提示，支持 Shift 约束显示'] },
+  { version: 'v26.0215.1625', date: '2026-02-15', items: ['真正修复绘制图形时尺寸显示 tooltip 的 ReferenceError 错误（补全 App.tsx 中的解构）'] },
+  { version: 'v26.0215.1620', date: '2026-02-15', items: ['彻底修复绘制图形时尺寸显示 tooltip 的 ReferenceError 错误（补齐 hook 返回值）'] },
+  { version: 'v26.0215.1615', date: '2026-02-15', items: ['修复绘制图形时尺寸显示 tooltip 的 ReferenceError 错误'] },
+  { version: 'v26.0215.1610', date: '2026-02-15', items: ['新增图形绘制实时尺寸显示 tooltip', '优化 Canvas 组件性能'] },
   { version: 'v26.0215.1600', date: '2026-02-15', items: ['深度压缩关键帧与动画面板：缩小字体、边距及轨道高度，最大化绘图区空间'] },
   { version: 'v26.0215.1545', date: '2026-02-15', items: ['界面布局优化：绘图区上移并缩小面板间距，提升垂直空间利用率'] },
   { version: 'v26.0215.1530', date: '2026-02-15', items: ['优化关键帧动画编辑的撤销/重做体验：将拖拽过程视为单一操作，避免产生大量冗余历史记录'] },
@@ -183,7 +194,11 @@ function App() {
     togglePlayback,
     handleAddKeyframe,
     handleDeleteKeyframe,
-    handleUpdateKeyframe
+    handleUpdateKeyframe,
+    shapeStartPoint,
+    isShiftPressed,
+    currentScaleFactor,
+    currentTranslationDelta
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -214,7 +229,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0215.1600`);
+    console.log(`Fantastic SVG v26.0215.1700`);
   }, []);
 
   const handleBgUploadClick = () => {
@@ -527,7 +542,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1600
+              v26.0215.1630
             </button>
           </h1>
         </div>
@@ -709,6 +724,10 @@ ${pathsCode}
                 currentRotationDelta={currentRotationDelta}
                 isAnimationMode={isAnimationMode}
                 currentTime={currentTime}
+                shapeStartPoint={shapeStartPoint}
+                isShiftPressed={isShiftPressed}
+                currentScaleFactor={currentScaleFactor}
+                currentTranslationDelta={currentTranslationDelta}
               />
 
               {/* Zoom Indicator Overlay */}

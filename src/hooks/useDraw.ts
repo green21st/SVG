@@ -64,6 +64,8 @@ function useDraw() {
     const [initialFontSize, setInitialFontSize] = useState<number>(40);
     const [initialRotation, setInitialRotation] = useState<number>(0);
     const [currentRotationDelta, setCurrentRotationDelta] = useState<number>(0);
+    const [currentScaleFactor, setCurrentScaleFactor] = useState<number>(1);
+    const [currentTranslationDelta, setCurrentTranslationDelta] = useState<Point>({ x: 0, y: 0 });
     const [rotationStartAngle, setRotationStartAngle] = useState<number>(0);
     const initialTransformsRef = useRef<Map<string, Transform>>(new Map());
 
@@ -149,9 +151,12 @@ function useDraw() {
     const [zoom, setZoom] = useState<number>(1);
     const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 });
     const [isSpacePressed, setIsSpacePressed] = useState<boolean>(false);
+    const [isShiftPressed, setIsShiftPressed] = useState<boolean>(false);
 
     const [cursorPos, setCursorPos] = useState<Point | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
+    const dragStartPathsRef = useRef<PathLayer[] | null>(null);
+    const dragStartMousePosRef = useRef<Point | null>(null);
 
     // Bounding Box Helper
     const getBoundingBox = useCallback((points: Point[]) => {
@@ -690,6 +695,9 @@ function useDraw() {
                     setInitialDist(Math.sqrt(Math.pow(mouseX - pivot.x, 2) + Math.pow(mouseY - pivot.y, 2)));
                 }
 
+                dragStartPathsRef.current = JSON.parse(JSON.stringify(paths));
+                dragStartMousePosRef.current = { x: mouseX, y: mouseY };
+
                 // IMPORTANT: Synchronize all selected points for transformation
                 setInitialPoints(null); // We don't use a single initialPoints for multi-transform anymore
                 // We'll need a way to store ALL initial points. Let's use a temporary state or just capture them in the update logic.
@@ -911,6 +919,8 @@ function useDraw() {
 
                 setTransformMode('translate');
                 setInitialMousePos({ x: mouseX, y: mouseY });
+                dragStartMousePosRef.current = { x: mouseX, y: mouseY };
+                dragStartPathsRef.current = JSON.parse(JSON.stringify(paths));
 
                 const initialMap = new Map<string, Transform>();
                 const pathsToMove = selectedPathIds.length > 0 ? paths.filter(p => selectedPathIds.includes(p.id)) : [path];
@@ -989,12 +999,29 @@ function useDraw() {
                 if (isDrawingBrushRef.current) {
                     setCurrentPoints(prev => [...prev, point]);
                 } else if (shapeStartPoint) {
-                    const dx_s = point.x - shapeStartPoint.x;
-                    const dy_s = point.y - shapeStartPoint.y;
+                    let dx_s = point.x - shapeStartPoint.x;
+                    let dy_s = point.y - shapeStartPoint.y;
+
+                    if (isShiftPressed) {
+                        const size = Math.max(Math.abs(dx_s), Math.abs(dy_s));
+                        dx_s = Math.sign(dx_s) * size;
+                        dy_s = Math.sign(dy_s) * size;
+                    }
+
+                    const constrainedPoint = {
+                        x: shapeStartPoint.x + dx_s,
+                        y: shapeStartPoint.y + dy_s
+                    };
+
                     let newPoints: Point[] = [];
                     switch (activeTool) {
                         case 'square':
-                            newPoints = [{ x: shapeStartPoint.x, y: shapeStartPoint.y }, { x: point.x, y: shapeStartPoint.y }, { x: point.x, y: point.y }, { x: shapeStartPoint.x, y: point.y }];
+                            newPoints = [
+                                { x: shapeStartPoint.x, y: shapeStartPoint.y },
+                                { x: constrainedPoint.x, y: shapeStartPoint.y },
+                                { x: constrainedPoint.x, y: constrainedPoint.y },
+                                { x: shapeStartPoint.x, y: constrainedPoint.y }
+                            ];
                             break;
                         case 'circle': {
                             const r = Math.sqrt(dx_s * dx_s + dy_s * dy_s);
@@ -1005,7 +1032,11 @@ function useDraw() {
                             break;
                         }
                         case 'triangle':
-                            newPoints = [{ x: shapeStartPoint.x + dx_s / 2, y: shapeStartPoint.y }, { x: point.x, y: point.y }, { x: shapeStartPoint.x, y: point.y }];
+                            newPoints = [
+                                { x: shapeStartPoint.x + dx_s / 2, y: shapeStartPoint.y },
+                                { x: constrainedPoint.x, y: constrainedPoint.y },
+                                { x: shapeStartPoint.x, y: constrainedPoint.y }
+                            ];
                             break;
                         case 'star': {
                             const r = Math.sqrt(dx_s * dx_s + dy_s * dy_s);
@@ -1028,19 +1059,31 @@ function useDraw() {
                                 let newTransform = { ...initialTransform };
 
                                 if (transformMode === 'translate' && initialMousePos) {
-                                    const dx = (mouseX - initialMousePos.x) / zoom;
-                                    const dy = (mouseY - initialMousePos.y) / zoom;
+                                    let dx = (mouseX - initialMousePos.x) / zoom;
+                                    let dy = (mouseY - initialMousePos.y) / zoom;
+                                    if (isShiftPressed) {
+                                        const angle = Math.atan2(dy, dx);
+                                        const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                                        const dist = Math.sqrt(dx * dx + dy * dy);
+                                        dx = dist * Math.cos(snappedAngle);
+                                        dy = dist * Math.sin(snappedAngle);
+                                    }
                                     newTransform.x = initialTransform.x + dx;
                                     newTransform.y = initialTransform.y + dy;
+                                    setCurrentTranslationDelta({ x: dx, y: dy });
                                 } else if (transformMode === 'rotate' && transformPivot) {
                                     const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
-                                    const deltaDegrees = ((currentAngle - initialAngle) * 180) / Math.PI;
+                                    let deltaDegrees = ((currentAngle - initialAngle) * 180) / Math.PI;
+                                    if (isShiftPressed) {
+                                        deltaDegrees = Math.round(deltaDegrees / 15) * 15;
+                                    }
                                     newTransform.rotation = initialTransform.rotation + deltaDegrees;
                                     setCurrentRotationDelta(deltaDegrees);
                                 } else if (transformMode === 'scale' && transformPivot) {
                                     const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
                                     const scaleFactor = currentDist / initialDist;
                                     newTransform.scale = initialTransform.scale * scaleFactor;
+                                    setCurrentScaleFactor(scaleFactor);
                                 }
 
                                 let newKeyframes = [...(p.keyframes || [])];
@@ -1056,25 +1099,28 @@ function useDraw() {
                                 return { ...p, transform: newTransform, keyframes: newKeyframes };
                             }
 
-                            // Use the path's current points as the "initial" state for this specific path
-                            // This assumes `setPaths` or `setInternalState` is called frequently enough
-                            // or that `initialPoints` was set for each path individually.
-                            // Since `setInitialPoints(null)` in handlePointerDown, we use `p.points` directly.
-                            let newPoints = [...p.points];
-                            let newMultiPoints = p.multiPathPoints ? p.multiPathPoints.map(seg => [...seg]) : undefined;
+                            // Use the path's starting points from the beginning of the drag for precision and snapping
+                            const startPath = dragStartPathsRef.current?.find(dp => dp.id === p.id) || p;
+                            let newPoints = [...startPath.points];
+                            let newMultiPoints = startPath.multiPathPoints ? startPath.multiPathPoints.map(seg => [...seg]) : undefined;
 
                             if (transformPivot) {
                                 if (transformMode === 'rotate') {
                                     const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
-                                    const deltaAngle = currentAngle - initialAngle;
-                                    const totalDeltaAngle = currentAngle - rotationStartAngle;
-                                    const deltaDegrees = (totalDeltaAngle * 180) / Math.PI;
-                                    setCurrentRotationDelta(deltaDegrees);
-                                    const cos = Math.cos(deltaAngle);
-                                    const sin = Math.sin(deltaAngle);
+                                    let totalDeltaAngle = currentAngle - rotationStartAngle;
+                                    let deltaDegrees = (totalDeltaAngle * 180) / Math.PI;
 
-                                    if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
-                                        newMultiPoints = p.multiPathPoints.map((seg, sIdx) =>
+                                    if (isShiftPressed) {
+                                        deltaDegrees = Math.round(deltaDegrees / 15) * 15;
+                                        totalDeltaAngle = (deltaDegrees * Math.PI) / 180;
+                                    }
+
+                                    setCurrentRotationDelta(deltaDegrees);
+                                    const cos = Math.cos(totalDeltaAngle);
+                                    const sin = Math.sin(totalDeltaAngle);
+
+                                    if (focusedSegmentIndices.length > 0 && startPath.multiPathPoints) {
+                                        newMultiPoints = startPath.multiPathPoints.map((seg, sIdx) =>
                                             focusedSegmentIndices.includes(sIdx)
                                                 ? seg.map(pt => {
                                                     const dx = pt.x - transformPivot.x;
@@ -1088,7 +1134,7 @@ function useDraw() {
                                         );
                                         newPoints = newMultiPoints.flat();
                                     } else {
-                                        newPoints = p.points.map(pt => {
+                                        newPoints = startPath.points.map(pt => {
                                             const dx = pt.x - transformPivot.x;
                                             const dy = pt.y - transformPivot.y;
                                             return {
@@ -1107,11 +1153,10 @@ function useDraw() {
                                             }));
                                         }
                                         if (p.type === 'text') {
-                                            const deltaDegrees = (deltaAngle * 180) / Math.PI;
                                             return {
                                                 ...p,
                                                 points: newPoints,
-                                                rotation: (p.rotation || 0) + deltaDegrees,
+                                                rotation: (startPath.rotation || 0) + deltaDegrees,
                                                 d: undefined
                                             } as PathLayer;
                                         }
@@ -1119,9 +1164,10 @@ function useDraw() {
                                 } else if (transformMode === 'scale') {
                                     const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
                                     const scaleFactor = currentDist / initialDist;
+                                    setCurrentScaleFactor(scaleFactor);
 
-                                    if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
-                                        newMultiPoints = p.multiPathPoints.map((seg, sIdx) =>
+                                    if (focusedSegmentIndices.length > 0 && startPath.multiPathPoints) {
+                                        newMultiPoints = startPath.multiPathPoints.map((seg, sIdx) =>
                                             focusedSegmentIndices.includes(sIdx)
                                                 ? seg.map(pt => ({
                                                     x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
@@ -1131,7 +1177,7 @@ function useDraw() {
                                         );
                                         newPoints = newMultiPoints.flat();
                                     } else {
-                                        newPoints = p.points.map(pt => ({
+                                        newPoints = startPath.points.map(pt => ({
                                             x: transformPivot.x + (pt.x - transformPivot.x) * scaleFactor,
                                             y: transformPivot.y + (pt.y - transformPivot.y) * scaleFactor
                                         }));
@@ -1145,24 +1191,33 @@ function useDraw() {
                                             return {
                                                 ...p,
                                                 points: newPoints,
-                                                fontSize: (p.fontSize || 40) * scaleFactor,
+                                                fontSize: (startPath.fontSize || 40) * scaleFactor,
                                                 d: undefined
                                             } as PathLayer;
                                         }
                                     }
-                                } else if (transformMode === 'translate' && initialMousePos) {
-                                    const dx_s = (mouseX - initialMousePos.x) / zoom;
-                                    const dy_s = (mouseY - initialMousePos.y) / zoom;
+                                } else if (transformMode === 'translate' && dragStartMousePosRef.current) {
+                                    let dx_s = (mouseX - dragStartMousePosRef.current.x) / zoom;
+                                    let dy_s = (mouseY - dragStartMousePosRef.current.y) / zoom;
 
-                                    if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
-                                        newMultiPoints = p.multiPathPoints.map((seg, sIdx) =>
+                                    if (isShiftPressed) {
+                                        const angle = Math.atan2(dy_s, dx_s);
+                                        const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                                        const dist = Math.sqrt(dx_s * dx_s + dy_s * dy_s);
+                                        dx_s = dist * Math.cos(snappedAngle);
+                                        dy_s = dist * Math.sin(snappedAngle);
+                                    }
+                                    setCurrentTranslationDelta({ x: dx_s, y: dy_s });
+
+                                    if (focusedSegmentIndices.length > 0 && startPath.multiPathPoints) {
+                                        newMultiPoints = startPath.multiPathPoints.map((seg, sIdx) =>
                                             focusedSegmentIndices.includes(sIdx)
                                                 ? seg.map(pt => ({ x: pt.x + dx_s, y: pt.y + dy_s }))
                                                 : seg
                                         );
                                         newPoints = newMultiPoints.flat();
                                     } else {
-                                        newPoints = p.points.map(pt => ({ x: pt.x + dx_s, y: pt.y + dy_s }));
+                                        newPoints = startPath.points.map(pt => ({ x: pt.x + dx_s, y: pt.y + dy_s }));
                                         if (newMultiPoints) {
                                             newMultiPoints = newMultiPoints.map(seg => seg.map(pt => ({
                                                 x: pt.x + dx_s, y: pt.y + dy_s
@@ -1185,17 +1240,6 @@ function useDraw() {
                             setInternalState(updateFn);
                         }
                     } else {
-                        // Update local mouse for relative translate
-                        if (transformMode === 'translate') {
-                            setInitialMousePos({ x: mouseX, y: mouseY });
-                        } else if (transformMode === 'rotate') {
-                            const currentAngle = Math.atan2(mouseY - transformPivot!.y, mouseX - transformPivot!.x);
-                            setInitialAngle(currentAngle);
-                        } else if (transformMode === 'scale') {
-                            const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot!.x, 2) + Math.pow(mouseY - transformPivot!.y, 2));
-                            setInitialDist(currentDist);
-                        }
-
                         if (!isDraggingRef.current) {
                             setPaths(updateFn);
                             isDraggingRef.current = true;
@@ -1237,7 +1281,7 @@ function useDraw() {
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom]);
+    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom, isShiftPressed]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
@@ -1306,8 +1350,13 @@ function useDraw() {
         setTransformMode('none');
         setTransformHandle(null);
         setInitialPoints(null);
+        setCurrentRotationDelta(0);
+        setCurrentScaleFactor(1);
+        setCurrentTranslationDelta({ x: 0, y: 0 });
         isDraggingRef.current = false;
         setShapeStartPoint(null);
+        dragStartPathsRef.current = null;
+        dragStartMousePosRef.current = null;
     }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths, activeTool, animation, fillOpacity, paths.length, strokeOpacity, draggingPointIndex]);
 
     const handlePointerLeave = useCallback(() => {
@@ -1316,8 +1365,13 @@ function useDraw() {
         setTransformMode('none');
         setTransformHandle(null);
         setInitialPoints(null);
+        setCurrentRotationDelta(0);
+        setCurrentScaleFactor(1);
+        setCurrentTranslationDelta({ x: 0, y: 0 });
         isDraggingRef.current = false;
         setShapeStartPoint(null);
+        dragStartPathsRef.current = null;
+        dragStartMousePosRef.current = null;
     }, []);
 
     const handleWheel = useCallback((e: WheelEvent) => {
@@ -1366,10 +1420,16 @@ function useDraw() {
                 setIsSpacePressed(true);
                 if (e.target === document.body) e.preventDefault();
             }
+            if (e.key === 'Shift') {
+                setIsShiftPressed(true);
+            }
         };
         const handleKeyUp = (e: KeyboardEvent) => {
             if (e.code === 'Space') {
                 setIsSpacePressed(false);
+            }
+            if (e.key === 'Shift') {
+                setIsShiftPressed(false);
             }
         };
 
@@ -1607,6 +1667,8 @@ function useDraw() {
         transformHandle,
         transformPivot,
         currentRotationDelta,
+        currentScaleFactor,
+        currentTranslationDelta,
         pointSnappingEnabled,
         setPointSnappingEnabled,
         guideSnappingEnabled,
@@ -1642,7 +1704,9 @@ function useDraw() {
         togglePlayback,
         handleAddKeyframe,
         handleDeleteKeyframe,
-        handleUpdateKeyframe
+        handleUpdateKeyframe,
+        shapeStartPoint,
+        isShiftPressed
     };
 }
 

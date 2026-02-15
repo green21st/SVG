@@ -714,8 +714,12 @@ interface CanvasProps {
     transformMode: 'none' | 'rotate' | 'scale' | 'translate';
     transformPivot: Point | null;
     currentRotationDelta: number;
+    currentScaleFactor: number;
+    currentTranslationDelta: Point;
     isAnimationMode?: boolean;
     currentTime?: number;
+    shapeStartPoint: Point | null;
+    isShiftPressed: boolean;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -750,8 +754,12 @@ const Canvas: React.FC<CanvasProps> = ({
     transformMode,
     transformPivot,
     currentRotationDelta,
+    currentScaleFactor,
+    currentTranslationDelta,
     isAnimationMode,
-    currentTime
+    currentTime,
+    shapeStartPoint,
+    isShiftPressed
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -954,6 +962,49 @@ const Canvas: React.FC<CanvasProps> = ({
                         />
                     ))}
 
+                    {/* Shape Dimensions Tooltip */}
+                    {mode === 'draw' && shapeStartPoint && cursorPos && (activeTool === 'square' || activeTool === 'circle' || activeTool === 'triangle' || activeTool === 'star') && (
+                        <g className="pointer-events-none">
+                            {(() => {
+                                let dx = cursorPos.x - shapeStartPoint.x;
+                                let dy = cursorPos.y - shapeStartPoint.y;
+                                if (isShiftPressed) {
+                                    const size = Math.max(Math.abs(dx), Math.abs(dy));
+                                    dx = Math.sign(dx) * size;
+                                    dy = Math.sign(dy) * size;
+                                }
+                                const displayW = Math.round(Math.abs(dx));
+                                const displayH = Math.round(Math.abs(dy));
+                                const tooltipX = shapeStartPoint.x + dx + 15;
+                                const tooltipY = shapeStartPoint.y + dy + 15;
+
+                                return (
+                                    <foreignObject
+                                        x={tooltipX}
+                                        y={tooltipY}
+                                        width={100}
+                                        height={40}
+                                    >
+                                        <div className="bg-slate-900/90 backdrop-blur-md border border-primary/30 rounded px-2 py-1 flex flex-col gap-0.5 shadow-xl">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">W</span>
+                                                <span className="text-[10px] font-mono font-black text-primary tabular-nums">
+                                                    {displayW}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">H</span>
+                                                <span className="text-[10px] font-mono font-black text-primary tabular-nums">
+                                                    {displayH}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </foreignObject>
+                                );
+                            })()}
+                        </g>
+                    )}
+
                     {/* Render Rubber Band Line to Cursor */}
                     {activeTool !== 'brush' && currentPoints.length > 0 && cursorPos && (
                         <line
@@ -1042,9 +1093,84 @@ const Canvas: React.FC<CanvasProps> = ({
                                         >
                                             {currentRotationDelta.toFixed(1)}°
                                         </text>
+
+                                        {/* Transformation Tooltip */}
+                                        {cursorPos && (
+                                            <foreignObject
+                                                x={cursorPos.x + 15}
+                                                y={cursorPos.y + 15}
+                                                width={100}
+                                                height={40}
+                                            >
+                                                <div className="bg-slate-900/90 backdrop-blur-md border border-amber-500/30 rounded px-2 py-1 flex flex-col gap-0.5 shadow-xl">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Angle</span>
+                                                        <span className="text-[10px] font-mono font-black text-amber-500 tabular-nums">
+                                                            {Math.round(currentRotationDelta)}°
+                                                        </span>
+                                                    </div>
+                                                    {isShiftPressed && (
+                                                        <div className="text-[7px] text-amber-500/50 font-bold uppercase tracking-tighter">
+                                                            Snapped 15°
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </foreignObject>
+                                        )}
                                     </g>
                                 );
                             })()}
+                        </g>
+                    )}
+
+                    {/* Translation Tooltip */}
+                    {transformMode === 'translate' && cursorPos && (
+                        <g className="pointer-events-none">
+                            <foreignObject
+                                x={cursorPos.x + 15}
+                                y={cursorPos.y + 15}
+                                width={100}
+                                height={40}
+                            >
+                                <div className="bg-slate-900/90 backdrop-blur-md border border-blue-500/30 rounded px-2 py-1 flex flex-col gap-0.5 shadow-xl">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">ΔX</span>
+                                        <span className="text-[10px] font-mono font-black text-blue-400 tabular-nums">
+                                            {Math.round(currentTranslationDelta.x)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">ΔY</span>
+                                        <span className="text-[10px] font-mono font-black text-blue-400 tabular-nums">
+                                            {Math.round(currentTranslationDelta.y)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </foreignObject>
+                        </g>
+                    )}
+
+                    {/* Scale Tooltip */}
+                    {transformMode === 'scale' && cursorPos && (
+                        <g className="pointer-events-none">
+                            <foreignObject
+                                x={cursorPos.x + 15}
+                                y={cursorPos.y + 15}
+                                width={100}
+                                height={40}
+                            >
+                                <div className="bg-slate-900/90 backdrop-blur-md border border-emerald-500/30 rounded px-2 py-1 flex flex-col gap-0.5 shadow-xl">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Scale</span>
+                                        <span className="text-[10px] font-mono font-black text-emerald-400 tabular-nums">
+                                            {currentScaleFactor.toFixed(2)}x
+                                        </span>
+                                    </div>
+                                    <div className="text-[7px] text-emerald-500/50 font-bold uppercase tracking-tighter">
+                                        {Math.round(currentScaleFactor * 100)}%
+                                    </div>
+                                </div>
+                            </foreignObject>
                         </g>
                     )}
                 </svg>
