@@ -103,25 +103,39 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     <div>
                         <h3 className="text-secondary text-xs uppercase tracking-wider mb-2 font-semibold flex items-center justify-between">
                             Stroke
-                            <span className="text-[10px] opacity-50 font-normal">{strokeColor}</span>
+                            <span className="text-[10px] opacity-50 font-normal">{strokeColor === 'none' ? 'Transparent' : strokeColor}</span>
                         </h3>
                         <div className="flex gap-2">
-                            <input
-                                type="color"
-                                value={/^#[0-9A-F]{6}$/i.test(strokeColor) ? strokeColor : '#ffffff'}
-                                onChange={(e) => setStrokeColor(e.target.value, false)}
-                                onBlur={(e) => setStrokeColor(e.target.value, true)}
-                                className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border-none outline-none"
-                            />
-                            <div className="flex-1 grid grid-cols-4 gap-1">
-                                {['#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#f87171', '#ffffff', '#000000'].map(c => (
-                                    <button
-                                        key={c}
-                                        onClick={() => setStrokeColor(c)}
-                                        className={`w-full h-4 rounded-sm border ${strokeColor === c ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:scale-110'}`}
-                                        style={{ backgroundColor: c }}
+                            <div className="flex flex-col gap-1 w-10">
+                                <button
+                                    onClick={() => setStrokeColor('none')}
+                                    className={`w-10 h-10 rounded-lg flex items-center justify-center border-2 border-dashed ${strokeColor === 'none' ? 'border-primary bg-primary/10 text-primary' : 'border-slate-700 text-slate-700 hover:border-slate-500 hover:text-slate-500'}`}
+                                    title="No Stroke"
+                                >
+                                    <EyeOff size={16} />
+                                </button>
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="color"
+                                        value={/^#[0-9A-F]{6}$/i.test(strokeColor) ? strokeColor : '#ffffff'}
+                                        onChange={(e) => setStrokeColor(e.target.value, false)}
+                                        onBlur={(e) => setStrokeColor(e.target.value, true)}
+                                        className="w-10 h-10 rounded-lg cursor-pointer bg-slate-800 border-none outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={strokeColor === 'none'}
                                     />
-                                ))}
+                                    <div className="flex-1 grid grid-cols-4 gap-1">
+                                        {['#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#f87171', '#ffffff', '#000000'].map(c => (
+                                            <button
+                                                key={c}
+                                                onClick={() => setStrokeColor(c)}
+                                                className={`w-full h-4 rounded-sm border ${strokeColor === c ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:scale-110'}`}
+                                                style={{ backgroundColor: c }}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div className="px-1 mt-2">
@@ -138,7 +152,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 onChange={(e) => setStrokeOpacity(parseFloat(e.target.value), false)}
                                 onMouseUp={(e) => setStrokeOpacity(parseFloat(e.currentTarget.value), true)}
                                 onTouchEnd={(e) => setStrokeOpacity(parseFloat(e.currentTarget.value), true)}
-                                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={strokeColor === 'none'}
                             />
                         </div>
                     </div>
@@ -208,7 +223,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                 onChange={(e) => setStrokeWidth(parseInt(e.target.value), false)}
                                 onMouseUp={(e) => setStrokeWidth(parseInt(e.currentTarget.value), true)}
                                 onTouchEnd={(e) => setStrokeWidth(parseInt(e.currentTarget.value), true)}
-                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary"
+                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={strokeColor === 'none'}
                             />
                         </div>
                         <div>

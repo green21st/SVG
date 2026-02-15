@@ -300,9 +300,9 @@ function App() {
         } else {
           if (path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
             const segments = v.multiPoints.map((seg, sIdx) => {
-              const segColor = path.segmentColors?.[sIdx] || path.color || '#22d3ee';
+              const segColor = path.segmentColors?.[sIdx] || path.color || 'none';
               const segFill = path.segmentFills?.[sIdx] || path.fill || 'none';
-              const segWidth = path.segmentWidths?.[sIdx] ?? (path.width || 2);
+              const segWidth = path.segmentWidths?.[sIdx] ?? (path.width ?? 2);
               const segAnim = path.segmentAnimations?.[sIdx];
               const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
               const segTension = path.segmentTensions?.[sIdx] ?? path.tension;
@@ -338,7 +338,7 @@ function App() {
             finalCode = `<g>${segments}</g>`;
           } else {
             const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
-            finalCode = `\t<path d="${d}" stroke="${path.color}" stroke-opacity="${sOp}" stroke-width="${path.width}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+            finalCode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
           }
         }
 
@@ -423,7 +423,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0214.1705
+              v26.0215.1030
             </button>
           </h1>
         </div>

@@ -71,9 +71,9 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
                 if (path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
                     const segments = v.multiPoints.map((seg, sIdx) => {
-                        const segColor = path.segmentColors?.[sIdx] || path.color || '#22d3ee';
+                        const segColor = path.segmentColors?.[sIdx] || path.color || 'none';
                         const segFill = path.segmentFills?.[sIdx] || path.fill || 'none';
-                        const segWidth = path.segmentWidths?.[sIdx] ?? (path.width || 2);
+                        const segWidth = path.segmentWidths?.[sIdx] ?? (path.width ?? 2);
                         const segAnim = path.segmentAnimations?.[sIdx];
                         const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
                         const segTension = path.segmentTensions?.[sIdx] ?? (path.tension ?? tension);
@@ -112,7 +112,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                     finalCode = `<g>${segments}</g>`;
                 } else {
                     const d = smoothPath(v.multiPoints || v.points, path.tension ?? tension, path.closed);
-                    finalCode = `<path d="${d}" stroke="${path.color}" stroke-width="${path.width}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+                    finalCode = `<path d="${d}" stroke="${path.color || 'none'}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
                 }
 
                 if (path.animation && path.animation.types.length > 0) {

@@ -368,7 +368,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const hasFill = fillAttr && fillAttr !== 'none';
         const hasStroke = strokeAttr && strokeAttr !== 'none';
 
-        let color = strokeAttr || '#000000';
+        let color = strokeAttr || 'none';
         let fill = fillAttr || '#000000';
         let width = widthAttr ? parseFloat(widthAttr) : (hasStroke ? 2 : 0);
 
@@ -402,7 +402,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         const hasFill = fillAttr && fillAttr !== 'none';
         const hasStroke = strokeAttr && strokeAttr !== 'none';
 
-        let color = strokeAttr || '#000000';
+        let color = strokeAttr || 'none';
         let fill = fillAttr || '#000000';
         let width = widthAttr ? parseFloat(widthAttr) : (hasStroke ? 2 : 0);
 
