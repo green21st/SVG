@@ -12,6 +12,7 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0215.1530', date: '2026-02-15', items: ['优化关键帧动画编辑的撤销/重做体验：将拖拽过程视为单一操作，避免产生大量冗余历史记录'] },
   { version: 'v26.0215.1515', date: '2026-02-15', items: ['优化关键帧初始化逻辑：开启 KeyFrame 模式时，自动为选中对象在 0 秒处创建初始关键帧'] },
   { version: 'v26.0215.1500', date: '2026-02-15', items: ['重命名“动画模式”按钮为“KeyFrame”', '开启 KeyFrame 模式时自动切换至“编辑(Edit)”模式'] },
   { version: 'v26.0215.1445', date: '2026-02-15', items: ['优化关键帧动画播放逻辑：点击播放时自动从0秒开始，并实现无限循环播放'] },
@@ -211,7 +212,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0215.1515`);
+    console.log(`Fantastic SVG v26.0215.1530`);
   }, []);
 
   const handleBgUploadClick = () => {
@@ -524,7 +525,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1515
+              v26.0215.1530
             </button>
           </h1>
         </div>

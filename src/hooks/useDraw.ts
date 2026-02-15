@@ -1178,7 +1178,12 @@ function useDraw() {
                     });
 
                     if (isAnimationMode) {
-                        setPaths(updateFn);
+                        if (!isDraggingRef.current) {
+                            setPaths(updateFn);
+                            isDraggingRef.current = true;
+                        } else {
+                            setInternalState(updateFn);
+                        }
                     } else {
                         // Update local mouse for relative translate
                         if (transformMode === 'translate') {
