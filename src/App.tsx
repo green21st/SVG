@@ -13,6 +13,26 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0215.1735',
+    date: '2026-02-15',
+    items: ['修正快捷键提示面板位置：从右上角移至左上角，彻底避开侧边操作按钮区域']
+  },
+  {
+    version: 'v26.0215.1730',
+    date: '2026-02-15',
+    items: ['精简快捷键提示面板 UI：减小宽度、字体大小，并向左偏移以避开操作按钮', '优化面板布局，合并相似项，提升高密度 UI 下的可用性']
+  },
+  {
+    version: 'v26.0215.1725',
+    date: '2026-02-15',
+    items: ['优化快捷键提示面板位置，从右下角移至右上角以避免遮挡清除按钮']
+  },
+  {
+    version: 'v26.0215.1720',
+    date: '2026-02-15',
+    items: ['新增快捷键提示面板 (Quick Shortcuts)，支持手动关闭', '支持按 "?" 键快速显示或隐藏快捷键提示面板', '优化了 UI 布局，将提示面板置于画布右下角']
+  },
+  {
     version: 'v26.0215.1700',
     date: '2026-02-15',
     items: ['编辑模式支持按住 Shift 约束变换：平移约束至轴向，旋转约束至 15 度步进', '新增变换实时数据提示 (Tooltip)，显示位移、旋转角度及缩放比例', '重构变换逻辑为绝对坐标模型，消除累计误差并支持精确捕捉']
@@ -214,6 +234,7 @@ function App() {
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const zoomTimeoutRef = useRef<any>(null);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showHelp, setShowHelp] = useState(true); // Default to true for new users
 
   // Monitor zoom changes to show indicator
   React.useEffect(() => {
@@ -229,7 +250,21 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0215.1700`);
+    console.log(`Fantastic SVG v26.0215.1735`);
+  }, []);
+
+  // Global keydown listener for help panel
+  React.useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+        // Only toggle if not in an input
+        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+          setShowHelp(prev => !prev);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
   const handleBgUploadClick = () => {
@@ -947,6 +982,52 @@ ${pathsCode}
             }}
             className="w-[800px] mt-1"
           />
+
+          {/* Keyboard Shortcut Help Panel */}
+          {showHelp && (
+            <div className="absolute top-4 left-4 w-44 bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2.5 z-50 animate-in fade-in slide-in-from-top-4 duration-500 group">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <h3 className="text-[9px] font-black text-white uppercase tracking-wider">Shortcuts</h3>
+                </div>
+                <button 
+                  onClick={() => setShowHelp(false)}
+                  className="p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-white"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+              
+              <div className="space-y-1">
+                <div className="flex items-center justify-between group/item">
+                  <span className="text-[8px] text-slate-400 font-medium">Draw Snap</span>
+                  <kbd className="px-1 py-0.5 bg-slate-800 rounded border border-white/5 text-[7px] font-bold text-slate-200 group-hover/item:border-primary/30 transition-colors shadow-sm">Shift</kbd>
+                </div>
+                <div className="flex items-center justify-between group/item">
+                  <span className="text-[8px] text-slate-400 font-medium">Axis Snap</span>
+                  <kbd className="px-1 py-0.5 bg-slate-800 rounded border border-white/5 text-[7px] font-bold text-slate-200 group-hover/item:border-primary/30 transition-colors shadow-sm">Shift</kbd>
+                </div>
+                <div className="flex items-center justify-between group/item">
+                  <span className="text-[8px] text-slate-400 font-medium">Pan Canvas</span>
+                  <kbd className="px-1 py-0.5 bg-slate-800 rounded border border-white/5 text-[7px] font-bold text-slate-200 group-hover/item:border-primary/30 transition-colors shadow-sm">Space</kbd>
+                </div>
+                <div className="flex items-center justify-between group/item">
+                  <span className="text-[8px] text-slate-400 font-medium">Zoom</span>
+                  <kbd className="px-1 py-0.5 bg-slate-800 rounded border border-white/5 text-[7px] font-bold text-slate-200 group-hover/item:border-primary/30 transition-colors shadow-sm">Ctrl+Wheel</kbd>
+                </div>
+                <div className="flex items-center justify-between group/item">
+                  <span className="text-[8px] text-slate-400 font-medium">Undo/Redo</span>
+                  <kbd className="px-1 py-0.5 bg-slate-800 rounded border border-white/5 text-[7px] font-bold text-slate-200 group-hover/item:border-primary/30 transition-colors shadow-sm">Ctrl+Z/Y</kbd>
+                </div>
+              </div>
+              
+              <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between">
+                <span className="text-[7px] text-slate-500 font-medium italic">Toggle panel</span>
+                <kbd className="px-1 py-0.5 bg-slate-800 rounded border border-white/5 text-[7px] font-bold text-primary transition-colors shadow-sm">?</kbd>
+              </div>
+            </div>
+          )}
         </section>
         <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col gap-4 overflow-hidden">
           <div className="flex-[3] min-h-0 flex flex-col">
