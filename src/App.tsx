@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
@@ -12,6 +12,26 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  {
+    version: 'v26.0215.1825',
+    date: '2026-02-15',
+    items: ['新增绘图区顶点数实时统计显示，位于绘图区右上方', '优化 UI 布局，顶点数统计采用磨砂玻璃质感设计']
+  },
+  {
+    version: 'v26.0215.1805',
+    date: '2026-02-15',
+    items: ['新增图层批量操作功能：多选图层后点击任意锁定、可见性或删除按钮即可应用至所有选中项', '图层面板新增“全选”与“取消全选”便捷按钮']
+  },
+  {
+    version: 'v26.0215.1755',
+    date: '2026-02-15',
+    items: ['修复图层面板锁定按钮 ReferenceError: onToggleLock is not defined 运行时错误']
+  },
+  {
+    version: 'v26.0215.1750',
+    date: '2026-02-15',
+    items: ['新增图层锁定功能：锁定后无法在画布中选中或操作，防止误触', '优化图层面板：操作按钮（锁定、可见性、删除）默认显示，不再需要悬停显示']
+  },
   {
     version: 'v26.0215.1735',
     date: '2026-02-15',
@@ -221,6 +241,17 @@ function App() {
     currentTranslationDelta
   } = useDraw();
 
+  const totalVertices = useMemo(() => {
+    const pathsCount = paths.reduce((sum, path) => {
+      let count = path.points.length;
+      if (path.multiPathPoints) {
+        count += path.multiPathPoints.reduce((s, p) => s + p.length, 0);
+      }
+      return sum + count;
+    }, 0);
+    return pathsCount + currentPoints.length;
+  }, [paths, currentPoints]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* Background Image Logic */
@@ -250,7 +281,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0215.1735`);
+    console.log(`Fantastic SVG v26.0215.1825`);
   }, []);
 
   // Global keydown listener for help panel
@@ -577,7 +608,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1630
+              v26.0215.1825
             </button>
           </h1>
         </div>
@@ -764,6 +795,13 @@ ${pathsCode}
                 currentScaleFactor={currentScaleFactor}
                 currentTranslationDelta={currentTranslationDelta}
               />
+
+              {/* Vertex Count Indicator */}
+              <div className="absolute top-4 right-4 z-40 flex items-center gap-2 px-3 py-1.5 bg-slate-900/60 backdrop-blur-md rounded-full border border-white/5 shadow-xl pointer-events-none select-none">
+                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.5)]"></div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vertices:</span>
+                <span className="text-xs font-black text-white tabular-nums">{totalVertices}</span>
+              </div>
 
               {/* Zoom Indicator Overlay */}
               <div
@@ -1037,16 +1075,42 @@ ${pathsCode}
               onSelect={handleSelectPath}
               onReorder={setPathsInternal}
               onReorderEnd={setPaths}
-              onToggleVisibility={(id) => setPaths(prev => prev.map(p => p.id === id ? { ...p, visible: !p.visible } : p))}
+              onToggleVisibility={(id) => {
+                if (selectedPathIds.includes(id) && selectedPathIds.length > 1) {
+                  // Batch toggle visibility based on the state of the clicked item
+                  const targetLayer = paths.find(p => p.id === id);
+                  const nextVisible = !(targetLayer?.visible !== false);
+                  setPaths(prev => prev.map(p => selectedPathIds.includes(p.id) ? { ...p, visible: nextVisible } : p));
+                } else {
+                  setPaths(prev => prev.map(p => p.id === id ? { ...p, visible: !(p.visible !== false) } : p));
+                }
+              }}
+              onToggleLock={(id) => {
+                if (selectedPathIds.includes(id) && selectedPathIds.length > 1) {
+                  // Batch toggle lock based on the state of the clicked item
+                  const targetLayer = paths.find(p => p.id === id);
+                  const nextLocked = !targetLayer?.locked;
+                  setPaths(prev => prev.map(p => selectedPathIds.includes(p.id) ? { ...p, locked: nextLocked } : p));
+                } else {
+                  setPaths(prev => prev.map(p => p.id === id ? { ...p, locked: !p.locked } : p));
+                }
+              }}
               onDelete={(id) => {
-                setPaths(prev => prev.filter(p => p.id !== id));
-                setSelectedPathIds(prev => prev.filter(item => item !== id));
+                if (selectedPathIds.includes(id) && selectedPathIds.length > 1) {
+                  setPaths(prev => prev.filter(p => !selectedPathIds.includes(p.id)));
+                  setSelectedPathIds([]);
+                } else {
+                  setPaths(prev => prev.filter(p => p.id !== id));
+                  setSelectedPathIds(prev => prev.filter(item => item !== id));
+                }
               }}
               onMerge={mergeSelected}
               onSplit={splitSelected}
               onMoveUp={moveSelectedUp}
               onMoveDown={moveSelectedDown}
               onMoveToTop={moveSelectedToTop}
+              onSelectAll={() => setSelectedPathIds(paths.map(p => p.id))}
+              onDeselectAll={() => setSelectedPathIds([])}
             />
           </div>
           <div className="flex-[2] min-h-0 flex flex-col">

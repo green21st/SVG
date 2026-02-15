@@ -1,6 +1,6 @@
 import React from 'react';
 import { Reorder, useDragControls } from 'framer-motion';
-import { Eye, EyeOff, Trash2, GripVertical, Layers, ChevronUp, ChevronDown, Combine, Ungroup, ArrowUpToLine } from 'lucide-react';
+import { Eye, EyeOff, Trash2, GripVertical, Layers, ChevronUp, ChevronDown, Combine, Ungroup, ArrowUpToLine, Lock, Unlock, CheckSquare, Square as SquareIcon } from 'lucide-react';
 import type { PathLayer } from '../types';
 import { cn } from '../utils/cn';
 
@@ -11,12 +11,15 @@ interface LayerPanelProps {
     onReorder: (newPaths: PathLayer[]) => void;
     onReorderEnd: (newPaths: PathLayer[]) => void;
     onToggleVisibility: (id: string) => void;
+    onToggleLock: (id: string) => void;
     onDelete: (id: string) => void;
     onMerge: () => void;
     onSplit: () => void;
     onMoveUp: () => void;
     onMoveDown: () => void;
     onMoveToTop: () => void;
+    onSelectAll?: () => void;
+    onDeselectAll?: () => void;
 }
 
 export const LayerPanel: React.FC<LayerPanelProps> = ({
@@ -26,12 +29,15 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
     onReorder,
     onReorderEnd,
     onToggleVisibility,
+    onToggleLock,
     onDelete,
     onMerge,
     onSplit,
     onMoveUp,
     onMoveDown,
-    onMoveToTop
+    onMoveToTop,
+    onSelectAll,
+    onDeselectAll
 }) => {
     // We want the most recent path (top of list) to be rendered on top.
     // SVG renders from first to last, so last in array is on top.
@@ -53,10 +59,27 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                 <div className="flex items-center gap-2">
                     <Layers size={14} className="text-secondary" />
                     <h3 className="text-[11px] font-bold uppercase tracking-wider text-secondary">Layers</h3>
+                    <span className="text-[10px] text-slate-500 font-medium bg-black/40 px-1.5 py-0.5 rounded-full border border-white/5 ml-1">
+                        {paths.length}
+                    </span>
                 </div>
-                <span className="text-[10px] text-slate-500 font-medium bg-black/40 px-1.5 py-0.5 rounded-full border border-white/5">
-                    {paths.length}
-                </span>
+                
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={onSelectAll}
+                        className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-primary transition-colors"
+                        title="Select All"
+                    >
+                        <CheckSquare size={14} />
+                    </button>
+                    <button
+                        onClick={onDeselectAll}
+                        className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-red-400 transition-colors"
+                        title="Deselect All"
+                    >
+                        <SquareIcon size={14} />
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 min-h-0 relative">
@@ -80,6 +103,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                                 isSelected={selectedPathIds.includes(path.id)}
                                 onSelect={(e) => onSelect(path.id, e.ctrlKey || e.metaKey, e.shiftKey)}
                                 onToggleVisibility={() => onToggleVisibility(path.id)}
+                                onToggleLock={() => onToggleLock(path.id)}
                                 onDelete={() => onDelete(path.id)}
                                 onDragEnd={handleReorderEnd}
                             />
@@ -144,6 +168,7 @@ interface LayerItemProps {
     isSelected: boolean;
     onSelect: (e: React.MouseEvent) => void;
     onToggleVisibility: () => void;
+    onToggleLock: () => void;
     onDelete: () => void;
     onDragEnd: () => void;
 }
@@ -153,6 +178,7 @@ const LayerItem: React.FC<LayerItemProps> = ({
     isSelected,
     onSelect,
     onToggleVisibility,
+    onToggleLock,
     onDelete,
     onDragEnd
 }) => {
@@ -200,7 +226,17 @@ const LayerItem: React.FC<LayerItemProps> = ({
                 </span>
             </div>
 
-            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+            <div className="flex items-center gap-0.5 transition-opacity">
+                <button
+                    onClick={(e) => { e.stopPropagation(); onToggleLock(); }}
+                    className={cn(
+                        "p-1.5 rounded-md transition-all hover:scale-110 active:scale-95",
+                        path.locked ? "text-red-400 hover:bg-red-400/10" : "text-slate-500 hover:bg-white/10"
+                    )}
+                    title={path.locked ? "Unlock layer" : "Lock layer"}
+                >
+                    {path.locked ? <Lock size={14} /> : <Unlock size={14} />}
+                </button>
                 <button
                     onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
                     className={cn(

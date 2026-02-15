@@ -34,6 +34,7 @@ export interface PathLayer {
     fillOpacity?: number;
     animation?: AnimationSettings;
     visible?: boolean;
+    locked?: boolean;
     name?: string;
     d?: string;
     type?: 'path' | 'text';

@@ -753,7 +753,7 @@ function useDraw() {
             // Handle individual point dragging (only for single selection or first of multi?)
             if (selectedPathIds.length === 1) {
                 const path = paths.find(p => p.id === selectedPathIds[0]);
-                if (path) {
+                if (path && !path.locked) {
                     const HIT_RADIUS = 12;
                     const { width, height } = rect;
                     const centerX = width / (2 * zoom);
@@ -787,7 +787,7 @@ function useDraw() {
             }
 
             const path = paths.find(p => p.id === pathId);
-            if (path) {
+            if (path && !path.locked) {
                 // Calculate effective transform for inverse mapping
                 let effectiveTransform = path.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
                 if (isAnimationMode && path.keyframes && path.keyframes.length > 0) {
