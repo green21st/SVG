@@ -11,6 +11,8 @@ import { SVG_DEFS } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0215.1125', date: '2026-02-15', items: ['修复编辑模式下逆时针旋转时角度示意弧线显示异常的问题'] },
+  { version: 'v26.0215.1110', date: '2026-02-15', items: ['图层面板支持 Shift 键多选（与 Photoshop 逻辑一致）', '重构选择逻辑，支持单选、Ctrl 多选和 Shift 范围选择'] },
   { version: 'v26.0215.1040', date: '2026-02-15', items: ['修复 CodePanel 导入 SVG 时描边颜色错误（黑色描边）的问题', '修复无描边 SVG 路径添加 Glow 动画时发光效果不显示的问题', 'Glow 动画现在会自动使用填充色作为发光色的回退'] },
   { version: 'v26.0214.1705', date: '2026-02-14', items: ['修复合并图层后，子图案动画在编辑模式下无法正常播放的问题'] },
   { version: 'v26.0214.1655', date: '2026-02-14', items: ['UI调整：移除右上角的版本号显示'] },
@@ -152,6 +154,7 @@ function App() {
     setPaths,
     mode,
     setMode,
+    handleSelectPath,
     focusedSegmentIndices,
     setFocusedSegmentIndices,
     transformMode,
@@ -432,7 +435,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1040
+              v26.0215.1125
             </button>
           </h1>
         </div>
@@ -799,16 +802,7 @@ ${pathsCode}
             <LayerPanel
               paths={paths}
               selectedPathIds={selectedPathIds}
-              onSelect={(id, isMulti) => {
-                setFocusedSegmentIndices([]); // Clear any specific segment focus when selecting from panel
-                if (isMulti) {
-                  setSelectedPathIds(prev =>
-                    prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-                  );
-                } else {
-                  setSelectedPathIds([id]);
-                }
-              }}
+              onSelect={handleSelectPath}
               onReorder={setPathsInternal}
               onReorderEnd={setPaths}
               onToggleVisibility={(id) => setPaths(prev => prev.map(p => p.id === id ? { ...p, visible: !p.visible } : p))}

@@ -7,7 +7,7 @@ import { cn } from '../utils/cn';
 interface LayerPanelProps {
     paths: PathLayer[];
     selectedPathIds: string[];
-    onSelect: (id: string, isMulti?: boolean) => void;
+    onSelect: (id: string, isMulti?: boolean, isRange?: boolean) => void;
     onReorder: (newPaths: PathLayer[]) => void;
     onReorderEnd: (newPaths: PathLayer[]) => void;
     onToggleVisibility: (id: string) => void;
@@ -78,7 +78,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
                                 key={path.id}
                                 path={path}
                                 isSelected={selectedPathIds.includes(path.id)}
-                                onSelect={(e) => onSelect(path.id, e.ctrlKey || e.metaKey)}
+                                onSelect={(e) => onSelect(path.id, e.ctrlKey || e.metaKey, e.shiftKey)}
                                 onToggleVisibility={() => onToggleVisibility(path.id)}
                                 onDelete={() => onDelete(path.id)}
                                 onDragEnd={handleReorderEnd}

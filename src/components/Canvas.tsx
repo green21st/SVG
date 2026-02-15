@@ -982,13 +982,13 @@ const Canvas: React.FC<CanvasProps> = ({
                             {/* Angle Arc */}
                             {(() => {
                                 const radius = 50;
-                                const normalizedAngle = ((currentRotationDelta % 360) + 360) % 360;
+                                const absDelta = Math.abs(currentRotationDelta % 360);
                                 const angleRadians = (currentRotationDelta * Math.PI) / 180;
                                 const startX = transformPivot.x + radius;
                                 const startY = transformPivot.y;
                                 const endX = transformPivot.x + radius * Math.cos(angleRadians);
                                 const endY = transformPivot.y + radius * Math.sin(angleRadians);
-                                const largeArcFlag = Math.abs(normalizedAngle) > 180 ? 1 : 0;
+                                const largeArcFlag = absDelta > 180 ? 1 : 0;
                                 const sweepFlag = currentRotationDelta > 0 ? 1 : 0;
 
                                 return (

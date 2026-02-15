@@ -42,6 +42,7 @@ function useDraw() {
     // Edit Mode State
     const [mode, setMode] = useState<'draw' | 'edit'>('draw');
     const [selectedPathIds, setSelectedPathIds] = useState<string[]>([]);
+    const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
     const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
     const [focusedSegmentIndices, setFocusedSegmentIndices] = useState<number[]>([]);
     const isDraggingRef = useRef(false);
@@ -1259,6 +1260,38 @@ function useDraw() {
 
     const [isInteracting, setIsInteracting] = useState(false);
 
+    const handleSelectPath = useCallback((id: string, isMulti?: boolean, isRange?: boolean) => {
+        setFocusedSegmentIndices([]);
+        
+        if (isRange && lastSelectedId && paths.length > 0) {
+            const lastIndex = paths.findIndex(p => p.id === lastSelectedId);
+            const currentIndex = paths.findIndex(p => p.id === id);
+            
+            if (lastIndex !== -1 && currentIndex !== -1) {
+                const start = Math.min(lastIndex, currentIndex);
+                const end = Math.max(lastIndex, currentIndex);
+                const rangeIds = paths.slice(start, end + 1).map(p => p.id);
+                
+                setSelectedPathIds(prev => {
+                    const newIds = new Set(isMulti ? prev : []);
+                    rangeIds.forEach(rid => newIds.add(rid));
+                    return Array.from(newIds);
+                });
+                setLastSelectedId(id);
+                return;
+            }
+        }
+        
+        if (isMulti) {
+            setSelectedPathIds(prev =>
+                prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+            );
+        } else {
+            setSelectedPathIds([id]);
+        }
+        setLastSelectedId(id);
+    }, [paths, lastSelectedId]);
+
     const handleAddText = useCallback((content: string) => {
         if (!content) return;
 
@@ -1316,6 +1349,7 @@ function useDraw() {
         setFontFamily: setFontFamilyEnhanced,
         mode,
         setMode,
+        handleSelectPath,
         selectedPathIds,
         setSelectedPathIds,
         focusedSegmentIndices,
