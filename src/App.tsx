@@ -11,6 +11,7 @@ import { SVG_DEFS } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0215.1040', date: '2026-02-15', items: ['修复 CodePanel 导入 SVG 时描边颜色错误（黑色描边）的问题', '修复无描边 SVG 路径添加 Glow 动画时发光效果不显示的问题', 'Glow 动画现在会自动使用填充色作为发光色的回退'] },
   { version: 'v26.0214.1705', date: '2026-02-14', items: ['修复合并图层后，子图案动画在编辑模式下无法正常播放的问题'] },
   { version: 'v26.0214.1655', date: '2026-02-14', items: ['UI调整：移除右上角的版本号显示'] },
   { version: 'v26.0214.1650', date: '2026-02-14', items: ['UI调整：移除动画面板中的标题和版本号显示'] },
@@ -295,7 +296,8 @@ function App() {
           const sy = v.type === 'V' || v.type === 'C' ? -1 : 1;
           const transform = ` transform="translate(${pt.x}, ${pt.y}) scale(${sx}, ${sy}) rotate(${rotation})"`;
           const fill = path.fill || path.color || '#22d3ee';
-          const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : '';
+          const glowColor = (path.color && path.color !== 'none') ? path.color : (fill && fill !== 'none' ? fill : '#22d3ee');
+          const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : '';
           finalCode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
         } else {
           if (path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
@@ -322,7 +324,10 @@ function App() {
                   }
 
                   let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards; `;
-                  if (type.includes('glow')) animStyle += `--glow-color: ${segColor}; `;
+                  if (type.includes('glow')) {
+                    const glowColor = (segColor && segColor !== 'none') ? segColor : (segFill && segFill !== 'none' ? segFill : '#22d3ee');
+                    animStyle += `--glow-color: ${glowColor}; `;
+                  }
                   if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
                   if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
                   if (['spin', 'bounce', 'swing', 'tada'].includes(type)) animStyle += 'transform-origin: center; transform-box: fill-box; ';
@@ -338,7 +343,8 @@ function App() {
             finalCode = `<g>${segments}</g>`;
           } else {
             const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
-            finalCode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+            const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
+            finalCode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : ''} />`;
           }
         }
 
@@ -351,7 +357,10 @@ function App() {
                 direction === 'alternate' ? 'alternate' : 'reverse';
 
             let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
-            if (path.animation?.types.includes('glow')) styleStr += ` --glow-color: ${path.color || '#22d3ee'};`;
+            if (path.animation?.types.includes('glow')) {
+              const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
+              styleStr += ` --glow-color: ${glowColor};`;
+            }
 
             if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
               if (finalDirection === 'normal') finalDirection = 'reverse';
@@ -423,7 +432,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1030
+              v26.0215.1040
             </button>
           </h1>
         </div>

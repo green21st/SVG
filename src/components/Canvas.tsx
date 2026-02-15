@@ -152,9 +152,10 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
     const variantConfigs = useMemo(() => {
         return variants.map(v => {
+            const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
             const { pathStyles, groupAnimations } = getStylesForAnimation(
                 path.animation,
-                path.color || '#22d3ee',
+                glowColor,
                 v.type,
                 isDragging || animationPaused
             );
@@ -259,9 +260,10 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     // Calculate segment-specific animations
                     // Note: variantType is inherited from the parent configuration if applicable, but for merged layers it might be less relevant unless symmetry is involved.
                     // We use config.variantType if available.
+                    const segmentGlowColor = (segmentColor && segmentColor !== 'none') ? segmentColor : (segmentFill && segmentFill !== 'none' ? segmentFill : '#22d3ee');
                     const { pathStyles: segPathStyles, groupAnimations: segGroupAnimations } = getStylesForAnimation(
                         segmentAnim,
-                        segmentColor,
+                        segmentGlowColor,
                         config.variantType,
                         isDragging || animationPaused
                     );

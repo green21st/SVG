@@ -95,7 +95,10 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                                 }
 
                                 let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards; `;
-                                if (type.includes('glow')) animStyle += `--glow-color: ${segColor}; `;
+                                if (type.includes('glow')) {
+                                    const glowColor = (segColor && segColor !== 'none') ? segColor : (segFill && segFill !== 'none' ? segFill : '#22d3ee');
+                                    animStyle += `--glow-color: ${glowColor}; `;
+                                }
                                 if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
                                 if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
                                 if (['spin', 'bounce', 'swing', 'tada'].includes(type)) animStyle += 'transform-origin: center; transform-box: fill-box; ';
@@ -112,7 +115,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                     finalCode = `<g>${segments}</g>`;
                 } else {
                     const d = smoothPath(v.multiPoints || v.points, path.tension ?? tension, path.closed);
-                    finalCode = `<path d="${d}" stroke="${path.color || 'none'}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${path.color || '#22d3ee'};"` : ''} />`;
+                    const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
+                    finalCode = `<path d="${d}" stroke="${path.color || 'none'}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" stroke-opacity="${path.strokeOpacity ?? 1}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : ''} />`;
                 }
 
                 if (path.animation && path.animation.types.length > 0) {
@@ -124,7 +128,10 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                                 direction === 'alternate' ? 'alternate' : 'reverse';
 
                         let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
-                        if (path.animation?.types.includes('glow')) styleStr += ` --glow-color: ${path.color || '#22d3ee'};`;
+                        if (path.animation?.types.includes('glow')) {
+                            const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
+                            styleStr += ` --glow-color: ${glowColor};`;
+                        }
 
                         // Replicate Canvas.tsx logic for variants
                         if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
