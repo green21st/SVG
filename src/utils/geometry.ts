@@ -387,7 +387,9 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             tension: 0,
             closed: true,
             symmetry: { horizontal: false, vertical: false, center: false },
-            animation: getAnimationSettings(el)
+            animation: getAnimationSettings(el),
+            transform: undefined,
+            keyframes: []
         });
     });
 
@@ -443,6 +445,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                         closed: d.toLowerCase().includes('z'),
                         symmetry: { horizontal: false, vertical: false, center: false },
                         animation: getAnimationSettings(el),
+                        transform: undefined,
+                        keyframes: [],
                         d: d,
                         importedScale: scale,
                         importedOffsetX: offsetX,

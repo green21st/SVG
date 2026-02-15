@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import type { Point, PathLayer, SymmetrySettings, AnimationSettings } from '../types';
+import type { Point, PathLayer, SymmetrySettings, AnimationSettings, Transform, AnimationKeyframe } from '../types';
 import { applySymmetry, distToSegment, simplifyPath, smoothPath } from '../utils/geometry';
+import { interpolateTransform } from '../utils/animation';
 import useHistory from './useHistory';
 
 function useDraw() {
@@ -64,6 +65,80 @@ function useDraw() {
     const [initialRotation, setInitialRotation] = useState<number>(0);
     const [currentRotationDelta, setCurrentRotationDelta] = useState<number>(0);
     const [rotationStartAngle, setRotationStartAngle] = useState<number>(0);
+    const initialTransformsRef = useRef<Map<string, Transform>>(new Map());
+
+    // Animation State
+    const [isAnimationMode, setIsAnimationMode] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(5000);
+    const [isPlaying, setIsPlaying] = useState(false);
+
+
+    // Animation Playback Loop
+    useEffect(() => {
+        let animationFrameId: number;
+        let lastTimestamp: number;
+
+        const animate = (timestamp: number) => {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const delta = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            setCurrentTime(prev => {
+                const next = prev + delta;
+                if (next >= duration) {
+                    return 0; // Loop back to start
+                }
+                return next;
+            });
+
+            animationFrameId = requestAnimationFrame(animate);
+        };
+
+        if (isPlaying) {
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        return () => {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        };
+    }, [isPlaying, duration]);
+
+    const handleAddKeyframe = useCallback(() => {
+        if (selectedPathIds.length === 0) return;
+
+        setPaths(prev => prev.map(p => {
+            if (selectedPathIds.includes(p.id)) {
+                const interpolated = interpolateTransform(p.keyframes || [], currentTime);
+                const value = interpolated || p.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
+
+                let newKeyframes = [...(p.keyframes || [])];
+                newKeyframes = newKeyframes.filter(k => Math.abs(k.time - currentTime) > 0.1);
+                newKeyframes.push({
+                    id: `kf-${p.id}-${Math.round(currentTime)}`,
+                    time: currentTime,
+                    value: value,
+                    ease: 'linear'
+                });
+                newKeyframes.sort((a, b) => a.time - b.time);
+
+                return { ...p, keyframes: newKeyframes };
+            }
+            return p;
+        }));
+    }, [selectedPathIds, currentTime, setPaths]);
+
+    const handleDeleteKeyframe = useCallback(() => {
+        if (selectedPathIds.length === 0) return;
+
+        setPaths(prev => prev.map(p => {
+            if (selectedPathIds.includes(p.id)) {
+                const newKeyframes = (p.keyframes || []).filter(k => Math.abs(k.time - currentTime) > 100);
+                return { ...p, keyframes: newKeyframes };
+            }
+            return p;
+        }));
+    }, [selectedPathIds, currentTime, setPaths]);
 
 
     // Snapping Settings
@@ -559,13 +634,27 @@ function useDraw() {
         if (handleType && selectedPathIds.length > 0) {
             const selectedPaths = paths.filter(p => selectedPathIds.includes(p.id));
             if (selectedPaths.length > 0) {
-                // For multiple paths, calculate collective bounding box
+                // For multiple paths, calculate collective bounding box of TRANSFORMED points
                 const allPoints = selectedPaths.flatMap(p => {
+                    let effectiveTransform = p.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
+                    if (isAnimationMode && p.keyframes && p.keyframes.length > 0) {
+                        const interpolated = interpolateTransform(p.keyframes, currentTime);
+                        if (interpolated) effectiveTransform = interpolated;
+                    }
+
+                    let points = p.points;
                     if (selectedPaths.length === 1 && focusedSegmentIndices.length > 0 && p.multiPathPoints) {
                         // Collect points from all focused segments
-                        return focusedSegmentIndices.flatMap(idx => p.multiPathPoints![idx] || []);
+                        points = focusedSegmentIndices.flatMap(idx => p.multiPathPoints![idx] || []);
                     }
-                    return p.points;
+                    
+                    // Map points to their visual position (applying translation)
+                    // We only apply translation because rotation/scale happens around the center,
+                    // so the center of the bounding box is preserved relative to translation.
+                    return points.map(pt => ({
+                        x: pt.x + effectiveTransform.x,
+                        y: pt.y + effectiveTransform.y
+                    }));
                 });
                 const box = getBoundingBox(allPoints);
                 const pivot = { x: box.centerX, y: box.centerY };
@@ -575,6 +664,13 @@ function useDraw() {
 
                 setTransformPivot(pivot);
                 setTransformHandle(handleType);
+
+                // Capture initial transforms for animation
+                const initialMap = new Map<string, Transform>();
+                selectedPaths.forEach(p => {
+                    initialMap.set(p.id, { ...(p.transform || { x: 0, y: 0, rotation: 0, scale: 1 }) });
+                });
+                initialTransformsRef.current = initialMap;
 
                 // Text specific initial states (use first selected if multiple?)
                 const firstText = selectedPaths.find(p => p.type === 'text');
@@ -684,6 +780,49 @@ function useDraw() {
 
             const path = paths.find(p => p.id === pathId);
             if (path) {
+                // Calculate effective transform for inverse mapping
+                let effectiveTransform = path.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
+                if (isAnimationMode && path.keyframes && path.keyframes.length > 0) {
+                    const interpolated = interpolateTransform(path.keyframes, currentTime);
+                    if (interpolated) effectiveTransform = interpolated;
+                }
+
+                // Inverse Transform Logic to map Mouse -> Local Shape Space
+                const inverseTransformPoint = (pt: {x: number, y: number}) => {
+                     // 1. Get Bounding Box Center (Pivot) of ORIGINAL points
+                     const box = getBoundingBox(path.points); 
+                     const cx = box.centerX;
+                     const cy = box.centerY;
+
+                     // 2. Undo Translate
+                     let x = pt.x - effectiveTransform.x;
+                     let y = pt.y - effectiveTransform.y;
+
+                     // 3. Undo Rotate (rotate by -angle around center)
+                     if (effectiveTransform.rotation) {
+                         const rad = -effectiveTransform.rotation * Math.PI / 180;
+                         const dx = x - cx;
+                         const dy = y - cy;
+                         x = cx + dx * Math.cos(rad) - dy * Math.sin(rad);
+                         y = cy + dx * Math.sin(rad) + dy * Math.cos(rad);
+                     }
+
+                     // 4. Undo Scale (scale by 1/s around center)
+                     // Note: Canvas.tsx uses scale(sx, sy) centered on bounding box
+                     if (effectiveTransform.scale !== 1 || (effectiveTransform.scaleX !== undefined && effectiveTransform.scaleX !== 1)) {
+                         const sx = effectiveTransform.scaleX ?? effectiveTransform.scale ?? 1;
+                         const sy = effectiveTransform.scaleY ?? effectiveTransform.scale ?? 1;
+                         const dx = x - cx;
+                         const dy = y - cy;
+                         x = cx + dx / sx;
+                         y = cy + dy / sy;
+                     }
+                     return { x, y };
+                };
+
+                const mouseSVG = { x: (mouseX - panOffset.x) / zoom, y: (mouseY - panOffset.y) / zoom };
+                const localMouseSVG = inverseTransformPoint(mouseSVG);
+
                 // 1. Detect clicked segment index first
                 let bestSegIdx = -1;
                 if (path.multiPathPoints) {
@@ -692,16 +831,16 @@ function useDraw() {
                     bestSegIdx = (segmentIndexAttr !== null && segmentIndexAttr !== undefined) ? parseInt(segmentIndexAttr) : -1;
 
                     if (bestSegIdx === -1) {
-                        const mouseSVG = { x: (mouseX - panOffset.x) / zoom, y: (mouseY - panOffset.y) / zoom };
+                        // Use localMouseSVG for hit detection against original points
                         let minSegDist = 15 / zoom;
 
                         path.multiPathPoints.forEach((seg, sIdx) => {
                             for (let i = 0; i < seg.length - 1; i++) {
-                                const d = distToSegment(mouseSVG, seg[i], seg[i + 1]);
+                                const d = distToSegment(localMouseSVG, seg[i], seg[i + 1]);
                                 if (d < minSegDist) { minSegDist = d; bestSegIdx = sIdx; }
                             }
                             if (path.closed && seg.length > 2) {
-                                const d = distToSegment(mouseSVG, seg[seg.length - 1], seg[0]);
+                                const d = distToSegment(localMouseSVG, seg[seg.length - 1], seg[0]);
                                 if (d < minSegDist) { minSegDist = d; bestSegIdx = sIdx; }
                             }
                         });
@@ -763,10 +902,29 @@ function useDraw() {
                 }
 
                 const box = getBoundingBox(pointsForBox);
-                setTransformPivot({ x: box.centerX, y: box.centerY });
+                
+                // Apply translation to pivot so rotation/scale happens around the visual center
+                setTransformPivot({ 
+                    x: box.centerX + effectiveTransform.x, 
+                    y: box.centerY + effectiveTransform.y 
+                });
 
                 setTransformMode('translate');
                 setInitialMousePos({ x: mouseX, y: mouseY });
+
+                const initialMap = new Map<string, Transform>();
+                const pathsToMove = selectedPathIds.length > 0 ? paths.filter(p => selectedPathIds.includes(p.id)) : [path];
+                pathsToMove.forEach(p => {
+                    let startTransform = p.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
+                    if (isAnimationMode && p.keyframes && p.keyframes.length > 0) {
+                        const interpolated = interpolateTransform(p.keyframes, currentTime);
+                        if (interpolated) {
+                            startTransform = interpolated;
+                        }
+                    }
+                    initialMap.set(p.id, { ...startTransform });
+                });
+                initialTransformsRef.current = initialMap;
 
 
             } else {
@@ -778,7 +936,7 @@ function useDraw() {
             }
             isDraggingRef.current = false;
         }
-    }, [getPointFromEvent, mode, paths, selectedPathIds, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset, focusedSegmentIndices]);
+    }, [getPointFromEvent, mode, paths, selectedPathIds, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset, focusedSegmentIndices, currentTime, isAnimationMode]);
 
     const handlePointerMove = useCallback((e: React.MouseEvent) => {
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -865,6 +1023,39 @@ function useDraw() {
                 if (transformMode !== 'none') {
                     const updateFn = (prevList: PathLayer[]): PathLayer[] => prevList.map(p => {
                         if (selectedPathIds.includes(p.id)) {
+                            if (isAnimationMode) {
+                                const initialTransform = initialTransformsRef.current.get(p.id) || { x: 0, y: 0, rotation: 0, scale: 1 };
+                                let newTransform = { ...initialTransform };
+
+                                if (transformMode === 'translate' && initialMousePos) {
+                                    const dx = (mouseX - initialMousePos.x) / zoom;
+                                    const dy = (mouseY - initialMousePos.y) / zoom;
+                                    newTransform.x = initialTransform.x + dx;
+                                    newTransform.y = initialTransform.y + dy;
+                                } else if (transformMode === 'rotate' && transformPivot) {
+                                    const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
+                                    const deltaDegrees = ((currentAngle - initialAngle) * 180) / Math.PI;
+                                    newTransform.rotation = initialTransform.rotation + deltaDegrees;
+                                    setCurrentRotationDelta(deltaDegrees);
+                                } else if (transformMode === 'scale' && transformPivot) {
+                                    const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
+                                    const scaleFactor = currentDist / initialDist;
+                                    newTransform.scale = initialTransform.scale * scaleFactor;
+                                }
+
+                                let newKeyframes = [...(p.keyframes || [])];
+                                newKeyframes = newKeyframes.filter(k => Math.abs(k.time - currentTime) > 0.1);
+                                newKeyframes.push({
+                                    id: `kf-${p.id}-${Math.round(currentTime)}`,
+                                    time: currentTime,
+                                    value: newTransform,
+                                    ease: 'linear'
+                                });
+                                newKeyframes.sort((a, b) => a.time - b.time);
+
+                                return { ...p, transform: newTransform, keyframes: newKeyframes };
+                            }
+
                             // Use the path's current points as the "initial" state for this specific path
                             // This assumes `setPaths` or `setInternalState` is called frequently enough
                             // or that `initialPoints` was set for each path individually.
@@ -986,22 +1177,26 @@ function useDraw() {
                         return p;
                     });
 
-                    // Update local mouse for relative translate
-                    if (transformMode === 'translate') {
-                        setInitialMousePos({ x: mouseX, y: mouseY });
-                    } else if (transformMode === 'rotate') {
-                        const currentAngle = Math.atan2(mouseY - transformPivot!.y, mouseX - transformPivot!.x);
-                        setInitialAngle(currentAngle);
-                    } else if (transformMode === 'scale') {
-                        const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot!.x, 2) + Math.pow(mouseY - transformPivot!.y, 2));
-                        setInitialDist(currentDist);
-                    }
-
-                    if (!isDraggingRef.current) {
+                    if (isAnimationMode) {
                         setPaths(updateFn);
-                        isDraggingRef.current = true;
                     } else {
-                        setInternalState(updateFn);
+                        // Update local mouse for relative translate
+                        if (transformMode === 'translate') {
+                            setInitialMousePos({ x: mouseX, y: mouseY });
+                        } else if (transformMode === 'rotate') {
+                            const currentAngle = Math.atan2(mouseY - transformPivot!.y, mouseX - transformPivot!.x);
+                            setInitialAngle(currentAngle);
+                        } else if (transformMode === 'scale') {
+                            const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot!.x, 2) + Math.pow(mouseY - transformPivot!.y, 2));
+                            setInitialDist(currentDist);
+                        }
+
+                        if (!isDraggingRef.current) {
+                            setPaths(updateFn);
+                            isDraggingRef.current = true;
+                        } else {
+                            setInternalState(updateFn);
+                        }
                     }
                 } else if (draggingPointIndex !== null && selectedPathIds.length === 1) {
                     const updateFn = (prev: PathLayer[]): PathLayer[] => prev.map(p => {
@@ -1059,7 +1254,9 @@ function useDraw() {
                 symmetry: { ...symmetry },
                 visible: true,
                 name: `Brush ${paths.length + 1}`,
-                d: smoothPath(optimizedPoints, tension, false)
+                d: smoothPath(optimizedPoints, tension, false),
+                transform: { x: 0, y: 0, rotation: 0, scale: 1 },
+                keyframes: []
             };
             setPaths(prev => [...prev, newPath]);
             setCurrentPoints([]);
@@ -1081,7 +1278,9 @@ function useDraw() {
                 symmetry: { ...symmetry },
                 visible: true,
                 name: `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} ${paths.length + 1}`,
-                d: smoothPath(currentPoints, tension, true)
+                d: smoothPath(currentPoints, tension, true),
+                transform: { x: 0, y: 0, rotation: 0, scale: 1 },
+                keyframes: []
             };
             setPaths(prev => [...prev, newPath]);
             setCurrentPoints([]);
@@ -1241,7 +1440,9 @@ function useDraw() {
             animation: { ...animation },
             symmetry: { ...symmetry },
             visible: true,
-            name: `Path ${paths.length + 1}`
+            name: `Path ${paths.length + 1}`,
+            transform: { x: 0, y: 0, rotation: 0, scale: 1 },
+            keyframes: []
         };
         setPaths([...paths, newPath]);
         setCurrentPoints([]);
@@ -1315,12 +1516,41 @@ function useDraw() {
             fontFamily: 'Inter, system-ui, sans-serif',
             visible: true,
             symmetry: { ...symmetry },
-            name: `Text: ${content.substring(0, 10)}...`
+            name: `Text: ${content.substring(0, 10)}...`,
+            transform: { x: 0, y: 0, rotation: 0, scale: 1 },
+            keyframes: []
         };
 
         setPaths(prev => [...prev, newPath]);
         setSelectedPathIds([newPath.id]);
     }, [strokeColor, symmetry, setPaths]);
+
+    const handleUpdateKeyframe = useCallback((id: string, updates: Partial<AnimationKeyframe>) => {
+        if (selectedPathIds.length !== 1) return;
+        const pathId = selectedPathIds[0];
+
+        setPaths(prev => prev.map(p => {
+            if (p.id !== pathId) return p;
+            const newKeyframes = p.keyframes?.map(k => 
+                k.id === id ? { ...k, ...updates } : k
+            ) || [];
+            // Re-sort if time changed
+            if (updates.time !== undefined) {
+                newKeyframes.sort((a, b) => a.time - b.time);
+            }
+            return { ...p, keyframes: newKeyframes };
+        }));
+    }, [selectedPathIds, setPaths]);
+
+    const togglePlayback = useCallback(() => {
+        setIsPlaying(prev => {
+            const next = !prev;
+            if (next) {
+                setCurrentTime(0); // Start from 0 when playing
+            }
+            return next;
+        });
+    }, [setIsPlaying, setCurrentTime]);
 
     return {
         paths,
@@ -1395,7 +1625,19 @@ function useDraw() {
         splitSelected,
         moveSelectedUp,
         moveSelectedDown,
-        moveSelectedToTop
+        moveSelectedToTop,
+        isAnimationMode,
+        setIsAnimationMode,
+        currentTime,
+        setCurrentTime,
+        duration,
+        setDuration,
+        isPlaying,
+        setIsPlaying,
+        togglePlayback,
+        handleAddKeyframe,
+        handleDeleteKeyframe,
+        handleUpdateKeyframe
     };
 }
 

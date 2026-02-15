@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Copy, Check, Import, Save } from 'lucide-react';
 import { smoothPath, parseSVGToPaths, applySymmetry } from '../utils/geometry';
+import { SVG_DEF_MAP } from '../utils/svgDefs';
 import type { PathLayer } from '../types';
 
 interface CodePanelProps {
@@ -8,9 +9,10 @@ interface CodePanelProps {
     tension: number;
     isDragging?: boolean;
     onApplyCode?: (newPaths: PathLayer[]) => void;
+    duration?: number;
 }
 
-export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging, onApplyCode }) => {
+export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging, onApplyCode, duration = 3 }) => {
     const [copied, setCopied] = useState(false);
     const [localCode, setLocalCode] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -28,7 +30,23 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
         // Collect all used animation types
         const usedAnimations = new Set<string>();
+        // Collect used defs (gradients, patterns)
+        const usedDefs = new Set<string>();
+
+        const checkAndAddDef = (color: string | undefined) => {
+            if (!color) return;
+            const match = color.match(/url\(#([^)]+)\)/);
+            if (match && match[1]) {
+                usedDefs.add(match[1]);
+            }
+        };
+
         paths.filter(p => p.visible !== false).forEach(path => {
+            checkAndAddDef(path.fill);
+            checkAndAddDef(path.color); // stroke color
+            path.segmentColors?.forEach(c => checkAndAddDef(c));
+            path.segmentFills?.forEach(f => checkAndAddDef(f));
+
             if (path.animation?.types) {
                 path.animation.types.forEach(type => {
                     if (type !== 'none') usedAnimations.add(type);
@@ -45,6 +63,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
             }
         });
 
+        const defsContent = Array.from(usedDefs)
+            .map(id => SVG_DEF_MAP[id])
+            .filter(Boolean)
+            .join('\n    ');
+
         // Only generate keyframes for used animations
         const keyframeMap: Record<string, string> = {
             draw: '@keyframes drawPath { to { stroke-dashoffset: 0; } }',
@@ -58,15 +81,31 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
             tada: '@keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }'
         };
 
-        const keyframes = Array.from(usedAnimations)
+        let keyframes = Array.from(usedAnimations)
             .map(type => keyframeMap[type])
             .filter(Boolean)
             .join('\n  ');
 
+        // Generate Custom Keyframes for Path Layers
+        paths.forEach(path => {
+            if (path.keyframes && path.keyframes.length > 0) {
+                const sortedFrames = [...path.keyframes].sort((a, b) => a.time - b.time);
+                const steps = sortedFrames.map(kf => {
+                    const { x, y, rotation, scale, scaleX, scaleY } = kf.value;
+                    const sx = scaleX ?? scale ?? 1;
+                    const sy = scaleY ?? scale ?? 1;
+                    const percentage = (kf.time / duration) * 100;
+                    return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); animation-timing-function: ${kf.ease}; }`;
+                }).join('\n    ');
+
+                keyframes += `\n  @keyframes anim-${path.id} {\n    ${steps}\n  }`;
+            }
+        });
+
         const pathsCode = paths.filter(p => p.visible !== false).flatMap(path => {
             const variants = applySymmetry(path.multiPathPoints || path.points, path.symmetry, width / 2, height / 2);
 
-            return variants.map(v => {
+            const variantCode = variants.map(v => {
                 let finalCode = '';
 
                 if (path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
@@ -153,21 +192,38 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                     });
                 }
 
+                // Add Custom Keyframe Animation Wrapper
+                if (path.keyframes && path.keyframes.length > 0) {
+                    const durationSec = duration / 1000;
+                    const animStyle = `animation: anim-${path.id} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: center;`;
+                    finalCode = `<g style="${animStyle}">${finalCode}</g>`;
+                } else if (path.transform) {
+                    const { x, y, rotation, scale, scaleX, scaleY } = path.transform;
+                    const sx = scaleX ?? scale ?? 1;
+                    const sy = scaleY ?? scale ?? 1;
+                    const transformStyle = `transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: center;`;
+                    finalCode = `<g style="${transformStyle}">${finalCode}</g>`;
+                }
+
                 return finalCode;
             });
+            return variantCode;
         }).join('\n');
 
         const code = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    /* Animation Keyframes */
-${keyframes}
-  </style>
-${pathsCode}
+    <defs>
+    ${defsContent}
+    </defs>
+    <style>
+        /* Animation Keyframes */
+        ${keyframes}
+    </style>
+    ${pathsCode}
 </svg>`;
 
         lastCodeRef.current = code;
         return code;
-    }, [paths, tension, isDragging]);
+    }, [paths, tension, isDragging, duration]);
 
     // Sync generated code to local code when not editing
     useEffect(() => {

@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback } from 'react';
 import type { PathLayer, Point, AnimationSettings, SymmetrySettings } from '../types';
 import { smoothPath, getPolylinePath, applySymmetry } from '../utils/geometry';
+import { interpolateTransform } from '../utils/animation';
 import { cn } from '../utils/cn';
 import { Defs } from './Defs';
 
@@ -13,9 +14,11 @@ interface PathItemProps {
     getBoundingBox: (points: Point[]) => any;
     animationPaused: boolean;
     focusedSegmentIndices: number[];
+    isAnimationMode?: boolean;
+    currentTime?: number;
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime }) => {
     const selected = selectedPathIds.includes(path.id);
     // Canvas dimensions for symmetry center
     const width = 800;
@@ -66,6 +69,26 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         }
         return getBoundingBox(path.points);
     }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, path.type, path.fontSize, path.text, getBoundingBox]);
+
+    const currentTransform = useMemo(() => {
+        if (path.keyframes && path.keyframes.length > 0 && currentTime !== undefined) {
+             return interpolateTransform(path.keyframes, currentTime);
+        }
+        return path.transform;
+    }, [path.keyframes, path.transform, currentTime]);
+
+    const rootTransformStyle = useMemo(() => {
+        if (!currentTransform) return {};
+        const { x, y, rotation, scale, scaleX, scaleY } = currentTransform;
+        const sx = scaleX ?? scale ?? 1;
+        const sy = scaleY ?? scale ?? 1;
+        
+        return {
+            transform: `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy})`,
+            transformOrigin: 'center',
+            transformBox: 'fill-box' as const
+        };
+    }, [currentTransform]);
 
     // Helper to generate animation styles
     const getStylesForAnimation = (
@@ -175,7 +198,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
     }, [path.animation, variants, path.color, isDragging, animationPaused]);
 
     return (
-        <g>
+        <g style={rootTransformStyle}>
             {/* Global Animation Keyframes */}
             <style>
                 {`
@@ -691,6 +714,8 @@ interface CanvasProps {
     transformMode: 'none' | 'rotate' | 'scale' | 'translate';
     transformPivot: Point | null;
     currentRotationDelta: number;
+    isAnimationMode?: boolean;
+    currentTime?: number;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -724,7 +749,9 @@ const Canvas: React.FC<CanvasProps> = ({
     focusedSegmentIndices,
     transformMode,
     transformPivot,
-    currentRotationDelta
+    currentRotationDelta,
+    isAnimationMode,
+    currentTime
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -854,6 +881,8 @@ const Canvas: React.FC<CanvasProps> = ({
                             getBoundingBox={getBoundingBox}
                             animationPaused={animationPaused}
                             focusedSegmentIndices={focusedSegmentIndices}
+                            isAnimationMode={isAnimationMode}
+                            currentTime={currentTime}
                         />
                     ))}
                 </svg>

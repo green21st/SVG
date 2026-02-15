@@ -3,32 +3,48 @@ export interface Point {
     y: number;
 }
 
+export interface Transform {
+    x: number;
+    y: number;
+    rotation: number;
+    scale: number;
+    scaleX?: number;
+    scaleY?: number;
+}
+
+export interface AnimationKeyframe {
+    id: string;
+    time: number; // 0-100 percentage
+    value: Transform;
+    ease: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+}
+
 export interface PathLayer {
     id: string;
     points: Point[];
     color: string;
-    fill: string; // Added fill color
+    fill: string;
     width: number;
-    tension: number; // Store tension per path
+    tension: number;
     closed: boolean;
-    symmetry: SymmetrySettings; // Embedded symmetry for dynamic editing
+    symmetry: SymmetrySettings;
+    transform?: Transform; // Added transform property
+    keyframes?: AnimationKeyframe[]; // Added keyframes property
     strokeOpacity?: number;
     fillOpacity?: number;
     animation?: AnimationSettings;
     visible?: boolean;
     name?: string;
-    d?: string; // Cache the smoothed path data to avoid re-calculation
+    d?: string;
     type?: 'path' | 'text';
-    multiPathPoints?: Point[][]; // Support for compound paths (merged layers)
+    multiPathPoints?: Point[][];
     text?: string;
     fontSize?: number;
     fontFamily?: string;
-    rotation?: number;
-    // For imported SVG with original path data
+    rotation?: number; // Keep for text legacy or migrate? Let's keep for now but prefer transform.rotation
     importedScale?: number;
     importedOffsetX?: number;
     importedOffsetY?: number;
-    // Segment-specific styles for merged paths
     segmentColors?: string[];
     segmentFills?: string[];
     segmentWidths?: number[];

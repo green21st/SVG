@@ -7,10 +7,22 @@ import { smoothPath, applySymmetry } from './utils/geometry';
 import { cn } from './utils/cn';
 import { CodePanel } from './components/CodePanel';
 import { LayerPanel } from './components/LayerPanel';
-import { SVG_DEFS } from './utils/svgDefs';
+import Timeline from './components/Timeline';
+import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0215.1515', date: '2026-02-15', items: ['优化关键帧初始化逻辑：开启 KeyFrame 模式时，自动为选中对象在 0 秒处创建初始关键帧'] },
+  { version: 'v26.0215.1500', date: '2026-02-15', items: ['重命名“动画模式”按钮为“KeyFrame”', '开启 KeyFrame 模式时自动切换至“编辑(Edit)”模式'] },
+  { version: 'v26.0215.1445', date: '2026-02-15', items: ['优化关键帧动画播放逻辑：点击播放时自动从0秒开始，并实现无限循环播放'] },
+  { version: 'v26.0215.1430', date: '2026-02-15', items: ['修复导出SVG动画无法播放的问题（修正关键帧百分比计算与时间单位）', '优化代码面板预览逻辑，确保动画参数与导出文件一致'] },
+  { version: 'v26.0215.1400', date: '2026-02-15', items: ['优化SVG导出逻辑，仅包含实际使用的材质与渐变定义', '修复代码预览面板中缺少SVG Defs定义的问题', '进一步减小导出文件体积'] },
+  { version: 'v26.0215.1315', date: '2026-02-15', items: ['修复代码面板生成的SVG代码中缺少关键帧动画定义的问题', '优化SVG导出逻辑，确保自定义关键帧动画(CSS Animation)被正确包含', '统一编辑器与导出代码的动画表现'] },
+  { version: 'v26.0215.1300', date: '2026-02-15', items: ['修复动画模式下旋转中心未跟随图形位移的问题（计算Pivot时应用平移变换）', '修复构建时的类型错误与变量冗余'] },
+  { version: 'v26.0215.1230', date: '2026-02-15', items: ['修复 useDraw.ts 语法错误导致的应用崩溃', '修复动画模式下编辑模型时的位置突变与选中失效问题', '实现点击命中检测的逆变换逻辑，支持精准选中已变换图形'] },
+  { version: 'v26.0215.1215', date: '2026-02-15', items: ['修复动画模式下无法选中已位移图形的问题（实现点击命中检测的逆变换逻辑）', '优化子图形点击判定，支持旋转/缩放后的精准选中'] },
+  { version: 'v26.0215.1155', date: '2026-02-15', items: ['修复动画模式下编辑模型时位置突变的问题', '优化自动打帧逻辑，确保拖拽、旋转、缩放操作基于当前动画状态'] },
+  { version: 'v26.0215.1140', date: '2026-02-15', items: ['新增关键帧动画时间轴交互', '支持关键帧选中与缓动函数(Easing)配置', '优化时间轴视觉样式与操作体验'] },
   { version: 'v26.0215.1125', date: '2026-02-15', items: ['修复编辑模式下逆时针旋转时角度示意弧线显示异常的问题'] },
   { version: 'v26.0215.1110', date: '2026-02-15', items: ['图层面板支持 Shift 键多选（与 Photoshop 逻辑一致）', '重构选择逻辑，支持单选、Ctrl 多选和 Shift 范围选择'] },
   { version: 'v26.0215.1040', date: '2026-02-15', items: ['修复 CodePanel 导入 SVG 时描边颜色错误（黑色描边）的问题', '修复无描边 SVG 路径添加 Glow 动画时发光效果不显示的问题', 'Glow 动画现在会自动使用填充色作为发光色的回退'] },
@@ -156,10 +168,19 @@ function App() {
     setMode,
     handleSelectPath,
     focusedSegmentIndices,
-    setFocusedSegmentIndices,
     transformMode,
     transformPivot,
-    currentRotationDelta
+    currentRotationDelta,
+    isAnimationMode,
+    setIsAnimationMode,
+    currentTime,
+    setCurrentTime,
+    duration,
+    isPlaying,
+    togglePlayback,
+    handleAddKeyframe,
+    handleDeleteKeyframe,
+    handleUpdateKeyframe
   } = useDraw();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -188,6 +209,10 @@ function App() {
       if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
     };
   }, [zoom]);
+
+  React.useEffect(() => {
+    console.log(`Fantastic SVG v26.0215.1515`);
+  }, []);
 
   const handleBgUploadClick = () => {
     bgInputRef.current?.click();
@@ -279,15 +304,31 @@ function App() {
       tada: '@keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }'
     };
 
-    const keyframes = Array.from(usedAnimations)
+    let keyframes = Array.from(usedAnimations)
       .map(type => keyframeMap[type])
       .filter(Boolean)
       .join('\n  ');
 
-    const pathsCode = paths.filter(p => p.visible !== false).flatMap(path => {
+    // Generate Custom Keyframes for Path Layers
+    paths.forEach(path => {
+      if (path.keyframes && path.keyframes.length > 0) {
+        const sortedFrames = [...path.keyframes].sort((a, b) => a.time - b.time);
+        const steps = sortedFrames.map(kf => {
+          const { x, y, rotation, scale, scaleX, scaleY } = kf.value;
+          const sx = scaleX ?? scale ?? 1;
+          const sy = scaleY ?? scale ?? 1;
+          const percentage = (kf.time / duration) * 100;
+          return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); animation-timing-function: ${kf.ease}; }`;
+        }).join('\n    ');
+        
+        keyframes += `\n  @keyframes anim-${path.id} {\n    ${steps}\n  }`;
+      }
+    });
+
+    const pathsCode = paths.filter(p => p.visible !== false).map(path => {
       const variants = applySymmetry(path.multiPathPoints || path.points, path.symmetry, width / 2, height / 2);
 
-      return variants.map(v => {
+      const variantCode = variants.map(v => {
         const sOp = path.strokeOpacity ?? 1;
         const fOp = path.fillOpacity ?? 1;
         let finalCode = '';
@@ -385,12 +426,60 @@ function App() {
         }
 
         return finalCode;
-      });
+      }).join('\n');
+
+      // Wrap in keyframe animation group if applicable
+      if (path.keyframes && path.keyframes.length > 0) {
+        const animName = `anim-${path.id}`;
+        // Note: duration here is the global timeline duration (in ms, convert to seconds)
+        const durationSec = duration / 1000;
+        return `<g style="animation: ${animName} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: center;">
+          ${variantCode}
+        </g>`;
+      }
+      
+      // If no keyframes but we have a static transform (that isn't identity), we should apply it
+      // But wait, in the editor, the transform is applied via style.
+      // If we export without animation, we should at least export the static transform position.
+      if (path.transform) {
+          const { x, y, rotation, scale, scaleX, scaleY } = path.transform;
+          if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1)) {
+              const sx = scaleX ?? scale ?? 1;
+              const sy = scaleY ?? scale ?? 1;
+              return `<g style="transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: center;">
+                  ${variantCode}
+              </g>`;
+          }
+      }
+
+      return variantCode;
     }).join('\n');
+
+    // Collect used defs (gradients, patterns)
+    const usedDefs = new Set<string>();
+    const checkAndAddDef = (color: string | undefined) => {
+        if (!color) return;
+        const match = color.match(/url\(#([^)]+)\)/);
+        if (match && match[1]) {
+            usedDefs.add(match[1]);
+        }
+    };
+
+    paths.filter(p => p.visible !== false).forEach(path => {
+        checkAndAddDef(path.fill);
+        checkAndAddDef(path.color); // stroke color
+        path.segmentColors?.forEach(c => checkAndAddDef(c));
+        path.segmentFills?.forEach(f => checkAndAddDef(f));
+    });
+
+    const defsContent = Array.from(usedDefs)
+        .map(id => SVG_DEF_MAP[id])
+        .filter(Boolean)
+        .join('\n');
 
     const svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    ${SVG_DEFS}
+    ${defsContent}
   </defs>
   <style>
 ${keyframes}
@@ -435,7 +524,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1125
+              v26.0215.1515
             </button>
           </h1>
         </div>
@@ -615,6 +704,8 @@ ${pathsCode}
                 transformMode={transformMode}
                 transformPivot={transformPivot}
                 currentRotationDelta={currentRotationDelta}
+                isAnimationMode={isAnimationMode}
+                currentTime={currentTime}
               />
 
               {/* Zoom Indicator Overlay */}
@@ -796,6 +887,44 @@ ${pathsCode}
               )}
             </div>
           </div>
+
+          <Timeline 
+            currentTime={currentTime}
+            duration={duration}
+            isPlaying={isPlaying}
+            onTimeChange={setCurrentTime}
+            onTogglePlay={togglePlayback}
+            onAddKeyframe={handleAddKeyframe}
+            onDeleteKeyframe={handleDeleteKeyframe}
+            onUpdateKeyframe={handleUpdateKeyframe}
+            keyframes={selectedPathIds.length === 1 ? paths.find(p => p.id === selectedPathIds[0])?.keyframes || [] : []}
+            isAnimationMode={isAnimationMode}
+            onToggleAnimationMode={() => {
+              const nextMode = !isAnimationMode;
+              setIsAnimationMode(nextMode);
+              if (nextMode) {
+                setMode('edit');
+                // Automatically add a 0s keyframe for selected paths if they have none
+                if (selectedPathIds.length > 0) {
+                  setPaths(prev => prev.map(p => {
+                    if (selectedPathIds.includes(p.id) && (!p.keyframes || p.keyframes.length === 0)) {
+                      return {
+                        ...p,
+                        keyframes: [{
+                          id: `kf-${p.id}-0`,
+                          time: 0,
+                          value: { ...(p.transform || { x: 0, y: 0, rotation: 0, scale: 1 }) },
+                          ease: 'linear'
+                        }]
+                      };
+                    }
+                    return p;
+                  }));
+                }
+              }
+            }}
+            className="w-[800px] mt-2"
+          />
         </section>
         <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col gap-4 overflow-hidden">
           <div className="flex-[3] min-h-0 flex flex-col">
@@ -818,7 +947,7 @@ ${pathsCode}
             />
           </div>
           <div className="flex-[2] min-h-0 flex flex-col">
-            <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} />
+            <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} duration={duration} />
           </div>
         </aside>
       </main>
