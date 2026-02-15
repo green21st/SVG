@@ -12,6 +12,7 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0215.1545', date: '2026-02-15', items: ['界面布局优化：绘图区上移并缩小面板间距，提升垂直空间利用率'] },
   { version: 'v26.0215.1530', date: '2026-02-15', items: ['优化关键帧动画编辑的撤销/重做体验：将拖拽过程视为单一操作，避免产生大量冗余历史记录'] },
   { version: 'v26.0215.1515', date: '2026-02-15', items: ['优化关键帧初始化逻辑：开启 KeyFrame 模式时，自动为选中对象在 0 秒处创建初始关键帧'] },
   { version: 'v26.0215.1500', date: '2026-02-15', items: ['重命名“动画模式”按钮为“KeyFrame”', '开启 KeyFrame 模式时自动切换至“编辑(Edit)”模式'] },
@@ -212,7 +213,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0215.1530`);
+    console.log(`Fantastic SVG v26.0215.1545`);
   }, []);
 
   const handleBgUploadClick = () => {
@@ -525,7 +526,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1530
+              v26.0215.1545
             </button>
           </h1>
         </div>
@@ -565,7 +566,7 @@ ${pathsCode}
           <input type="file" ref={bgInputRef} className="hidden" accept="image/*" onChange={handleBgFileChange} />
         </aside>
 
-        <section className="flex-1 bg-[#020617] p-8 overflow-hidden relative flex flex-col items-center justify-center gap-4">
+        <section className="flex-1 bg-[#020617] p-4 overflow-hidden relative flex flex-col items-center justify-start gap-2 pt-4">
           <div className="flex bg-slate-900/50 backdrop-blur-sm p-1.5 rounded-xl border border-white/5 shadow-xl gap-1">
             <button
               onClick={() => { setActiveTool('brush'); setMode('draw'); }}
@@ -778,8 +779,8 @@ ${pathsCode}
           </div>
 
           {/* Animation Controls Panel - Compact Version */}
-          <div className="w-[800px] mt-4 p-3 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden">
-            <div className="flex items-center gap-4">
+          <div className="w-[800px] mt-2 p-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden">
+            <div className="flex items-center gap-3">
               {/* Animation Play/Pause Toggle */}
               <div className="flex items-center gap-2 border-r border-white/5 pr-4">
                 <button
@@ -924,7 +925,7 @@ ${pathsCode}
                 }
               }
             }}
-            className="w-[800px] mt-2"
+            className="w-[800px] mt-1"
           />
         </section>
         <aside className="w-80 p-4 border-l border-border bg-slate-950 flex flex-col gap-4 overflow-hidden">
