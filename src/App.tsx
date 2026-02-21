@@ -13,9 +13,9 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
-    version: 'v26.0221.2215',
+    version: 'v26.0221.2230',
     date: '2026-02-21',
-    items: ['修复锁定图层在被选中时会错误地跳到最顶层渲染的问题', '锁定图层后禁用画布上的交互、悬停效果及选中高亮', '禁用图层项在重排时的过渡动效']
+    items: ['修复编辑模式下框选框不显示的问题', '修复编辑模式下框选功能无法正常结束并选中的问题', '编辑模式新增鼠标框选（Marquee Selection）功能']
   },
   {
     version: 'v26.0215.1825',
@@ -247,7 +247,10 @@ function App() {
     currentScaleFactor,
     currentTranslationDelta,
     isReorderingLayers,
-    setIsReorderingLayers
+    setIsReorderingLayers,
+    handlePointerUp,
+    marqueeStart,
+    marqueeEnd
   } = useDraw();
 
   const totalVertices = useMemo(() => {
@@ -290,7 +293,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0221.2215`);
+    console.log(`Fantastic SVG v26.0221.2230`);
   }, []);
 
   // Global keydown listener for help panel
@@ -617,7 +620,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0221.2215
+              v26.0221.2230
             </button>
           </h1>
         </div>
@@ -799,10 +802,13 @@ ${pathsCode}
                 currentRotationDelta={currentRotationDelta}
                 isAnimationMode={isAnimationMode}
                 currentTime={currentTime}
+                marqueeStart={marqueeStart}
+                marqueeEnd={marqueeEnd}
                 shapeStartPoint={shapeStartPoint}
                 isShiftPressed={isShiftPressed}
                 currentScaleFactor={currentScaleFactor}
                 currentTranslationDelta={currentTranslationDelta}
+                onPointerUp={handlePointerUp}
               />
 
               {/* Vertex Count Indicator */}

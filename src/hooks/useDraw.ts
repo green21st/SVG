@@ -146,6 +146,8 @@ function useDraw() {
     // Snapping Settings
     const [pointSnappingEnabled, setPointSnappingEnabled] = useState<boolean>(true);
     const [guideSnappingEnabled, setGuideSnappingEnabled] = useState<boolean>(true);
+    const [marqueeStart, setMarqueeStart] = useState<Point | null>(null);
+    const [marqueeEnd, setMarqueeEnd] = useState<Point | null>(null);
 
     // Zoom and Pan State
     const [zoom, setZoom] = useState<number>(1);
@@ -949,8 +951,14 @@ function useDraw() {
             } else {
                 // If we didn't click a path, check if we clicked the background to deselect
                 if (!pathId && !handleType) {
-                    setSelectedPathIds([]);
-                    setFocusedSegmentIndices([]);
+                    if (isSpacePressed) {
+                        setSelectedPathIds([]);
+                        setFocusedSegmentIndices([]);
+                    } else {
+                        setMarqueeStart(point);
+                        setMarqueeEnd(point);
+                        setIsInteracting(true);
+                    }
                 }
             }
             isDraggingRef.current = false;
@@ -979,6 +987,11 @@ function useDraw() {
         const point = getPointFromEvent(e);
         if (point) {
             setCursorPos(point);
+
+            if (marqueeStart) {
+                setMarqueeEnd(point);
+                return;
+            }
 
             // 2. Handle Image Background Transform
             if (activeTool === 'image' && isDraggingRef.current) {
@@ -1290,7 +1303,7 @@ function useDraw() {
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom, isShiftPressed]);
+    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom, isShiftPressed, marqueeStart, marqueeEnd]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
@@ -1361,12 +1374,41 @@ function useDraw() {
         setInitialPoints(null);
         setCurrentRotationDelta(0);
         setCurrentScaleFactor(1);
+
+        if (marqueeStart && marqueeEnd) {
+            const minX = Math.min(marqueeStart.x, marqueeEnd.x);
+            const maxX = Math.max(marqueeStart.x, marqueeEnd.x);
+            const minY = Math.min(marqueeStart.y, marqueeEnd.y);
+            const maxY = Math.max(marqueeStart.y, marqueeEnd.y);
+
+            const selectedIds = paths.filter(p => {
+                if (p.locked || p.visible === false) return false;
+                return p.points.some(pt => {
+                    const tx = p.transform?.x || 0;
+                    const ty = p.transform?.y || 0;
+                    const px = pt.x + tx;
+                    const py = pt.y + ty;
+                    return px >= minX && px <= maxX && py >= minY && py <= maxY;
+                });
+            }).map(p => p.id);
+
+            if (isShiftPressed) {
+                setSelectedPathIds(prev => Array.from(new Set([...prev, ...selectedIds])));
+            } else {
+                setSelectedPathIds(selectedIds);
+            }
+            setMarqueeStart(null);
+            setMarqueeEnd(null);
+            setIsInteracting(false);
+        }
+
         setCurrentTranslationDelta({ x: 0, y: 0 });
         isDraggingRef.current = false;
+        setIsInteracting(false); // Ensure it's reset regardless
         setShapeStartPoint(null);
         dragStartPathsRef.current = null;
         dragStartMousePosRef.current = null;
-    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths, activeTool, animation, fillOpacity, paths.length, strokeOpacity, draggingPointIndex]);
+    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths, activeTool, animation, fillOpacity, paths, strokeOpacity, draggingPointIndex, marqueeStart, marqueeEnd, isShiftPressed]);
 
     const handlePointerLeave = useCallback(() => {
         setCursorPos(null);
@@ -1381,6 +1423,8 @@ function useDraw() {
         setShapeStartPoint(null);
         dragStartPathsRef.current = null;
         dragStartMousePosRef.current = null;
+        setMarqueeStart(null);
+        setMarqueeEnd(null);
     }, []);
 
     const handleWheel = useCallback((e: WheelEvent) => {
@@ -1718,7 +1762,9 @@ function useDraw() {
         shapeStartPoint,
         isShiftPressed,
         isReorderingLayers,
-        setIsReorderingLayers
+        setIsReorderingLayers,
+        marqueeStart,
+        marqueeEnd
     };
 }
 

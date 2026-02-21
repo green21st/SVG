@@ -720,6 +720,9 @@ interface CanvasProps {
     currentTime?: number;
     shapeStartPoint: Point | null;
     isShiftPressed: boolean;
+    marqueeStart: Point | null;
+    marqueeEnd: Point | null;
+    onPointerUp: () => void;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -759,7 +762,10 @@ const Canvas: React.FC<CanvasProps> = ({
     isAnimationMode,
     currentTime,
     shapeStartPoint,
-    isShiftPressed
+    isShiftPressed,
+    marqueeStart,
+    marqueeEnd,
+    onPointerUp
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -817,6 +823,7 @@ const Canvas: React.FC<CanvasProps> = ({
             )}
             onMouseDown={onPointerDown}
             onMouseMove={onPointerMove}
+            onMouseUp={onPointerUp}
             onMouseLeave={onPointerLeave}
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
@@ -1172,6 +1179,20 @@ const Canvas: React.FC<CanvasProps> = ({
                                 </div>
                             </foreignObject>
                         </g>
+                    )}
+                    {/* Marquee Selection Box */}
+                    {marqueeStart && marqueeEnd && (
+                        <rect
+                            x={Math.min(marqueeStart.x, marqueeEnd.x)}
+                            y={Math.min(marqueeStart.y, marqueeEnd.y)}
+                            width={Math.abs(marqueeEnd.x - marqueeStart.x)}
+                            height={Math.abs(marqueeEnd.y - marqueeStart.y)}
+                            fill="rgba(59, 130, 246, 0.1)"
+                            stroke="rgba(59, 130, 246, 0.5)"
+                            strokeWidth={1 / zoom}
+                            strokeDasharray={`${4 / zoom},${4 / zoom}`}
+                            className="pointer-events-none"
+                        />
                     )}
                 </svg>
             </div>
