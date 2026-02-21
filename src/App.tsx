@@ -13,9 +13,9 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
-    version: 'v26.0221.2135',
+    version: 'v26.0221.2215',
     date: '2026-02-21',
-    items: ['禁用图层项在重排时的过渡动效（Duration: 0）以实现即时反馈', '图层拖拽重排时临时关闭动画以提升性能与流畅度', '图层面板左下角新增“放到最底层”按钮']
+    items: ['修复锁定图层在被选中时会错误地跳到最顶层渲染的问题', '锁定图层后禁用画布上的交互、悬停效果及选中高亮', '禁用图层项在重排时的过渡动效']
   },
   {
     version: 'v26.0215.1825',
@@ -290,7 +290,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0221.2135`);
+    console.log(`Fantastic SVG v26.0221.2215`);
   }, []);
 
   // Global keydown listener for help panel
@@ -617,7 +617,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0221.2135
+              v26.0221.2215
             </button>
           </h1>
         </div>

@@ -72,7 +72,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
     const currentTransform = useMemo(() => {
         if (path.keyframes && path.keyframes.length > 0 && currentTime !== undefined) {
-             return interpolateTransform(path.keyframes, currentTime);
+            return interpolateTransform(path.keyframes, currentTime);
         }
         return path.transform;
     }, [path.keyframes, path.transform, currentTime]);
@@ -82,7 +82,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         const { x, y, rotation, scale, scaleX, scaleY } = currentTransform;
         const sx = scaleX ?? scale ?? 1;
         const sy = scaleY ?? scale ?? 1;
-        
+
         return {
             transform: `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy})`,
             transformOrigin: 'center',
@@ -273,7 +273,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     // To satisfy "only select clicked element", we highlight all only if no segment focus is possible (not multi-path)
                     // For multi-path, if no segments are focused, we don't highlight any segment with the selection color.
                     // If focusedSegmentIndices is empty, we assume the whole group is selected (e.g. via Layer Panel or Box Select)
-                    const shouldHighlight = selected && (path.multiPathPoints ? (focusedSegmentIndices.length === 0 || isFocused) : true);
+                    const shouldHighlight = selected && !path.locked && (path.multiPathPoints ? (focusedSegmentIndices.length === 0 || isFocused) : true);
 
                     const segmentColor = (sIdx !== undefined && path.segmentColors?.[sIdx]) || path.color || '#22d3ee';
                     const segmentFill = (sIdx !== undefined && path.segmentFills?.[sIdx]) || path.fill || 'none';
@@ -305,10 +305,10 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                             data-path-id={path.id}
                             data-segment-index={sIdx}
                             className={cn(
-                                mode === 'edit' && !isDragging && "cursor-move hover:opacity-80"
+                                mode === 'edit' && !isDragging && !path.locked && "cursor-move hover:opacity-80"
                             )}
                             style={{
-                                pointerEvents: mode === 'edit' ? 'all' : 'none',
+                                pointerEvents: (mode === 'edit' && !path.locked) ? 'all' : 'none',
                                 ...config.pathStyles, // Apply global path styles (e.g. from global animation if any)
                                 ...segPathStyles     // Apply segment specific path styles (overrides global if collision, but usually distinct)
                             }}
@@ -337,10 +337,10 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         transform={`translate(${config.points[0].x}, ${config.points[0].y}) scale(${config.variantType === 'H' || config.variantType === 'C' ? -1 : 1}, ${config.variantType === 'V' || config.variantType === 'C' ? -1 : 1}) rotate(${path.rotation || 0})`}
                         data-path-id={path.id}
                         className={cn(
-                            mode === 'edit' && !isDragging && "cursor-move hover:opacity-80 transition-opacity"
+                            mode === 'edit' && !isDragging && !path.locked && "cursor-move hover:opacity-80 transition-opacity"
                         )}
                         style={{
-                            pointerEvents: mode === 'edit' ? 'all' : 'none',
+                            pointerEvents: (mode === 'edit' && !path.locked) ? 'all' : 'none',
                             userSelect: 'none',
                             ...config.pathStyles
                         }}
@@ -377,8 +377,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                             ? wrapInAnimations(element, config.groupAnimations, path.type === 'text' ? 'text' : 'path')
                             : element}
 
-                        {/* Bounding Box & Handles - Only for the primary variant to avoid symmetry duplication conflicts */}
-                        {mode === 'edit' && selected && config.variantType === 'I' && (
+                        {/* Bounding Box & Handles - Only for the primary variant and if not locked */}
+                        {mode === 'edit' && selected && !path.locked && config.variantType === 'I' && (
                             config.groupAnimations.length > 0
                                 ? wrapInAnimations(
                                     <g className="pointer-events-none">
@@ -781,10 +781,10 @@ const Canvas: React.FC<CanvasProps> = ({
         return paths
             .filter(p => p.visible !== false)
             .sort((a, b) => {
-                // Selected paths render last (on top), but only in edit mode
+                // Selected paths render last (on top), but only in edit mode and if not locked
                 if (mode === 'edit') {
-                    const aSelected = selectedPathIds.includes(a.id);
-                    const bSelected = selectedPathIds.includes(b.id);
+                    const aSelected = selectedPathIds.includes(a.id) && !a.locked;
+                    const bSelected = selectedPathIds.includes(b.id) && !b.locked;
                     if (aSelected && !bSelected) return 1;
                     if (!aSelected && bSelected) return -1;
                 }
