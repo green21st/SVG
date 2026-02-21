@@ -141,7 +141,7 @@ function useDraw() {
             return p;
         }));
     }, [selectedPathIds, currentTime, setPaths]);
-
+    const [isReorderingLayers, setIsReorderingLayers] = useState(false);
 
     // Snapping Settings
     const [pointSnappingEnabled, setPointSnappingEnabled] = useState<boolean>(true);
@@ -1716,7 +1716,9 @@ function useDraw() {
         handleDeleteKeyframe,
         handleUpdateKeyframe,
         shapeStartPoint,
-        isShiftPressed
+        isShiftPressed,
+        isReorderingLayers,
+        setIsReorderingLayers
     };
 }
 

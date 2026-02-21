@@ -21,6 +21,7 @@ interface LayerPanelProps {
     onMoveToBottom: () => void;
     onSelectAll?: () => void;
     onDeselectAll?: () => void;
+    onReorderStart?: () => void;
 }
 
 export const LayerPanel: React.FC<LayerPanelProps> = ({
@@ -39,7 +40,8 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
     onMoveToTop,
     onMoveToBottom,
     onSelectAll,
-    onDeselectAll
+    onDeselectAll,
+    onReorderStart
 }) => {
     // We want the most recent path (top of list) to be rendered on top.
     // SVG renders from first to last, so last in array is on top.
@@ -47,6 +49,7 @@ export const LayerPanel: React.FC<LayerPanelProps> = ({
     const displayPaths = React.useMemo(() => [...paths].reverse(), [paths]);
 
     const handleReorder = (newDisplayPaths: PathLayer[]) => {
+        if (onReorderStart) onReorderStart();
         // Reverse back to maintain SVG order
         onReorder([...newDisplayPaths].reverse());
     };
@@ -200,6 +203,7 @@ const LayerItem: React.FC<LayerItemProps> = ({
             dragListener={false}
             dragControls={controls}
             onDragEnd={onDragEnd}
+            transition={{ duration: 0 }}
             whileDrag={{ scale: 1.02 }}
             className={cn(
                 "group flex items-center gap-2 p-2 rounded-lg border outline-none select-none",

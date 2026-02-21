@@ -13,9 +13,9 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
-    version: 'v26.0221.2118',
+    version: 'v26.0221.2135',
     date: '2026-02-21',
-    items: ['图层面板左下角新增“放到最底层”按钮']
+    items: ['禁用图层项在重排时的过渡动效（Duration: 0）以实现即时反馈', '图层拖拽重排时临时关闭动画以提升性能与流畅度', '图层面板左下角新增“放到最底层”按钮']
   },
   {
     version: 'v26.0215.1825',
@@ -245,7 +245,9 @@ function App() {
     shapeStartPoint,
     isShiftPressed,
     currentScaleFactor,
-    currentTranslationDelta
+    currentTranslationDelta,
+    isReorderingLayers,
+    setIsReorderingLayers
   } = useDraw();
 
   const totalVertices = useMemo(() => {
@@ -288,7 +290,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0221.2118`);
+    console.log(`Fantastic SVG v26.0221.2135`);
   }, []);
 
   // Global keydown listener for help panel
@@ -615,7 +617,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0221.2118
+              v26.0221.2135
             </button>
           </h1>
         </div>
@@ -786,7 +788,7 @@ ${pathsCode}
                 isDragging={isDragging}
                 activeTool={activeTool}
                 getBoundingBox={getBoundingBox}
-                animationPaused={animationPaused}
+                animationPaused={animationPaused || isReorderingLayers}
                 bgTransform={bgTransform}
                 zoom={zoom}
                 panOffset={panOffset}
@@ -1081,7 +1083,6 @@ ${pathsCode}
               selectedPathIds={selectedPathIds}
               onSelect={handleSelectPath}
               onReorder={setPathsInternal}
-              onReorderEnd={setPaths}
               onToggleVisibility={(id) => {
                 if (selectedPathIds.includes(id) && selectedPathIds.length > 1) {
                   // Batch toggle visibility based on the state of the clicked item
@@ -1119,6 +1120,11 @@ ${pathsCode}
               onMoveToBottom={moveSelectedToBottom}
               onSelectAll={() => setSelectedPathIds(paths.map(p => p.id))}
               onDeselectAll={() => setSelectedPathIds([])}
+              onReorderStart={() => setIsReorderingLayers(true)}
+              onReorderEnd={(newPaths) => {
+                setPaths(newPaths);
+                setIsReorderingLayers(false);
+              }}
             />
           </div>
           <div className="flex-[2] min-h-0 flex flex-col">
