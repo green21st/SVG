@@ -308,6 +308,15 @@ function useDraw() {
         });
     }, [selectedPathIds, setPaths]);
 
+    const moveSelectedToBottom = useCallback(() => {
+        if (selectedPathIds.length === 0) return;
+        setPaths(prev => {
+            const selectedPaths = prev.filter(p => selectedPathIds.includes(p.id));
+            const otherPaths = prev.filter(p => !selectedPathIds.includes(p.id));
+            return [...selectedPaths, ...otherPaths];
+        });
+    }, [selectedPathIds, setPaths]);
+
     const mergeSelected = useCallback(() => {
         const selectedPaths = paths.filter(p => selectedPathIds.includes(p.id) && p.type !== 'text');
         if (selectedPaths.length <= 1) return;
@@ -652,7 +661,7 @@ function useDraw() {
                         // Collect points from all focused segments
                         points = focusedSegmentIndices.flatMap(idx => p.multiPathPoints![idx] || []);
                     }
-                    
+
                     // Map points to their visual position (applying translation)
                     // We only apply translation because rotation/scale happens around the center,
                     // so the center of the bounding box is preserved relative to translation.
@@ -796,36 +805,36 @@ function useDraw() {
                 }
 
                 // Inverse Transform Logic to map Mouse -> Local Shape Space
-                const inverseTransformPoint = (pt: {x: number, y: number}) => {
-                     // 1. Get Bounding Box Center (Pivot) of ORIGINAL points
-                     const box = getBoundingBox(path.points); 
-                     const cx = box.centerX;
-                     const cy = box.centerY;
+                const inverseTransformPoint = (pt: { x: number, y: number }) => {
+                    // 1. Get Bounding Box Center (Pivot) of ORIGINAL points
+                    const box = getBoundingBox(path.points);
+                    const cx = box.centerX;
+                    const cy = box.centerY;
 
-                     // 2. Undo Translate
-                     let x = pt.x - effectiveTransform.x;
-                     let y = pt.y - effectiveTransform.y;
+                    // 2. Undo Translate
+                    let x = pt.x - effectiveTransform.x;
+                    let y = pt.y - effectiveTransform.y;
 
-                     // 3. Undo Rotate (rotate by -angle around center)
-                     if (effectiveTransform.rotation) {
-                         const rad = -effectiveTransform.rotation * Math.PI / 180;
-                         const dx = x - cx;
-                         const dy = y - cy;
-                         x = cx + dx * Math.cos(rad) - dy * Math.sin(rad);
-                         y = cy + dx * Math.sin(rad) + dy * Math.cos(rad);
-                     }
+                    // 3. Undo Rotate (rotate by -angle around center)
+                    if (effectiveTransform.rotation) {
+                        const rad = -effectiveTransform.rotation * Math.PI / 180;
+                        const dx = x - cx;
+                        const dy = y - cy;
+                        x = cx + dx * Math.cos(rad) - dy * Math.sin(rad);
+                        y = cy + dx * Math.sin(rad) + dy * Math.cos(rad);
+                    }
 
-                     // 4. Undo Scale (scale by 1/s around center)
-                     // Note: Canvas.tsx uses scale(sx, sy) centered on bounding box
-                     if (effectiveTransform.scale !== 1 || (effectiveTransform.scaleX !== undefined && effectiveTransform.scaleX !== 1)) {
-                         const sx = effectiveTransform.scaleX ?? effectiveTransform.scale ?? 1;
-                         const sy = effectiveTransform.scaleY ?? effectiveTransform.scale ?? 1;
-                         const dx = x - cx;
-                         const dy = y - cy;
-                         x = cx + dx / sx;
-                         y = cy + dy / sy;
-                     }
-                     return { x, y };
+                    // 4. Undo Scale (scale by 1/s around center)
+                    // Note: Canvas.tsx uses scale(sx, sy) centered on bounding box
+                    if (effectiveTransform.scale !== 1 || (effectiveTransform.scaleX !== undefined && effectiveTransform.scaleX !== 1)) {
+                        const sx = effectiveTransform.scaleX ?? effectiveTransform.scale ?? 1;
+                        const sy = effectiveTransform.scaleY ?? effectiveTransform.scale ?? 1;
+                        const dx = x - cx;
+                        const dy = y - cy;
+                        x = cx + dx / sx;
+                        y = cy + dy / sy;
+                    }
+                    return { x, y };
                 };
 
                 const mouseSVG = { x: (mouseX - panOffset.x) / zoom, y: (mouseY - panOffset.y) / zoom };
@@ -910,11 +919,11 @@ function useDraw() {
                 }
 
                 const box = getBoundingBox(pointsForBox);
-                
+
                 // Apply translation to pivot so rotation/scale happens around the visual center
-                setTransformPivot({ 
-                    x: box.centerX + effectiveTransform.x, 
-                    y: box.centerY + effectiveTransform.y 
+                setTransformPivot({
+                    x: box.centerX + effectiveTransform.x,
+                    y: box.centerY + effectiveTransform.y
                 });
 
                 setTransformMode('translate');
@@ -1528,16 +1537,16 @@ function useDraw() {
 
     const handleSelectPath = useCallback((id: string, isMulti?: boolean, isRange?: boolean) => {
         setFocusedSegmentIndices([]);
-        
+
         if (isRange && lastSelectedId && paths.length > 0) {
             const lastIndex = paths.findIndex(p => p.id === lastSelectedId);
             const currentIndex = paths.findIndex(p => p.id === id);
-            
+
             if (lastIndex !== -1 && currentIndex !== -1) {
                 const start = Math.min(lastIndex, currentIndex);
                 const end = Math.max(lastIndex, currentIndex);
                 const rangeIds = paths.slice(start, end + 1).map(p => p.id);
-                
+
                 setSelectedPathIds(prev => {
                     const newIds = new Set(isMulti ? prev : []);
                     rangeIds.forEach(rid => newIds.add(rid));
@@ -1547,7 +1556,7 @@ function useDraw() {
                 return;
             }
         }
-        
+
         if (isMulti) {
             setSelectedPathIds(prev =>
                 prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
@@ -1596,7 +1605,7 @@ function useDraw() {
 
         setPaths(prev => prev.map(p => {
             if (p.id !== pathId) return p;
-            const newKeyframes = p.keyframes?.map(k => 
+            const newKeyframes = p.keyframes?.map(k =>
                 k.id === id ? { ...k, ...updates } : k
             ) || [];
             // Re-sort if time changed
@@ -1693,6 +1702,7 @@ function useDraw() {
         moveSelectedUp,
         moveSelectedDown,
         moveSelectedToTop,
+        moveSelectedToBottom,
         isAnimationMode,
         setIsAnimationMode,
         currentTime,

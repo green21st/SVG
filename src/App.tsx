@@ -13,6 +13,11 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0221.2118',
+    date: '2026-02-21',
+    items: ['图层面板左下角新增“放到最底层”按钮']
+  },
+  {
     version: 'v26.0215.1825',
     date: '2026-02-15',
     items: ['新增绘图区顶点数实时统计显示，位于绘图区右上方', '优化 UI 布局，顶点数统计采用磨砂玻璃质感设计']
@@ -58,7 +63,8 @@ const CHANGELOG = [
     items: ['编辑模式支持按住 Shift 约束变换：平移约束至轴向，旋转约束至 15 度步进', '新增变换实时数据提示 (Tooltip)，显示位移、旋转角度及缩放比例', '重构变换逻辑为绝对坐标模型，消除累计误差并支持精确捕捉']
   },
   {
-    version: 'v26.0215.1630', date: '2026-02-15', items: ['支持按住 Shift 键绘制正比例图形（正方形、正圆等）', '同步更新实时尺寸提示，支持 Shift 约束显示'] },
+    version: 'v26.0215.1630', date: '2026-02-15', items: ['支持按住 Shift 键绘制正比例图形（正方形、正圆等）', '同步更新实时尺寸提示，支持 Shift 约束显示']
+  },
   { version: 'v26.0215.1625', date: '2026-02-15', items: ['真正修复绘制图形时尺寸显示 tooltip 的 ReferenceError 错误（补全 App.tsx 中的解构）'] },
   { version: 'v26.0215.1620', date: '2026-02-15', items: ['彻底修复绘制图形时尺寸显示 tooltip 的 ReferenceError 错误（补齐 hook 返回值）'] },
   { version: 'v26.0215.1615', date: '2026-02-15', items: ['修复绘制图形时尺寸显示 tooltip 的 ReferenceError 错误'] },
@@ -200,6 +206,7 @@ function App() {
     moveSelectedUp,
     moveSelectedDown,
     moveSelectedToTop,
+    moveSelectedToBottom,
     strokeOpacity,
     setStrokeOpacity,
     animation,
@@ -281,7 +288,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0215.1825`);
+    console.log(`Fantastic SVG v26.0221.2118`);
   }, []);
 
   // Global keydown listener for help panel
@@ -404,7 +411,7 @@ function App() {
           const percentage = (kf.time / duration) * 100;
           return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); animation-timing-function: ${kf.ease}; }`;
         }).join('\n    ');
-        
+
         keyframes += `\n  @keyframes anim-${path.id} {\n    ${steps}\n  }`;
       }
     });
@@ -521,19 +528,19 @@ function App() {
           ${variantCode}
         </g>`;
       }
-      
+
       // If no keyframes but we have a static transform (that isn't identity), we should apply it
       // But wait, in the editor, the transform is applied via style.
       // If we export without animation, we should at least export the static transform position.
       if (path.transform) {
-          const { x, y, rotation, scale, scaleX, scaleY } = path.transform;
-          if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1)) {
-              const sx = scaleX ?? scale ?? 1;
-              const sy = scaleY ?? scale ?? 1;
-              return `<g style="transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: center;">
+        const { x, y, rotation, scale, scaleX, scaleY } = path.transform;
+        if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1)) {
+          const sx = scaleX ?? scale ?? 1;
+          const sy = scaleY ?? scale ?? 1;
+          return `<g style="transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: center;">
                   ${variantCode}
               </g>`;
-          }
+        }
       }
 
       return variantCode;
@@ -542,24 +549,24 @@ function App() {
     // Collect used defs (gradients, patterns)
     const usedDefs = new Set<string>();
     const checkAndAddDef = (color: string | undefined) => {
-        if (!color) return;
-        const match = color.match(/url\(#([^)]+)\)/);
-        if (match && match[1]) {
-            usedDefs.add(match[1]);
-        }
+      if (!color) return;
+      const match = color.match(/url\(#([^)]+)\)/);
+      if (match && match[1]) {
+        usedDefs.add(match[1]);
+      }
     };
 
     paths.filter(p => p.visible !== false).forEach(path => {
-        checkAndAddDef(path.fill);
-        checkAndAddDef(path.color); // stroke color
-        path.segmentColors?.forEach(c => checkAndAddDef(c));
-        path.segmentFills?.forEach(f => checkAndAddDef(f));
+      checkAndAddDef(path.fill);
+      checkAndAddDef(path.color); // stroke color
+      path.segmentColors?.forEach(c => checkAndAddDef(c));
+      path.segmentFills?.forEach(f => checkAndAddDef(f));
     });
 
     const defsContent = Array.from(usedDefs)
-        .map(id => SVG_DEF_MAP[id])
-        .filter(Boolean)
-        .join('\n');
+      .map(id => SVG_DEF_MAP[id])
+      .filter(Boolean)
+      .join('\n');
 
     const svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -608,7 +615,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0215.1825
+              v26.0221.2118
             </button>
           </h1>
         </div>
@@ -983,7 +990,7 @@ ${pathsCode}
             </div>
           </div>
 
-          <Timeline 
+          <Timeline
             currentTime={currentTime}
             duration={duration}
             isPlaying={isPlaying}
@@ -1029,14 +1036,14 @@ ${pathsCode}
                   <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                   <h3 className="text-[9px] font-black text-white uppercase tracking-wider">Shortcuts</h3>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowHelp(false)}
                   className="p-1 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-white"
                 >
                   <X size={10} />
                 </button>
               </div>
-              
+
               <div className="space-y-1">
                 <div className="flex items-center justify-between group/item">
                   <span className="text-[8px] text-slate-400 font-medium">Draw Snap</span>
@@ -1059,7 +1066,7 @@ ${pathsCode}
                   <kbd className="px-1 py-0.5 bg-slate-800 rounded border border-white/5 text-[7px] font-bold text-slate-200 group-hover/item:border-primary/30 transition-colors shadow-sm">Ctrl+Z/Y</kbd>
                 </div>
               </div>
-              
+
               <div className="mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between">
                 <span className="text-[7px] text-slate-500 font-medium italic">Toggle panel</span>
                 <kbd className="px-1 py-0.5 bg-slate-800 rounded border border-white/5 text-[7px] font-bold text-primary transition-colors shadow-sm">?</kbd>
@@ -1109,6 +1116,7 @@ ${pathsCode}
               onMoveUp={moveSelectedUp}
               onMoveDown={moveSelectedDown}
               onMoveToTop={moveSelectedToTop}
+              onMoveToBottom={moveSelectedToBottom}
               onSelectAll={() => setSelectedPathIds(paths.map(p => p.id))}
               onDeselectAll={() => setSelectedPathIds([])}
             />
