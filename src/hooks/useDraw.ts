@@ -361,7 +361,7 @@ function useDraw() {
             segmentAnimations,
             segmentClosed,
             segmentTensions,
-            animation: { types: [], duration: 0, delay: 0, ease: 'linear' } // Reset global animation to prevent it from applying to all segments
+            animation: first.animation || { types: [], duration: 1, delay: 0, ease: 'linear' }
         };
 
         // Remove old paths and insert the merged one at the position of the first selected path

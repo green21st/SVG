@@ -361,7 +361,14 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         )
                     ) : (
                         config.multiPoints ? (
-                            <g data-path-id={path.id}>
+                            <g
+                                data-path-id={path.id}
+                                style={{
+                                    ...config.pathStyles,
+                                    transformOrigin: 'center',
+                                    transformBox: 'fill-box'
+                                }}
+                            >
                                 {(() => {
                                     const groups: {
                                         color: string, fill: string, width: number, animKey: string,
