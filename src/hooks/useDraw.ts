@@ -341,7 +341,7 @@ function useDraw() {
             p.segmentWidths || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.width) : [p.width])
         );
         const segmentAnimations = sortedSelected.flatMap(p =>
-            p.segmentAnimations || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.animation || { types: [], duration: 0, delay: 0, ease: 'linear' }) : [p.animation || { types: [], duration: 0, delay: 0, ease: 'linear' }])
+            p.segmentAnimations || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' }) : [p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' }])
         );
         const segmentClosed = sortedSelected.flatMap(p =>
             p.segmentClosed || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.closed) : [p.closed])
@@ -877,25 +877,30 @@ function useDraw() {
 
                 // 1. Detect clicked segment index first
                 let bestSegIdx = -1;
-                if (isVertexEditEnabled && path.multiPathPoints) {
+                if (path.multiPathPoints) {
                     const target = e.target as HTMLElement;
-                    const segmentIndexAttr = target.closest('[data-segment-index]')?.getAttribute('data-segment-index');
-                    bestSegIdx = (segmentIndexAttr !== null && segmentIndexAttr !== undefined) ? parseInt(segmentIndexAttr) : -1;
+                    // Support segment detection if vertex edit is on OR if we are already focused on this merged layer
+                    const shouldDetectSegment = isVertexEditEnabled || (selectedPathIds.includes(pathId) && path.id.startsWith('merged-'));
 
-                    if (bestSegIdx === -1) {
-                        // Use localMouseSVG for hit detection against original points
-                        let minSegDist = 15 / zoom;
+                    if (shouldDetectSegment) {
+                        const segmentIndexAttr = target.closest('[data-segment-index]')?.getAttribute('data-segment-index');
+                        bestSegIdx = (segmentIndexAttr !== null && segmentIndexAttr !== undefined) ? parseInt(segmentIndexAttr) : -1;
 
-                        path.multiPathPoints.forEach((seg, sIdx) => {
-                            for (let i = 0; i < seg.length - 1; i++) {
-                                const d = distToSegment(localMouseSVG, seg[i], seg[i + 1]);
-                                if (d < minSegDist) { minSegDist = d; bestSegIdx = sIdx; }
-                            }
-                            if (path.closed && seg.length > 2) {
-                                const d = distToSegment(localMouseSVG, seg[seg.length - 1], seg[0]);
-                                if (d < minSegDist) { minSegDist = d; bestSegIdx = sIdx; }
-                            }
-                        });
+                        if (bestSegIdx === -1) {
+                            // Use localMouseSVG for hit detection against original points
+                            let minSegDist = 15 / zoom;
+
+                            path.multiPathPoints.forEach((seg, sIdx) => {
+                                for (let i = 0; i < seg.length - 1; i++) {
+                                    const d = distToSegment(localMouseSVG, seg[i], seg[i + 1]);
+                                    if (d < minSegDist) { minSegDist = d; bestSegIdx = sIdx; }
+                                }
+                                if (path.closed && seg.length > 2) {
+                                    const d = distToSegment(localMouseSVG, seg[seg.length - 1], seg[0]);
+                                    if (d < minSegDist) { minSegDist = d; bestSegIdx = sIdx; }
+                                }
+                            });
+                        }
                     }
                 }
 
@@ -1589,8 +1594,20 @@ function useDraw() {
             const bestSegIdx = (segmentIndexAttr !== null && segmentIndexAttr !== undefined) ? parseInt(segmentIndexAttr) : -1;
 
             if (bestSegIdx !== -1) {
+                let chunkIndices = [bestSegIdx];
+                if (path.segmentGroupings) {
+                    let currentSIdx = 0;
+                    for (const count of path.segmentGroupings) {
+                        if (bestSegIdx >= currentSIdx && bestSegIdx < currentSIdx + count) {
+                            chunkIndices = [];
+                            for (let i = 0; i < count; i++) chunkIndices.push(currentSIdx + i);
+                            break;
+                        }
+                        currentSIdx += count;
+                    }
+                }
                 setSelectedPathIds([pathId]);
-                setFocusedSegmentIndices([bestSegIdx]);
+                setFocusedSegmentIndices(chunkIndices);
                 setIsVertexEditEnabled(false); // Default to OFF even when double-clicking segments
                 return;
             }

@@ -13,6 +13,15 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1635',
+    date: '2026-02-22',
+    items: [
+      '彻底修复复杂 SVG（如带孔图标）合并图层后的动画编辑问题：优化子图案选中逻辑（segmentGroupings），确保双击或单击时能完整选中包含“孔洞”的复合路径',
+      '修复导入 SVG 合并后默认动画参数 Bug：将默认动画时长从 0s 修正为 2s，确保添加动画类型后能立即生效并可见',
+      '增强单选模式交互：支持在非顶点编辑状态下通过单击快速切换合并图层中的子图案选中目标'
+    ]
+  },
+  {
     version: 'v26.0222.1818',
     date: '2026-02-22',
     items: [
@@ -425,7 +434,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1818`);
+    console.log(`Fantastic SVG v26.0222.1635`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -759,7 +768,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1818
+              v26.0222.1635
             </button>
           </h1>
         </div>
