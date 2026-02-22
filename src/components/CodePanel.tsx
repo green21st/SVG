@@ -108,7 +108,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
             const variantCode = variants.map(v => {
                 let finalCode = '';
 
-                if (path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
+                if (path.id.startsWith('merged-') && path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
                     const segments = v.multiPoints.map((seg, sIdx) => {
                         const segColor = path.segmentColors?.[sIdx] || path.color || 'none';
                         const segFill = path.segmentFills?.[sIdx] || path.fill || 'none';

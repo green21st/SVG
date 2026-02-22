@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1620',
+    date: '2026-02-22',
+    items: [
+      '修复SVG导入/导出颜色丢失问题：优化属性解析算法，支持从根节点继承颜色属性，解决部分图标导入后变为全黑的Bug',
+      '修复导出时复合路径（Compound Path）孔洞失效问题：调整导出逻辑，确保原始SVG的嵌套路径在导出时保持完整，不再错误地拆分为独立实心色块'
+    ]
+  },
+  {
     version: 'v26.0222.1555',
     date: '2026-02-22',
     items: [
@@ -385,7 +393,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1555`);
+    console.log(`Fantastic SVG v26.0222.1620`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -533,7 +541,7 @@ function App() {
           const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : '';
           finalCode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
         } else {
-          if (path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
+          if (path.id.startsWith('merged-') && path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
             const segments = v.multiPoints.map((seg, sIdx) => {
               const segColor = path.segmentColors?.[sIdx] || path.color || 'none';
               const segFill = path.segmentFills?.[sIdx] || path.fill || 'none';
@@ -713,7 +721,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1555
+              v26.0222.1620
             </button>
           </h1>
         </div>

@@ -258,7 +258,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
     const getStyleAttr = (el: Element, attr: string): string | null => {
         let current: Element | null = el;
-        while (current && current.tagName && current.tagName.toLowerCase() !== 'svg') {
+        while (current && current.tagName) {
             const inlineAttr = current.getAttribute(attr);
             if (inlineAttr) return inlineAttr;
 
@@ -267,6 +267,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                 const match = style.match(new RegExp(`${attr}\\s*:\\s*([^;]+)`));
                 if (match) return match[1].trim();
             }
+            if (current.tagName.toLowerCase() === 'svg') break;
             current = current.parentElement;
         }
         return null;
