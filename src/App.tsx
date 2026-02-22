@@ -13,6 +13,13 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1555',
+    date: '2026-02-22',
+    items: [
+      '优化编辑模式渲染策略：取消选中图形自动置顶的逻辑，确保图层在编辑时依然保持其原始的层级深度，避免遮挡其它关键元素'
+    ]
+  },
+  {
     version: 'v26.0222.1550',
     date: '2026-02-22',
     items: [
@@ -378,7 +385,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1550`);
+    console.log(`Fantastic SVG v26.0222.1555`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -706,7 +713,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1550
+              v26.0222.1555
             </button>
           </h1>
         </div>

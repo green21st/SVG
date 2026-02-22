@@ -874,19 +874,8 @@ const Canvas: React.FC<CanvasProps> = ({
 
     // Optimize: cache filtered and sorted paths
     const sortedPaths = useMemo(() => {
-        return paths
-            .filter(p => p.visible !== false)
-            .sort((a, b) => {
-                // Selected paths render last (on top), but only in edit mode and if not locked
-                if (mode === 'edit') {
-                    const aSelected = selectedPathIds.includes(a.id) && !a.locked;
-                    const bSelected = selectedPathIds.includes(b.id) && !b.locked;
-                    if (aSelected && !bSelected) return 1;
-                    if (!aSelected && bSelected) return -1;
-                }
-                return 0;
-            });
-    }, [paths, mode, selectedPathIds]);
+        return paths.filter(p => p.visible !== false);
+    }, [paths]);
 
     // Manual DOM Update for maximum performance (skips React re-render cycle)
     React.useEffect(() => {
