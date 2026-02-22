@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1818',
+    date: '2026-02-22',
+    items: [
+      '彻底修复带动画SVG导出后的全黑与孔洞失效问题：重构导出层的分组逻辑（segmentGroupings），确保合并图层中的复合路径在包含独立动画时仍能正确维持“孔洞”裁剪效果',
+      '优化动画导出兼容性：确保导出的SVG在不同浏览器下均能保持正确的填充色与描边透明度'
+    ]
+  },
+  {
     version: 'v26.0222.1620',
     date: '2026-02-22',
     items: [
@@ -40,6 +48,30 @@ const CHANGELOG = [
     date: '2026-02-22',
     items: [
       '进一步优化单选交互：双击合并图层子图案进入单选专注模式时，也默认保持顶点编辑关闭，确保编辑视野清晰'
+    ]
+  },
+  {
+    version: 'v26.0221.1738',
+    date: '2026-02-21',
+    items: [
+      '修复图层面板单选深度：合并图层现在支持精准单选内部某个特定图形',
+      '视觉反馈优化：聚焦子图案时提供独立包围盒与控制手柄，背景图层自动半透明化突出显示编辑目标'
+    ]
+  },
+  {
+    version: 'v26.0221.1440',
+    date: '2026-02-21',
+    items: [
+      '新增背景画布颜色选择器：位于左侧工具栏下方，支持自定义白、浅灰、深灰、黑及透明背景，提升不同色调SVG的编辑体验',
+      '界面布局微调：优化左侧控制栏组件间距，使背景切换按钮与对称按钮视觉统一'
+    ]
+  },
+  {
+    version: 'v26.0221.0850',
+    date: '2026-02-21',
+    items: [
+      '优化导出图层命名逻辑：导出SVG时自动使用面板中的图层名称作为元素ID，提升生产环境代码的可读性',
+      '修复图层预览生成Bug：确保各图层预览图标能正确反映最新的路径修改'
     ]
   },
   {
@@ -393,7 +425,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1620`);
+    console.log(`Fantastic SVG v26.0222.1818`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -542,15 +574,21 @@ function App() {
           finalCode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
         } else {
           if (path.id.startsWith('merged-') && path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
-            const segments = v.multiPoints.map((seg, sIdx) => {
-              const segColor = path.segmentColors?.[sIdx] || path.color || 'none';
-              const segFill = path.segmentFills?.[sIdx] || path.fill || 'none';
-              const segWidth = path.segmentWidths?.[sIdx] ?? (path.width ?? 2);
-              const segAnim = path.segmentAnimations?.[sIdx];
-              const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
-              const segTension = path.segmentTensions?.[sIdx] ?? path.tension;
+            const groupings = path.segmentGroupings || v.multiPoints!.map(() => 1);
+            let currentSIdx = 0;
+            const groups = groupings.map((count) => {
+              const groupPoints = v.multiPoints!.slice(currentSIdx, currentSIdx + count);
+              const firstSIdx = currentSIdx;
+              currentSIdx += count;
 
-              const d = smoothPath(seg, segTension, segClosed);
+              const segColor = path.segmentColors?.[firstSIdx] || path.color || 'none';
+              const segFill = path.segmentFills?.[firstSIdx] || path.fill || 'none';
+              const segWidth = path.segmentWidths?.[firstSIdx] ?? (path.width ?? 2);
+              const segAnim = path.segmentAnimations?.[firstSIdx];
+              const segClosed = path.segmentClosed?.[firstSIdx] ?? path.closed;
+              const segTension = path.segmentTensions?.[firstSIdx] ?? path.tension;
+
+              const d = smoothPath(groupPoints, segTension, segClosed);
 
               let animWrapperStart = '';
               let animWrapperEnd = '';
@@ -581,7 +619,7 @@ function App() {
 
               return `${animWrapperStart}<path d="${d}" stroke="${segColor}" stroke-opacity="${sOp}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round" />${animWrapperEnd}`;
             }).join('\n');
-            finalCode = `<g>${segments}</g>`;
+            finalCode = `<g>${groups}</g>`;
           } else {
             const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
@@ -721,7 +759,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1620
+              v26.0222.1818
             </button>
           </h1>
         </div>

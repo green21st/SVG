@@ -109,15 +109,21 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                 let finalCode = '';
 
                 if (path.id.startsWith('merged-') && path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
-                    const segments = v.multiPoints.map((seg, sIdx) => {
-                        const segColor = path.segmentColors?.[sIdx] || path.color || 'none';
-                        const segFill = path.segmentFills?.[sIdx] || path.fill || 'none';
-                        const segWidth = path.segmentWidths?.[sIdx] ?? (path.width ?? 2);
-                        const segAnim = path.segmentAnimations?.[sIdx];
-                        const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
-                        const segTension = path.segmentTensions?.[sIdx] ?? (path.tension ?? tension);
+                    const groupings = path.segmentGroupings || v.multiPoints!.map(() => 1);
+                    let currentSIdx = 0;
+                    const groups = groupings.map((count) => {
+                        const groupPoints = v.multiPoints!.slice(currentSIdx, currentSIdx + count);
+                        const firstSIdx = currentSIdx;
+                        currentSIdx += count;
 
-                        const d = smoothPath(seg, segTension, segClosed);
+                        const segColor = path.segmentColors?.[firstSIdx] || path.color || 'none';
+                        const segFill = path.segmentFills?.[firstSIdx] || path.fill || 'none';
+                        const segWidth = path.segmentWidths?.[firstSIdx] ?? (path.width ?? 2);
+                        const segAnim = path.segmentAnimations?.[firstSIdx];
+                        const segClosed = path.segmentClosed?.[firstSIdx] ?? path.closed;
+                        const segTension = path.segmentTensions?.[firstSIdx] ?? (path.tension ?? tension);
+
+                        const d = smoothPath(groupPoints, segTension, segClosed);
 
                         let animWrapperStart = '';
                         let animWrapperEnd = '';
@@ -151,7 +157,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                         return `${animWrapperStart}<path d="${d}" stroke="${segColor}" stroke-opacity="${path.strokeOpacity ?? 1}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round" />${animWrapperEnd}`;
                     }).join('\n');
 
-                    finalCode = `<g>${segments}</g>`;
+                    finalCode = `<g>${groups}</g>`;
                 } else {
                     const d = smoothPath(v.multiPoints || v.points, path.tension ?? tension, path.closed);
                     const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
