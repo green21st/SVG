@@ -402,16 +402,40 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                     });
 
                                     return groups.map((g, gIdx) => {
-                                        if (mode === 'edit' && !path.locked) {
-                                            // In Edit Mode, we render each sub-path individually to allow the browser
-                                            // to accurately hit-test and provide the exact data-segment-index
+                                        if (mode === 'edit' && !path.locked && path.id.startsWith('merged-')) {
+                                            // In Edit Mode, we render each sub-path individually for Merged Layers
+                                            // to accurately hit-test and provide the exact data-segment-index.
+                                            // We group segments based on segmentGroupings to preserve composite paths (e.g. holes).
+                                            const getChunkId = (sIdx: number) => {
+                                                if (!path.segmentGroupings) return sIdx;
+                                                let currentSIdx = 0;
+                                                let chunkId = 0;
+                                                for (const count of path.segmentGroupings) {
+                                                    if (sIdx >= currentSIdx && sIdx < currentSIdx + count) return chunkId;
+                                                    currentSIdx += count;
+                                                    chunkId++;
+                                                }
+                                                return sIdx; // fallback
+                                            };
+
+                                            const chunkMap = new Map<number, typeof g.segments>();
+                                            g.segments.forEach(seg => {
+                                                const cId = getChunkId(seg.sIdx);
+                                                if (!chunkMap.has(cId)) chunkMap.set(cId, []);
+                                                chunkMap.get(cId)!.push(seg);
+                                            });
+
                                             return (
                                                 <React.Fragment key={`group-${gIdx}`}>
-                                                    {g.segments.map(seg => (
-                                                        <React.Fragment key={`seg-${seg.sIdx}`}>
-                                                            {renderPathElement(smoothPath(seg.points, seg.tension, seg.closed), seg.sIdx)}
-                                                        </React.Fragment>
-                                                    ))}
+                                                    {Array.from(chunkMap.entries()).map(([chunkId, chunkSegs]) => {
+                                                        const combinedD = chunkSegs.map(seg => smoothPath(seg.points, seg.tension, seg.closed)).join(' ');
+                                                        const sIndices = chunkSegs.map(seg => seg.sIdx);
+                                                        return (
+                                                            <React.Fragment key={`chunk-${chunkId}`}>
+                                                                {renderPathElement(combinedD, sIndices)}
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
                                                 </React.Fragment>
                                             );
                                         }

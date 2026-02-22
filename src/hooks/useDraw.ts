@@ -780,6 +780,20 @@ function useDraw() {
 
             const pathId = target.dataset.pathId || (['path', 'text'].includes(target.tagName.toLowerCase()) ? (target as any).dataset.pathId : null);
 
+            // Lockdown single-select mode for merged layers
+            if (focusedSegmentIndices.length > 0 && selectedPathIds.length === 1) {
+                const currentId = selectedPathIds[0];
+                if (handleType) {
+                    // Allow handles
+                } else if (pathId === currentId) {
+                    // Allow interaction with same path
+                } else {
+                    // Block clicking away to other paths or background to prevent accidental exit
+                    if (isSpacePressed) return; // Allow space-panning
+                    return;
+                }
+            }
+
             // Handle individual point dragging (only for single selection or first of multi?)
             if (isVertexEditEnabled && selectedPathIds.length === 1) {
                 const path = paths.find(p => p.id === selectedPathIds[0]);
@@ -890,20 +904,33 @@ function useDraw() {
                 let nextSelectedPathIds = [...selectedPathIds];
 
                 if (bestSegIdx !== -1) {
+                    let chunkIndices = [bestSegIdx];
+                    if (path.segmentGroupings) {
+                        let currentSIdx = 0;
+                        for (const count of path.segmentGroupings) {
+                            if (bestSegIdx >= currentSIdx && bestSegIdx < currentSIdx + count) {
+                                chunkIndices = [];
+                                for (let i = 0; i < count; i++) chunkIndices.push(currentSIdx + i);
+                                break;
+                            }
+                            currentSIdx += count;
+                        }
+                    }
+
                     // Clicked on a sub-shape
                     if (isCtrl) {
                         if (!selectedPathIds.includes(pathId)) {
                             // If path not selected yet, select path and this segment
                             nextSelectedPathIds = [...selectedPathIds, pathId];
                             setSelectedPathIds(nextSelectedPathIds);
-                            nextFocusedIndices = [bestSegIdx];
+                            nextFocusedIndices = chunkIndices;
                             setFocusedSegmentIndices(nextFocusedIndices);
                         } else {
                             // Path already selected, toggle segment
                             if (focusedSegmentIndices.includes(bestSegIdx)) {
-                                nextFocusedIndices = focusedSegmentIndices.filter(i => i !== bestSegIdx);
+                                nextFocusedIndices = focusedSegmentIndices.filter(i => !chunkIndices.includes(i));
                             } else {
-                                nextFocusedIndices = [...focusedSegmentIndices, bestSegIdx];
+                                nextFocusedIndices = Array.from(new Set([...focusedSegmentIndices, ...chunkIndices]));
                             }
                             setFocusedSegmentIndices(nextFocusedIndices);
                         }
@@ -912,42 +939,46 @@ function useDraw() {
                         if (!selectedPathIds.includes(pathId)) {
                             nextSelectedPathIds = [pathId];
                             setSelectedPathIds(nextSelectedPathIds);
-                            nextFocusedIndices = [bestSegIdx];
+                            nextFocusedIndices = chunkIndices;
                         } else {
                             // Path is already in selection map, keep it, but adjust sub-selection logic
                             if (focusedSegmentIndices.includes(bestSegIdx)) {
                                 nextFocusedIndices = focusedSegmentIndices;
                             } else {
-                                // If we're not using ctrl and not hitting an existing sub-selected element, 
-                                // we should probably just select this single sub-element if vertex edit is on, 
-                                // or if vertex edit is off we keep [] essentially.
-                                nextFocusedIndices = [bestSegIdx];
+                                nextFocusedIndices = chunkIndices;
                             }
                         }
                         setFocusedSegmentIndices(nextFocusedIndices);
                     }
                 } else {
                     // Clicked on path background (no sub-shape hit)
-                    nextFocusedIndices = [];
+                    nextFocusedIndices = focusedSegmentIndices.length > 0 ? [...focusedSegmentIndices] : [];
                     if (isCtrl) {
                         nextSelectedPathIds = selectedPathIds.includes(pathId)
                             ? selectedPathIds.filter(id => id !== pathId)
                             : [...selectedPathIds, pathId];
                         setSelectedPathIds(nextSelectedPathIds);
-                        setFocusedSegmentIndices([]);
-                        setIsVertexEditEnabled(false);
+                        // Only clear if not already focused or explicitly resetting
+                        if (focusedSegmentIndices.length === 0) {
+                            setFocusedSegmentIndices([]);
+                            setIsVertexEditEnabled(false);
+                        }
                     } else {
                         // Single select (or keep multi-select if clicking existing to allow drag)
                         if (!selectedPathIds.includes(pathId)) {
                             nextSelectedPathIds = [pathId];
                             setSelectedPathIds(nextSelectedPathIds);
-                            setFocusedSegmentIndices([]);
-                            setIsVertexEditEnabled(false);
+                            if (focusedSegmentIndices.length === 0) {
+                                setFocusedSegmentIndices([]);
+                                setIsVertexEditEnabled(false);
+                            }
                         } else {
                             // Already selected. Don't clear multi-selection!
                             // Only clear focused segment if it's clicking the background of the path cluster
-                            setFocusedSegmentIndices([]);
-                            setIsVertexEditEnabled(false);
+                            if (focusedSegmentIndices.length === 0) {
+                                setFocusedSegmentIndices([]);
+                                setIsVertexEditEnabled(false);
+                            }
                         }
                     }
                 }
@@ -1439,6 +1470,9 @@ function useDraw() {
             } else {
                 setSelectedPathIds(selectedIds);
             }
+            if (selectedIds.length > 0) {
+                setIsVertexEditEnabled(false);
+            }
             setMarqueeStart(null);
             setMarqueeEnd(null);
             setIsInteracting(false);
@@ -1557,7 +1591,7 @@ function useDraw() {
             if (bestSegIdx !== -1) {
                 setSelectedPathIds([pathId]);
                 setFocusedSegmentIndices([bestSegIdx]);
-                setIsVertexEditEnabled(true); // Automatically show vertices for editing
+                setIsVertexEditEnabled(false); // Default to OFF even when double-clicking segments
                 return;
             }
         }

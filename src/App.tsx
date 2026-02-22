@@ -13,6 +13,45 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1550',
+    date: '2026-02-22',
+    items: [
+      '锁定单选交互模式：在聚焦合并图层的子图案时，画布交互将被“锁定”，点击空白处或其它图形不会退出当前选中状态',
+      '强制操作流引导：退出子图案单选模式现在只能通过在图层面板中点击该合并图层的根节点实现，防止由于画布误触导致编辑中断'
+    ]
+  },
+  {
+    version: 'v26.0222.1545',
+    date: '2026-02-22',
+    items: [
+      '进一步优化单选交互：双击合并图层子图案进入单选专注模式时，也默认保持顶点编辑关闭，确保编辑视野清晰'
+    ]
+  },
+  {
+    version: 'v26.0222.1555',
+    date: '2026-02-22',
+    items: [
+      '优化单选模式交互：进入单选（Edit）模式或进行批量框选时，默认关闭顶点编辑，提供更清爽的视觉反馈',
+      '保留顶点编辑触发机制：仅在双击具体子图案或手动切换时开启顶点模式，大幅降低误触概率'
+    ]
+  },
+  {
+    version: 'v26.0222.1550',
+    date: '2026-02-22',
+    items: [
+      '彻底修复“合并图层”功能导致带有孔洞（复合路径）的SVG图形变成实心黑色的问题',
+      '重构了合并图层的渲染与碰撞选择逻辑：现在合并后的子图案将基于原始图层节点联动，既保留了独立编辑与拖拽的功能，又完美保持了原生SVG的抠除剪裁（Clip/Winding Rule）样式'
+    ]
+  },
+  {
+    version: 'v26.0222.1531',
+    date: '2026-02-22',
+    items: [
+      '修复导入包含孔洞（复合路径）的SVG文件在编辑模式下由于拆分渲染导致填充为实心黑色的问题',
+      '优化渲染逻辑，在编辑模式下仅对合并图层进行子图案拆分渲染，完美保留合并图层的单选功能'
+    ]
+  },
+  {
     version: 'v26.0222.1350',
     date: '2026-02-22',
     items: [
@@ -339,8 +378,9 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1333`);
-  }, []);
+    console.log(`Fantastic SVG v26.0222.1550`);
+    (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
+  }, [setIsVertexEditEnabled]);
 
   // Global keydown listener for help panel
   React.useEffect(() => {
@@ -666,7 +706,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1350
+              v26.0222.1550
             </button>
           </h1>
         </div>

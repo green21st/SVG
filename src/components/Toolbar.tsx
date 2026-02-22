@@ -85,6 +85,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         onClick={() => {
                             setMode('edit');
                             if (activeTool === 'image') setActiveTool('brush');
+                            // Ensure vertex edit is disabled when switching to edit mode
+                            (window as any).setIsVertexEditEnabled?.(false);
                         }}
                         className={`flex-1 flex items-center justify-center py-1.5 px-2 rounded-md text-xs font-medium transition-all ${mode === 'edit'
                             ? 'bg-primary text-background shadow-sm'
