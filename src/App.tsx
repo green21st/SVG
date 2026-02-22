@@ -3,7 +3,7 @@ import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scis
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
-import { smoothPath, applySymmetry } from './utils/geometry';
+import { smoothPath, applySymmetry, parseSVGToPaths } from './utils/geometry';
 import { cn } from './utils/cn';
 import { CodePanel } from './components/CodePanel';
 import { LayerPanel } from './components/LayerPanel';
@@ -13,11 +13,28 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1646',
+    date: '2026-02-22',
+    items: [
+      '优化工具栏文件操作布局：将 Save SVG 与 Load SVG（原 Import）并排排列，节省垂直空间',
+      '统一功能命名策略：更直观的 Save/Load 术语替代原有的 Download/Import',
+      '微调 JSON 操作按钮样式：弱化二级操作层级，使核心 SVG 功能更突出'
+    ]
+  },
+  {
+    version: 'v26.0222.1642',
+    date: '2026-02-22',
+    items: [
+      '工具栏新增“Import SVG”功能：支持直接将外部 SVG 图标导入画布进行编辑，自动解析路径、颜色及基础变形属性',
+      '优化文件管理：在导出区域底部集成导入按钮，统一管理原生 JSON 载入与外部 SVG 导入'
+    ]
+  },
+  {
     version: 'v26.0222.1635',
     date: '2026-02-22',
     items: [
       '彻底修复复杂 SVG（如带孔图标）合并图层后的动画编辑问题：优化子图案选中逻辑（segmentGroupings），确保双击或单击时能完整选中包含“孔洞”的复合路径',
-      '修复导入 SVG 合并后默认动画参数 Bug：将默认动画时长从 0s 修正为 2s，确保添加动画类型后能立即生效并可见',
+      '修复导入 SVG 合并后默认动画参数 Bug：将默认动画时长 from 0s 修正为 2s，确保添加动画类型后能立即生效并可见',
       '增强单选模式交互：支持在非顶点编辑状态下通过单击快速切换合并图层中的子图案选中目标'
     ]
   },
@@ -406,6 +423,7 @@ function App() {
   }, [paths, currentPoints]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const svgInputRef = useRef<HTMLInputElement>(null);
 
   /* Background Image Logic */
   const [backgroundImage, setBackgroundImage] = React.useState<string | null>(null);
@@ -434,7 +452,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1635`);
+    console.log(`Fantastic SVG v26.0222.1646`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -489,6 +507,27 @@ function App() {
           else alert('Invalid file format');
         }
       } catch (err) { alert('Failed to load file'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleImportSvgClick = () => { svgInputRef.current?.click(); };
+
+  const handleSvgFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const svgString = event.target?.result as string;
+        const importedPaths = parseSVGToPaths(svgString);
+        if (importedPaths.length > 0) {
+          setPaths(prev => [...prev, ...importedPaths]);
+        } else {
+          alert('Could not parse any paths from this SVG');
+        }
+      } catch (err) { alert('Failed to parse SVG'); }
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -768,7 +807,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1635
+              v26.0222.1646
             </button>
           </h1>
         </div>
@@ -789,6 +828,7 @@ ${pathsCode}
           <Toolbar
             tension={tension} setTension={setTension}
             onSave={handleExportSvg} onSaveJson={handleSaveJson} onLoad={handleLoadClick}
+            onImportSvg={handleImportSvgClick}
             strokeColor={strokeColor} setStrokeColor={setStrokeColor}
             fillColor={fillColor} setFillColor={setFillColor}
             strokeWidth={strokeWidth} setStrokeWidth={setStrokeWidth}
@@ -805,6 +845,7 @@ ${pathsCode}
             setActiveTool={setActiveTool}
           />
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
+          <input type="file" ref={svgInputRef} className="hidden" accept=".svg" onChange={handleSvgFileChange} />
           <input type="file" ref={bgInputRef} className="hidden" accept="image/*" onChange={handleBgFileChange} />
         </aside>
 

@@ -8,6 +8,7 @@ interface ToolbarProps {
     onSave: () => void; // SVG
     onSaveJson: () => void; // JSON
     onLoad: () => void;
+    onImportSvg: () => void;
     strokeColor: string;
     setStrokeColor: (val: string, commit?: boolean) => void;
     fillColor: string;
@@ -38,6 +39,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     onSave,
     onSaveJson,
     onLoad,
+    onImportSvg,
     strokeColor,
     setStrokeColor,
     fillColor,
@@ -285,19 +287,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
                 {/* Output Controls */}
                 <div className="flex flex-col gap-2">
-                    <button
-                        onClick={onSave}
-                        className="w-full flex items-center justify-center gap-2 p-2 rounded bg-primary text-background font-bold hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-all hover:-translate-y-0.5 text-xs"
-                    >
-                        <Save size={16} />
-                        Download SVG
-                    </button>
                     <div className="flex gap-2">
-                        <button onClick={onSaveJson} className="flex-1 flex items-center justify-center gap-2 p-1.5 rounded bg-slate-800 text-secondary hover:text-white text-[10px]">
-                            <Download size={14} /> Save JSON
+                        <button
+                            onClick={onSave}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 rounded bg-primary text-background font-bold hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] transition-all hover:-translate-y-0.5 text-[10px]"
+                        >
+                            <Save size={14} />
+                            Save SVG
                         </button>
-                        <button onClick={onLoad} className="flex-1 flex items-center justify-center gap-2 p-1.5 rounded bg-slate-800 text-secondary hover:text-white text-[10px]">
-                            <Upload size={14} /> Load JSON
+                        <button
+                            onClick={onImportSvg}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 rounded bg-slate-900 border border-slate-700 text-secondary hover:text-white hover:bg-slate-800 text-[10px] transition-all hover:-translate-y-0.5"
+                        >
+                            <Upload size={14} />
+                            Load SVG
+                        </button>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={onSaveJson} className="flex-1 flex items-center justify-center gap-2 p-1.5 rounded bg-slate-800/50 border border-transparent hover:border-slate-700 text-slate-500 hover:text-slate-300 text-[9px] transition-all">
+                            <Download size={12} /> Save JSON
+                        </button>
+                        <button onClick={onLoad} className="flex-1 flex items-center justify-center gap-2 p-1.5 rounded bg-slate-800/50 border border-transparent hover:border-slate-700 text-slate-500 hover:text-slate-300 text-[9px] transition-all">
+                            <Upload size={12} /> Load JSON
                         </button>
                     </div>
                 </div>
