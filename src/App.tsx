@@ -13,6 +13,33 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1715',
+    date: '2026-02-22',
+    items: [
+      '彻底移除二次点击进入局部单选的功能：无论单击多少次，均仅选中图层整体，确保移动操作更加稳健',
+      '规范局部选中触发：仅允许通过双击操作进入合并图层的内部子图案编辑模式（局部模式）',
+      '优化图层操作逻辑：解决了点击已选中图层内部时可能产生的意外聚焦问题'
+    ]
+  },
+  {
+    version: 'v26.0222.1712',
+    date: '2026-02-22',
+    items: [
+      '优化合并图层交互逻辑：恢复“先选中整体、再次点击选中局部”的层次感，避免首次点击就进入单选模式导致的误操作',
+      '修复合并图层选择 Bug：确保在未选中状态下点击合并图层时，默认显示图层整体边界及其全部子路径预览',
+      '保留双击快捷操作：双击合并图层子路径仍可直接跳过整体选择，快速定位并聚焦目标局部图层'
+    ]
+  },
+  {
+    version: 'v26.0222.1651',
+    date: '2026-02-22',
+    items: [
+      '新增绘图区背景颜色选择器：支持透明（棋盘格）、白色、深灰、黑色快速切换，方便在不同环境下构图',
+      '优化对称轴视觉反馈：根据背景色自动调整对称轴及中心点对比度，确保在浅色背景下依然清晰可见',
+      '改进 Canvas 渲染层：支持棋盘格纹理背景，适配专业绘图软件操作习惯'
+    ]
+  },
+  {
     version: 'v26.0222.1646',
     date: '2026-02-22',
     items: [
@@ -437,6 +464,7 @@ function App() {
   const zoomTimeoutRef = useRef<any>(null);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showHelp, setShowHelp] = useState(true); // Default to true for new users
+  const [canvasBgColor, setCanvasBgColor] = useState<string>('transparent'); // 'transparent', '#ffffff', '#1e293b', '#050b14'
 
   // Monitor zoom changes to show indicator
   React.useEffect(() => {
@@ -452,7 +480,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1646`);
+    console.log(`Fantastic SVG v26.0222.1715`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -807,7 +835,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1646
+              v26.0222.1715
             </button>
           </h1>
         </div>
@@ -962,6 +990,42 @@ ${pathsCode}
                   C
                 </button>
               </div>
+
+              <div className="h-px w-6 bg-white/10 mx-auto my-1" />
+
+              {/* Canvas Background Color Group */}
+              <div className="flex flex-col gap-1.5 py-1">
+                {[
+                  { id: 'transparent', label: 'T', bg: 'bg-slate-800', inner: 'checkerboard' },
+                  { id: '#ffffff', label: 'W', bg: 'bg-white', text: 'text-black' },
+                  { id: '#1e293b', label: 'G', bg: 'bg-slate-700' },
+                  { id: '#050b14', label: 'B', bg: 'bg-black' }
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setCanvasBgColor(item.id)}
+                    className={cn(
+                      "w-8 h-8 mx-1 flex items-center justify-center rounded-lg text-[10px] font-black transition-all duration-300 active:scale-90 border",
+                      canvasBgColor === item.id
+                        ? "border-primary shadow-[0_0_10px_rgba(34,211,238,0.4)] scale-110"
+                        : "border-white/10 opacity-70 hover:opacity-100 hover:scale-105"
+                    )}
+                    title={`Background: ${item.id === 'transparent' ? 'Checkerboard' : item.id}`}
+                  >
+                    <div className={cn(
+                      "w-full h-full rounded-[6px] flex items-center justify-center overflow-hidden",
+                      item.bg,
+                      item.text || "text-white"
+                    )}>
+                      {item.inner === 'checkerboard' ? (
+                        <div className="w-full h-full" style={{ backgroundImage: 'conic-gradient(#334155 90deg, #1e293b 90deg 180deg, #334155 180deg 270deg, #1e293b 270deg)', backgroundSize: '8px 8px' }} />
+                      ) : (
+                        item.label
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="w-[800px] h-[600px] shadow-2xl shadow-black/50 rounded-xl relative overflow-hidden">
@@ -1001,6 +1065,7 @@ ${pathsCode}
                 currentTranslationDelta={currentTranslationDelta}
                 isVertexEditEnabled={isVertexEditEnabled}
                 onPointerUp={handlePointerUp}
+                canvasBgColor={canvasBgColor}
               />
 
               {/* Vertex Count Indicator */}

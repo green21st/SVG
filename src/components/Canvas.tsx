@@ -812,6 +812,7 @@ interface CanvasProps {
     marqueeEnd: Point | null;
     isVertexEditEnabled: boolean;
     onPointerUp: () => void;
+    canvasBgColor?: string;
 }
 
 const Canvas: React.FC<CanvasProps> = ({
@@ -855,7 +856,8 @@ const Canvas: React.FC<CanvasProps> = ({
     marqueeStart,
     marqueeEnd,
     isVertexEditEnabled,
-    onPointerUp
+    onPointerUp,
+    canvasBgColor = 'transparent'
 }) => {
     const centerX = width / 2;
     const centerY = height / 2;
@@ -912,7 +914,12 @@ const Canvas: React.FC<CanvasProps> = ({
                 className="w-full h-full will-change-transform"
                 style={{
                     transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
-                    transformOrigin: '0 0'
+                    transformOrigin: '0 0',
+                    backgroundColor: canvasBgColor === 'transparent' ? 'transparent' : canvasBgColor,
+                    backgroundImage: canvasBgColor === 'transparent'
+                        ? 'conic-gradient(#1e293b 90deg, #0f172a 90deg 180deg, #1e293b 180deg 270deg, #0f172a 270deg)'
+                        : 'none',
+                    backgroundSize: canvasBgColor === 'transparent' ? `${20 / zoom}px ${20 / zoom}px` : 'auto'
                 }}
             >
                 {/* Grid Background */}
@@ -953,15 +960,23 @@ const Canvas: React.FC<CanvasProps> = ({
                     <Defs />
 
                     {/* Symmetry Guides (Always Visible) */}
-                    <line x1={centerX} y1={0} x2={centerX} y2={height} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.horizontal ? 0.5 : 0.1} />
-                    <line x1={0} y1={centerY} x2={width} y2={centerY} stroke="#64748b" strokeWidth={1} strokeDasharray="6,4" opacity={symmetry.vertical ? 0.5 : 0.1} />
-                    {symmetry.center && (
-                        <g opacity={0.5}>
-                            <line x1={centerX - 20} y1={centerY} x2={centerX + 20} y2={centerY} stroke="#64748b" strokeWidth={1} />
-                            <line x1={centerX} y1={centerY - 20} x2={centerX} y2={centerY + 20} stroke="#64748b" strokeWidth={1} />
-                            <circle cx={centerX} cy={centerY} r={3} fill="#64748b" />
-                        </g>
-                    )}
+                    {(() => {
+                        const axisColor = canvasBgColor === '#ffffff' ? '#94a3b8' : '#64748b';
+                        const axisOpacity = (active: boolean) => active ? 0.6 : 0.15;
+                        return (
+                            <>
+                                <line x1={centerX} y1={0} x2={centerX} y2={height} stroke={axisColor} strokeWidth={1} strokeDasharray="6,4" opacity={axisOpacity(symmetry.horizontal)} />
+                                <line x1={0} y1={centerY} x2={width} y2={centerY} stroke={axisColor} strokeWidth={1} strokeDasharray="6,4" opacity={axisOpacity(symmetry.vertical)} />
+                                {symmetry.center && (
+                                    <g opacity={0.6}>
+                                        <line x1={centerX - 20} y1={centerY} x2={centerX + 20} y2={centerY} stroke={axisColor} strokeWidth={1} />
+                                        <line x1={centerX} y1={centerY - 20} x2={centerX} y2={centerY + 20} stroke={axisColor} strokeWidth={1} />
+                                        <circle cx={centerX} cy={centerY} r={3} fill={axisColor} />
+                                    </g>
+                                )}
+                            </>
+                        );
+                    })()}
 
                     {/* Render Completed Paths */}
                     {sortedPaths.map((path) => (

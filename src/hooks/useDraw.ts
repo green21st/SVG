@@ -944,13 +944,16 @@ function useDraw() {
                         if (!selectedPathIds.includes(pathId)) {
                             nextSelectedPathIds = [pathId];
                             setSelectedPathIds(nextSelectedPathIds);
-                            nextFocusedIndices = chunkIndices;
+                            // On first click of a merged layer, select the whole thing (clear segment focus)
+                            nextFocusedIndices = [];
                         } else {
-                            // Path is already in selection map, keep it, but adjust sub-selection logic
-                            if (focusedSegmentIndices.includes(bestSegIdx)) {
-                                nextFocusedIndices = focusedSegmentIndices;
-                            } else {
+                            // Path is already in selection map. 
+                            // If already in local mode (focusedSegmentIndices > 0), allow switching.
+                            // Otherwise, keep it in whole-layer mode (empty indices).
+                            if (focusedSegmentIndices.length > 0) {
                                 nextFocusedIndices = chunkIndices;
+                            } else {
+                                nextFocusedIndices = [];
                             }
                         }
                         setFocusedSegmentIndices(nextFocusedIndices);
