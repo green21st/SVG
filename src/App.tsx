@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type } from 'lucide-react';
+import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -12,6 +12,16 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  {
+    version: 'v26.0222.1250',
+    date: '2026-02-22',
+    items: ['修复多选图案时，单击拖拽会导致其他选区取消选中，无法同步平移的问题', '重构拖拽底层逻辑，改为基于初始引用（Ref）计算拖拽变更，彻底解决闭包旧状态引发的位移失败和状态丢失问题']
+  },
+  {
+    version: 'v26.0222.1235',
+    date: '2026-02-22',
+    items: ['新增“顶点编辑”手动开关，位于复制/删除工具栏首位', '当“顶点编辑”开启时，才会显示并允许拖拽路径控制点，防止误触', '优化合并图层后的编辑体验，支持通过开关切换全局变换与局部点操作']
+  },
   {
     version: 'v26.0222.1126',
     date: '2026-02-22',
@@ -250,7 +260,9 @@ function App() {
     setIsReorderingLayers,
     handlePointerUp,
     marqueeStart,
-    marqueeEnd
+    marqueeEnd,
+    isVertexEditEnabled,
+    setIsVertexEditEnabled
   } = useDraw();
 
   const totalVertices = useMemo(() => {
@@ -293,7 +305,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1126`);
+    console.log(`Fantastic SVG v26.0222.1250`);
   }, []);
 
   // Global keydown listener for help panel
@@ -620,7 +632,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1126
+              v26.0222.1250
             </button>
           </h1>
         </div>
@@ -808,6 +820,7 @@ ${pathsCode}
                 isShiftPressed={isShiftPressed}
                 currentScaleFactor={currentScaleFactor}
                 currentTranslationDelta={currentTranslationDelta}
+                isVertexEditEnabled={isVertexEditEnabled}
                 onPointerUp={handlePointerUp}
               />
 
@@ -836,6 +849,18 @@ ${pathsCode}
 
             {mode === 'edit' && selectedPathIds.length > 0 && (
               <div className="absolute -right-16 top-0 flex flex-col gap-2 p-2 bg-slate-900/80 backdrop-blur-md rounded-xl border border-white/10 shadow-2xl transition-all animate-in fade-in slide-in-from-left-2">
+                <button
+                  onClick={() => setIsVertexEditEnabled(!isVertexEditEnabled)}
+                  className={cn(
+                    "p-3 rounded-lg transition-all",
+                    isVertexEditEnabled
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "bg-white/5 text-slate-400 hover:bg-white/10"
+                  )}
+                  title="Toggle Vertex Selection"
+                >
+                  <MousePointerClick size={20} />
+                </button>
                 <button
                   onClick={duplicateSelectedPath}
                   className="p-3 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 hover:scale-110 active:scale-95 transition-all"

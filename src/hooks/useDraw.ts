@@ -149,6 +149,8 @@ function useDraw() {
     const [marqueeStart, setMarqueeStart] = useState<Point | null>(null);
     const [marqueeEnd, setMarqueeEnd] = useState<Point | null>(null);
 
+    const [isVertexEditEnabled, setIsVertexEditEnabled] = useState(false);
+
     // Zoom and Pan State
     const [zoom, setZoom] = useState<number>(1);
     const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 });
@@ -779,7 +781,7 @@ function useDraw() {
             const pathId = target.dataset.pathId || (['path', 'text'].includes(target.tagName.toLowerCase()) ? (target as any).dataset.pathId : null);
 
             // Handle individual point dragging (only for single selection or first of multi?)
-            if (selectedPathIds.length === 1) {
+            if (isVertexEditEnabled && selectedPathIds.length === 1) {
                 const path = paths.find(p => p.id === selectedPathIds[0]);
                 if (path && !path.locked) {
                     const HIT_RADIUS = 12;
@@ -861,7 +863,7 @@ function useDraw() {
 
                 // 1. Detect clicked segment index first
                 let bestSegIdx = -1;
-                if (path.multiPathPoints) {
+                if (isVertexEditEnabled && path.multiPathPoints) {
                     const target = e.target as HTMLElement;
                     const segmentIndexAttr = target.closest('[data-segment-index]')?.getAttribute('data-segment-index');
                     bestSegIdx = (segmentIndexAttr !== null && segmentIndexAttr !== undefined) ? parseInt(segmentIndexAttr) : -1;
@@ -885,13 +887,15 @@ function useDraw() {
 
                 const isCtrl = e.ctrlKey || e.metaKey;
                 let nextFocusedIndices: number[] = [];
+                let nextSelectedPathIds = [...selectedPathIds];
 
                 if (bestSegIdx !== -1) {
                     // Clicked on a sub-shape
                     if (isCtrl) {
                         if (!selectedPathIds.includes(pathId)) {
                             // If path not selected yet, select path and this segment
-                            setSelectedPathIds(prev => [...prev, pathId]);
+                            nextSelectedPathIds = [...selectedPathIds, pathId];
+                            setSelectedPathIds(nextSelectedPathIds);
                             nextFocusedIndices = [bestSegIdx];
                             setFocusedSegmentIndices(nextFocusedIndices);
                         } else {
@@ -905,11 +909,20 @@ function useDraw() {
                         }
                     } else {
                         // Single select (or keep multi-select if clicking existing to allow drag)
-                        setSelectedPathIds([pathId]);
-                        if (focusedSegmentIndices.includes(bestSegIdx)) {
-                            nextFocusedIndices = focusedSegmentIndices;
-                        } else {
+                        if (!selectedPathIds.includes(pathId)) {
+                            nextSelectedPathIds = [pathId];
+                            setSelectedPathIds(nextSelectedPathIds);
                             nextFocusedIndices = [bestSegIdx];
+                        } else {
+                            // Path is already in selection map, keep it, but adjust sub-selection logic
+                            if (focusedSegmentIndices.includes(bestSegIdx)) {
+                                nextFocusedIndices = focusedSegmentIndices;
+                            } else {
+                                // If we're not using ctrl and not hitting an existing sub-selected element, 
+                                // we should probably just select this single sub-element if vertex edit is on, 
+                                // or if vertex edit is off we keep [] essentially.
+                                nextFocusedIndices = [bestSegIdx];
+                            }
                         }
                         setFocusedSegmentIndices(nextFocusedIndices);
                     }
@@ -917,13 +930,22 @@ function useDraw() {
                     // Clicked on path background (no sub-shape hit)
                     nextFocusedIndices = [];
                     if (isCtrl) {
-                        setSelectedPathIds(prev =>
-                            prev.includes(pathId) ? prev.filter(id => id !== pathId) : [...prev, pathId]
-                        );
+                        nextSelectedPathIds = selectedPathIds.includes(pathId)
+                            ? selectedPathIds.filter(id => id !== pathId)
+                            : [...selectedPathIds, pathId];
+                        setSelectedPathIds(nextSelectedPathIds);
                         setFocusedSegmentIndices([]);
                     } else {
-                        setSelectedPathIds([pathId]);
-                        setFocusedSegmentIndices([]);
+                        // Single select (or keep multi-select if clicking existing to allow drag)
+                        if (!selectedPathIds.includes(pathId)) {
+                            nextSelectedPathIds = [pathId];
+                            setSelectedPathIds(nextSelectedPathIds);
+                            setFocusedSegmentIndices([]);
+                        } else {
+                            // Already selected. Don't clear multi-selection!
+                            // Only clear focused segment if it's clicking the background of the path cluster
+                            setFocusedSegmentIndices([]);
+                        }
                     }
                 }
 
@@ -951,7 +973,7 @@ function useDraw() {
                 dragStartPathsRef.current = JSON.parse(JSON.stringify(paths));
 
                 const initialMap = new Map<string, Transform>();
-                const pathsToMove = selectedPathIds.length > 0 ? paths.filter(p => selectedPathIds.includes(p.id)) : [path];
+                const pathsToMove = nextSelectedPathIds.length > 0 ? paths.filter(p => nextSelectedPathIds.includes(p.id)) : [path];
                 pathsToMove.forEach(p => {
                     let startTransform = p.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
                     if (isAnimationMode && p.keyframes && p.keyframes.length > 0) {
@@ -1089,10 +1111,10 @@ function useDraw() {
                     }
                     setCurrentPoints(newPoints);
                 }
-            } else if (mode === 'edit' && selectedPathIds.length > 0) {
+            } else if (mode === 'edit' && (selectedPathIds.length > 0 || initialTransformsRef.current.size > 0)) {
                 if (transformMode !== 'none') {
                     const updateFn = (prevList: PathLayer[]): PathLayer[] => prevList.map(p => {
-                        if (selectedPathIds.includes(p.id)) {
+                        if (initialTransformsRef.current.has(p.id)) {
                             if (isAnimationMode) {
                                 const initialTransform = initialTransformsRef.current.get(p.id) || { x: 0, y: 0, rotation: 0, scale: 1 };
                                 let newTransform = { ...initialTransform };
@@ -1422,6 +1444,7 @@ function useDraw() {
         setCurrentTranslationDelta({ x: 0, y: 0 });
         isDraggingRef.current = false;
         setIsInteracting(false); // Ensure it's reset regardless
+        initialTransformsRef.current.clear();
         setShapeStartPoint(null);
         dragStartPathsRef.current = null;
         dragStartMousePosRef.current = null;
@@ -1437,6 +1460,7 @@ function useDraw() {
         setCurrentScaleFactor(1);
         setCurrentTranslationDelta({ x: 0, y: 0 });
         isDraggingRef.current = false;
+        initialTransformsRef.current.clear();
         setShapeStartPoint(null);
         dragStartPathsRef.current = null;
         dragStartMousePosRef.current = null;
@@ -1781,7 +1805,9 @@ function useDraw() {
         isReorderingLayers,
         setIsReorderingLayers,
         marqueeStart,
-        marqueeEnd
+        marqueeEnd,
+        isVertexEditEnabled,
+        setIsVertexEditEnabled
     };
 }
 

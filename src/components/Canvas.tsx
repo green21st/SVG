@@ -16,9 +16,10 @@ interface PathItemProps {
     focusedSegmentIndices: number[];
     isAnimationMode?: boolean;
     currentTime?: number;
+    isVertexEditEnabled: boolean;
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime, isVertexEditEnabled }) => {
     const selected = selectedPathIds.includes(path.id);
     // Canvas dimensions for symmetry center
     const width = 800;
@@ -543,7 +544,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                         )}
 
                                         {/* Direct Point Edit Handles - Show Focused Segments if MultiPath and focused, otherwise show all */}
-                                        {!path.id.startsWith('merged-') && (
+                                        {isVertexEditEnabled && (
                                             (path.multiPathPoints
                                                 ? (focusedSegmentIndices.length > 0 && config.multiPoints
                                                     ? focusedSegmentIndices.flatMap(idx => config.multiPoints![idx] || [])
@@ -695,7 +696,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                     )}
 
                                     {/* Direct Point Edit Handles */}
-                                    {!path.id.startsWith('merged-') && config.points.map((p, i) => (
+                                    {isVertexEditEnabled && config.points.map((p, i) => (
                                         <g key={`handle-group-${i}`} className="group pointer-events-auto">
                                             <circle
                                                 cx={p.x}
@@ -770,6 +771,7 @@ interface CanvasProps {
     isShiftPressed: boolean;
     marqueeStart: Point | null;
     marqueeEnd: Point | null;
+    isVertexEditEnabled: boolean;
     onPointerUp: () => void;
 }
 
@@ -813,6 +815,7 @@ const Canvas: React.FC<CanvasProps> = ({
     isShiftPressed,
     marqueeStart,
     marqueeEnd,
+    isVertexEditEnabled,
     onPointerUp
 }) => {
     const centerX = width / 2;
@@ -946,6 +949,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             focusedSegmentIndices={focusedSegmentIndices}
                             isAnimationMode={isAnimationMode}
                             currentTime={currentTime}
+                            isVertexEditEnabled={isVertexEditEnabled}
                         />
                     ))}
                 </svg>
