@@ -267,18 +267,21 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 const pathStyleKey = (config.pathStyles as React.CSSProperties).animationName || 'no-path-anim';
                 const fullKey = `${path.id}-v${vIdx}-${pathStyleKey}-${animKey}`;
 
-                const renderPathElement = (dStr: string, sIdx?: number) => {
-                    const isFocused = sIdx !== undefined && focusedSegmentIndices.includes(sIdx);
+                const renderPathElement = (dStr: string, sIdx?: number | number[]) => {
+                    const sIndices = Array.isArray(sIdx) ? sIdx : (sIdx !== undefined ? [sIdx] : []);
+                    const isFocused = sIndices.some(idx => focusedSegmentIndices.includes(idx));
+                    const firstSIdx = sIndices.length > 0 ? sIndices[0] : undefined;
+
                     // If focusedSegmentIndices is empty, we can either highlight all or none. 
                     // To satisfy "only select clicked element", we highlight all only if no segment focus is possible (not multi-path)
                     // For multi-path, if no segments are focused, we don't highlight any segment with the selection color.
                     // If focusedSegmentIndices is empty, we assume the whole group is selected (e.g. via Layer Panel or Box Select)
                     const shouldHighlight = selected && !path.locked && (path.multiPathPoints ? (focusedSegmentIndices.length === 0 || isFocused) : true);
 
-                    const segmentColor = (sIdx !== undefined && path.segmentColors?.[sIdx]) || path.color || '#22d3ee';
-                    const segmentFill = (sIdx !== undefined && path.segmentFills?.[sIdx]) || path.fill || 'none';
-                    const segmentWidth = (sIdx !== undefined ? path.segmentWidths?.[sIdx] : undefined) ?? (path.width || 2);
-                    const segmentAnim = (sIdx !== undefined ? path.segmentAnimations?.[sIdx] : undefined) || undefined;
+                    const segmentColor = (firstSIdx !== undefined && path.segmentColors?.[firstSIdx]) || path.color || '#22d3ee';
+                    const segmentFill = (firstSIdx !== undefined && path.segmentFills?.[firstSIdx]) || path.fill || 'none';
+                    const segmentWidth = (firstSIdx !== undefined ? path.segmentWidths?.[firstSIdx] : undefined) ?? (path.width || 2);
+                    const segmentAnim = (firstSIdx !== undefined ? path.segmentAnimations?.[firstSIdx] : undefined) || undefined;
 
                     // Calculate segment-specific animations
                     // Note: variantType is inherited from the parent configuration if applicable, but for merged layers it might be less relevant unless symmetry is involved.
@@ -293,7 +296,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
                     const pathElement = (
                         <path
-                            key={sIdx ?? 'main'}
+                            key={firstSIdx ?? 'main'}
                             d={dStr}
                             stroke={shouldHighlight ? '#f59e0b' : segmentColor}
                             strokeOpacity={path.strokeOpacity ?? 1}
@@ -303,7 +306,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             data-path-id={path.id}
-                            data-segment-index={sIdx}
+                            data-segment-index={firstSIdx}
                             className={cn(
                                 mode === 'edit' && !isDragging && !path.locked && "cursor-move hover:opacity-80"
                             )}
@@ -316,7 +319,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     );
 
                     if (segGroupAnimations.length > 0) {
-                        return wrapInAnimations(pathElement, segGroupAnimations, `seg-${sIdx ?? 'main'}`);
+                        return wrapInAnimations(pathElement, segGroupAnimations, `seg-${firstSIdx ?? 'main'}`);
                     }
                     return pathElement;
                 };
@@ -359,13 +362,48 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     ) : (
                         config.multiPoints ? (
                             <g data-path-id={path.id}>
-                                {renderPathElement(
-                                    config.multiPoints.map((segPoints, sIdx) => {
+                                {(() => {
+                                    const groups: {
+                                        color: string, fill: string, width: number, animKey: string,
+                                        segments: { sIdx: number, points: Point[], tension: number, closed: boolean }[]
+                                    }[] = [];
+
+                                    config.multiPoints.forEach((segPoints, sIdx) => {
+                                        const segColor = path.segmentColors?.[sIdx] ?? path.color ?? 'none';
+                                        const segFill = path.segmentFills?.[sIdx] ?? path.fill ?? 'none';
+                                        const segWidth = path.segmentWidths?.[sIdx] ?? path.width ?? 0;
                                         const segTension = path.segmentTensions?.[sIdx] ?? path.tension;
                                         const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
-                                        return smoothPath(segPoints, segTension, segClosed);
-                                    }).join(' ')
-                                )}
+                                        const segAnim = path.segmentAnimations?.[sIdx];
+                                        const animKey = segAnim ? JSON.stringify(segAnim) : '';
+
+                                        const lastGroup = groups[groups.length - 1];
+
+                                        if (lastGroup &&
+                                            lastGroup.color === segColor &&
+                                            lastGroup.fill === segFill &&
+                                            lastGroup.width === segWidth &&
+                                            lastGroup.animKey === animKey
+                                        ) {
+                                            lastGroup.segments.push({ sIdx, points: segPoints, tension: segTension, closed: segClosed });
+                                        } else {
+                                            groups.push({
+                                                color: segColor as string, fill: segFill as string, width: segWidth, animKey,
+                                                segments: [{ sIdx, points: segPoints, tension: segTension, closed: segClosed }]
+                                            });
+                                        }
+                                    });
+
+                                    return groups.map((g, gIdx) => {
+                                        const combinedD = g.segments.map(seg => smoothPath(seg.points, seg.tension, seg.closed)).join(' ');
+                                        const sIndices = g.segments.map(seg => seg.sIdx);
+                                        return (
+                                            <React.Fragment key={`group-${gIdx}`}>
+                                                {renderPathElement(combinedD, sIndices)}
+                                            </React.Fragment>
+                                        );
+                                    });
+                                })()}
                             </g>
                         ) : (
                             renderPathElement(smoothPath(config.points, path.tension, path.closed))
