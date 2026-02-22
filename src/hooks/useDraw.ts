@@ -75,6 +75,20 @@ function useDraw() {
     const [duration, setDuration] = useState(5000);
     const [isPlaying, setIsPlaying] = useState(false);
 
+    // Calculate the maximum keyframe time across all layers
+    const maxKeyframeTime = useCallback(() => {
+        let max = 0;
+        paths.forEach(p => {
+            p.keyframes?.forEach(kf => {
+                if (kf.time > max) max = kf.time;
+            });
+        });
+        return max;
+    }, [paths]);
+
+    const lastKfTime = maxKeyframeTime();
+    const effectiveDuration = lastKfTime > 0 ? lastKfTime : duration;
+    const timelineDuration = Math.max(duration, lastKfTime);
 
     // Animation Playback Loop
     useEffect(() => {
@@ -88,7 +102,8 @@ function useDraw() {
 
             setCurrentTime(prev => {
                 const next = prev + delta;
-                if (next >= duration) {
+                // Loop point is explicitly the last keyframe if it exists
+                if (next >= effectiveDuration) {
                     return 0; // Loop back to start
                 }
                 return next;
@@ -104,7 +119,7 @@ function useDraw() {
         return () => {
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
         };
-    }, [isPlaying, duration]);
+    }, [isPlaying, effectiveDuration]);
 
     const handleAddKeyframe = useCallback(() => {
         if (selectedPathIds.length === 0) return;
@@ -1882,6 +1897,8 @@ function useDraw() {
         currentTime,
         setCurrentTime,
         duration,
+        effectiveDuration,
+        timelineDuration,
         setDuration,
         isPlaying,
         setIsPlaying,

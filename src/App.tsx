@@ -13,6 +13,15 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1746',
+    date: '2026-02-22',
+    items: [
+      '优化关键帧动画导出逻辑：SVG 导出时长现在自动按最后一个关键帧的时间计算',
+      '优化循环播放体验：动画播放到最后一个关键帧位置时自动重新开始，实现精准循环',
+      '优化时间轴交互：时间轴视图至少展示 5s 长度，并随关键帧自动扩展，确保编辑空间充足'
+    ]
+  },
+  {
     version: 'v26.0222.1715',
     date: '2026-02-22',
     items: [
@@ -418,7 +427,8 @@ function App() {
     setIsAnimationMode,
     currentTime,
     setCurrentTime,
-    duration,
+    effectiveDuration,
+    timelineDuration,
     isPlaying,
     togglePlayback,
     handleAddKeyframe,
@@ -480,7 +490,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1715`);
+    console.log(`Fantastic SVG v26.0222.1746`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -622,7 +632,7 @@ function App() {
           const { x, y, rotation, scale, scaleX, scaleY } = kf.value;
           const sx = scaleX ?? scale ?? 1;
           const sy = scaleY ?? scale ?? 1;
-          const percentage = (kf.time / duration) * 100;
+          const percentage = (kf.time / effectiveDuration) * 100;
           return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); animation-timing-function: ${kf.ease}; }`;
         }).join('\n    ');
 
@@ -743,7 +753,7 @@ function App() {
       if (path.keyframes && path.keyframes.length > 0) {
         const animName = `anim-${path.id}`;
         // Note: duration here is the global timeline duration (in ms, convert to seconds)
-        const durationSec = duration / 1000;
+        const durationSec = effectiveDuration / 1000;
         return `<g style="animation: ${animName} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: center;">
           ${variantCode}
         </g>`;
@@ -835,7 +845,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1715
+              v26.0222.1746
             </button>
           </h1>
         </div>
@@ -1269,7 +1279,7 @@ ${pathsCode}
 
           <Timeline
             currentTime={currentTime}
-            duration={duration}
+            duration={timelineDuration}
             isPlaying={isPlaying}
             onTimeChange={setCurrentTime}
             onTogglePlay={togglePlayback}
@@ -1403,7 +1413,7 @@ ${pathsCode}
             />
           </div>
           <div className="flex-[2] min-h-0 flex flex-col">
-            <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} duration={duration} />
+            <CodePanel paths={paths} tension={tension} isDragging={isDragging} onApplyCode={setPaths} duration={effectiveDuration} />
           </div>
         </aside>
       </main>
