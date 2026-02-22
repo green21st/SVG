@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1802',
+    date: '2026-02-22',
+    items: [
+      '优化合并图层交互：在整体选择合并图层时，支持同步更改所有内部 sub-paths 的填充、描边、线宽、张力及动画属性',
+      '修复合并图层属性隔离问题：确保整体样式调整能穿透到所有 segments，提供更直观的批量编辑体验'
+    ]
+  },
+  {
     version: 'v26.0222.1746',
     date: '2026-02-22',
     items: [
@@ -490,7 +498,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1746`);
+    console.log(`Fantastic SVG v26.0222.1802`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -845,7 +853,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1746
+              v26.0222.1802
             </button>
           </h1>
         </div>
