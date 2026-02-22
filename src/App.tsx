@@ -13,9 +13,9 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
-    version: 'v26.0221.2230',
-    date: '2026-02-21',
-    items: ['修复编辑模式下框选框不显示的问题', '修复编辑模式下框选功能无法正常结束并选中的问题', '编辑模式新增鼠标框选（Marquee Selection）功能']
+    version: 'v26.0222.1126',
+    date: '2026-02-22',
+    items: ['修复SVG导入时复合路径（Compound Path，镂空图形的负形空间）显示为纯黑实心的问题', '修复SVG导入时内联style属性中颜色丢失（变为纯黑）的问题', '修复带有transform属性的SVG路径在预览和编辑时的坐标偏移问题', '修复编辑模式下框选框不显示的问题', '修复编辑模式下框选功能无法正常结束并选中的问题', '编辑模式新增鼠标框选（Marquee Selection）功能']
   },
   {
     version: 'v26.0215.1825',
@@ -293,7 +293,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0221.2230`);
+    console.log(`Fantastic SVG v26.0222.1126`);
   }, []);
 
   // Global keydown listener for help panel
@@ -620,7 +620,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0221.2230
+              v26.0222.1126
             </button>
           </h1>
         </div>

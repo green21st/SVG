@@ -359,11 +359,13 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     ) : (
                         config.multiPoints ? (
                             <g data-path-id={path.id}>
-                                {config.multiPoints.map((segPoints, sIdx) => {
-                                    const segTension = path.segmentTensions?.[sIdx] ?? path.tension;
-                                    const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
-                                    return renderPathElement(smoothPath(segPoints, segTension, segClosed), sIdx);
-                                })}
+                                {renderPathElement(
+                                    config.multiPoints.map((segPoints, sIdx) => {
+                                        const segTension = path.segmentTensions?.[sIdx] ?? path.tension;
+                                        const segClosed = path.segmentClosed?.[sIdx] ?? path.closed;
+                                        return smoothPath(segPoints, segTension, segClosed);
+                                    }).join(' ')
+                                )}
                             </g>
                         ) : (
                             renderPathElement(smoothPath(config.points, path.tension, path.closed))

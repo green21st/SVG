@@ -252,6 +252,26 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         return matrix;
     };
 
+    const isIdentity = (m: { a: number, b: number, c: number, d: number, e: number, f: number }) =>
+        Math.abs(m.a - 1) < 0.001 && Math.abs(m.b) < 0.001 && Math.abs(m.c) < 0.001 &&
+        Math.abs(m.d - 1) < 0.001 && Math.abs(m.e) < 0.001 && Math.abs(m.f) < 0.001;
+
+    const getStyleAttr = (el: Element, attr: string): string | null => {
+        let current: Element | null = el;
+        while (current && current.tagName && current.tagName.toLowerCase() !== 'svg') {
+            const inlineAttr = current.getAttribute(attr);
+            if (inlineAttr) return inlineAttr;
+
+            const style = current.getAttribute('style');
+            if (style) {
+                const match = style.match(new RegExp(`${attr}\\s*:\\s*([^;]+)`));
+                if (match) return match[1].trim();
+            }
+            current = current.parentElement;
+        }
+        return null;
+    };
+
     const getAnimationSettings = (el: Element) => {
         let current: Element | null = el;
         let style = '';
@@ -361,9 +381,9 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             points.push(transform(cx + Math.cos(a) * r, cy + Math.sin(a) * r, elementMatrix));
         }
 
-        const strokeAttr = el.getAttribute('stroke');
-        const fillAttr = el.getAttribute('fill');
-        const widthAttr = el.getAttribute('stroke-width');
+        const strokeAttr = getStyleAttr(el, 'stroke');
+        const fillAttr = getStyleAttr(el, 'fill');
+        const widthAttr = getStyleAttr(el, 'stroke-width');
 
         const hasFill = fillAttr && fillAttr !== 'none';
         const hasStroke = strokeAttr && strokeAttr !== 'none';
@@ -397,9 +417,10 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
     doc.querySelectorAll('path').forEach((el, i) => {
         const d = el.getAttribute('d') || '';
         const elementMatrix = getElementTransform(el);
-        const strokeAttr = el.getAttribute('stroke');
-        const fillAttr = el.getAttribute('fill');
-        const widthAttr = el.getAttribute('stroke-width');
+        const hasTransform = !isIdentity(elementMatrix);
+        const strokeAttr = getStyleAttr(el, 'stroke');
+        const fillAttr = getStyleAttr(el, 'fill');
+        const widthAttr = getStyleAttr(el, 'stroke-width');
 
         const hasFill = fillAttr && fillAttr !== 'none';
         const hasStroke = strokeAttr && strokeAttr !== 'none';
@@ -417,8 +438,9 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         let curX = 0, curY = 0;
         let lastCPX = 0, lastCPY = 0; // Previous control point for shorthand bezier
         let points: Point[] = [];
+        let subpaths: Point[][] = [];
 
-        const finishPath = () => {
+        const finishSubpath = () => {
             if (points.length > 0) {
                 const cleanedPoints = points.filter((p, idx, self) => {
                     if (idx === 0) return true;
@@ -435,25 +457,34 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                 }
 
                 if (cleanedPoints.length > 0) {
-                    newPaths.push({
-                        id: `imported-path-${Date.now()}-${i}-${newPaths.length}`,
-                        points: cleanedPoints,
-                        color,
-                        fill,
-                        width,
-                        tension: 0,
-                        closed: d.toLowerCase().includes('z'),
-                        symmetry: { horizontal: false, vertical: false, center: false },
-                        animation: getAnimationSettings(el),
-                        transform: undefined,
-                        keyframes: [],
-                        d: d,
-                        importedScale: scale,
-                        importedOffsetX: offsetX,
-                        importedOffsetY: offsetY
-                    });
+                    subpaths.push(cleanedPoints);
                 }
                 points = [];
+            }
+        };
+
+        const finishPath = () => {
+            finishSubpath();
+            if (subpaths.length > 0) {
+                const mainPoints = subpaths[0];
+                newPaths.push({
+                    id: `imported-path-${Date.now()}-${i}-${newPaths.length}`,
+                    points: mainPoints,
+                    multiPathPoints: subpaths.length > 1 ? subpaths : undefined,
+                    color,
+                    fill,
+                    width,
+                    tension: 0,
+                    closed: d.toLowerCase().includes('z'),
+                    symmetry: { horizontal: false, vertical: false, center: false },
+                    animation: getAnimationSettings(el),
+                    transform: undefined,
+                    keyframes: [],
+                    d: hasTransform ? undefined : d,
+                    importedScale: scale,
+                    importedOffsetX: offsetX,
+                    importedOffsetY: offsetY
+                });
             }
         };
 
@@ -464,12 +495,12 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         for (let j = 0; j < tokens.length; j++) {
             const t = tokens[j];
             if (/[a-z]/i.test(t)) {
-                if (t.toLowerCase() === 'm' && points.length > 0) finishPath();
+                if (t.toLowerCase() === 'm' && points.length > 0) finishSubpath();
                 prevCmd = cmd;
                 cmd = t;
 
                 if (cmd.toLowerCase() === 'z') {
-                    finishPath();
+                    finishSubpath();
                 }
                 continue;
             }
