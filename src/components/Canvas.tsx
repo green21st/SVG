@@ -402,6 +402,21 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                     });
 
                                     return groups.map((g, gIdx) => {
+                                        if (mode === 'edit' && !path.locked) {
+                                            // In Edit Mode, we render each sub-path individually to allow the browser
+                                            // to accurately hit-test and provide the exact data-segment-index
+                                            return (
+                                                <React.Fragment key={`group-${gIdx}`}>
+                                                    {g.segments.map(seg => (
+                                                        <React.Fragment key={`seg-${seg.sIdx}`}>
+                                                            {renderPathElement(smoothPath(seg.points, seg.tension, seg.closed), seg.sIdx)}
+                                                        </React.Fragment>
+                                                    ))}
+                                                </React.Fragment>
+                                            );
+                                        }
+
+                                        // In standard viewing/drawing mode, combine for performance
                                         const combinedD = g.segments.map(seg => smoothPath(seg.points, seg.tension, seg.closed)).join(' ');
                                         const sIndices = g.segments.map(seg => seg.sIdx);
                                         return (

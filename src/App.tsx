@@ -13,6 +13,39 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0222.1350',
+    date: '2026-02-22',
+    items: [
+      '彻底解决退出单选与关闭锚点编辑的问题：通过在图层面板单击图层，强制退出单选模式并关闭锚点。',
+      '修复在图层面板选择合并图层后，因局部状态未及时清理导致无法整体平移合并图层的问题。'
+    ]
+  },
+  {
+    version: 'v26.0222.1333',
+    date: '2026-02-22',
+    items: ['优化交互：在图层面板中再次点击（选中）图层项或切换图层时即可快速退出“顶点编辑”状态并恢复对其整体的控制']
+  },
+  {
+    version: 'v26.0222.1332',
+    date: '2026-02-22',
+    items: ['优化交互：在编辑面版中再次点击（选中）图层项即可快速退出“顶点编辑”状态并恢复整体控制']
+  },
+  {
+    version: 'v26.0222.1326',
+    date: '2026-02-22',
+    items: ['优化合并图层交互：在“顶点编辑”模式下单选了合并图层中的子图形后，点击图层空白处可快速退出单选模式并恢复对其整体的控制']
+  },
+  {
+    version: 'v26.0222.1325',
+    date: '2026-02-22',
+    items: ['修复包含多条子路径的合并图层在编辑模式下只能选择/高亮第一条路径的Bug', '优化合并图层渲染机制：编辑模式下拆分渲染子路径以支持精确的独立DOM点击检测']
+  },
+  {
+    version: 'v26.0222.1315',
+    date: '2026-02-22',
+    items: ['支持通过鼠标双击“合并图层”中的单个图案进行快速选择', '双击单个图案时，会自动开启“顶点编辑”模式，方便直接对子图形进行精准操作', '优化双击逻辑：支持在未选中的情况下直接双击选择并编辑图案']
+  },
+  {
     version: 'v26.0222.1250',
     date: '2026-02-22',
     items: ['修复多选图案时，单击拖拽会导致其他选区取消选中，无法同步平移的问题', '重构拖拽底层逻辑，改为基于初始引用（Ref）计算拖拽变更，彻底解决闭包旧状态引发的位移失败和状态丢失问题']
@@ -262,7 +295,8 @@ function App() {
     marqueeStart,
     marqueeEnd,
     isVertexEditEnabled,
-    setIsVertexEditEnabled
+    setIsVertexEditEnabled,
+    setFocusedSegmentIndices
   } = useDraw();
 
   const totalVertices = useMemo(() => {
@@ -305,7 +339,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1250`);
+    console.log(`Fantastic SVG v26.0222.1333`);
   }, []);
 
   // Global keydown listener for help panel
@@ -632,7 +666,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1250
+              v26.0222.1350
             </button>
           </h1>
         </div>
@@ -799,6 +833,8 @@ ${pathsCode}
                 selectedPathIds={selectedPathIds} onPathSelect={(id) => {
                   if (id) setSelectedPathIds([id]);
                   else setSelectedPathIds([]);
+                  setFocusedSegmentIndices([]);
+                  setIsVertexEditEnabled(false);
                 }}
                 isDragging={isDragging}
                 activeTool={activeTool}

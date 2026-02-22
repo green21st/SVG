@@ -935,16 +935,19 @@ function useDraw() {
                             : [...selectedPathIds, pathId];
                         setSelectedPathIds(nextSelectedPathIds);
                         setFocusedSegmentIndices([]);
+                        setIsVertexEditEnabled(false);
                     } else {
                         // Single select (or keep multi-select if clicking existing to allow drag)
                         if (!selectedPathIds.includes(pathId)) {
                             nextSelectedPathIds = [pathId];
                             setSelectedPathIds(nextSelectedPathIds);
                             setFocusedSegmentIndices([]);
+                            setIsVertexEditEnabled(false);
                         } else {
                             // Already selected. Don't clear multi-selection!
                             // Only clear focused segment if it's clicking the background of the path cluster
                             setFocusedSegmentIndices([]);
+                            setIsVertexEditEnabled(false);
                         }
                     }
                 }
@@ -1538,16 +1541,31 @@ function useDraw() {
     }, [handlePointerUp]);
 
     const handleDoubleClick = useCallback((e: React.MouseEvent) => {
-        if (mode !== 'edit' || selectedPathIds.length !== 1) return;
-        const selectedId = selectedPathIds[0];
+        if (mode !== 'edit') return;
+        const target = e.target as HTMLElement;
+        const pathId = target.dataset.pathId || target.closest('[data-path-id]')?.getAttribute('data-path-id');
 
-        const path = paths.find(p => p.id === selectedId);
+        if (!pathId) return;
+        const path = paths.find(p => p.id === pathId);
         if (!path) return;
+
+        // If it's a merged layer or has segments, double-click selects/focuses the specific segment
+        if (path.multiPathPoints) {
+            const segmentIndexAttr = target.closest('[data-segment-index]')?.getAttribute('data-segment-index');
+            const bestSegIdx = (segmentIndexAttr !== null && segmentIndexAttr !== undefined) ? parseInt(segmentIndexAttr) : -1;
+
+            if (bestSegIdx !== -1) {
+                setSelectedPathIds([pathId]);
+                setFocusedSegmentIndices([bestSegIdx]);
+                setIsVertexEditEnabled(true); // Automatically show vertices for editing
+                return;
+            }
+        }
 
         if (path.type === 'text') {
             const newText = prompt('Edit text:', path.text);
             if (newText !== null && newText !== path.text) {
-                setPaths(prev => prev.map(p => p.id === selectedId ? { ...p, text: newText, name: `Text: ${newText.substring(0, 10)}...` } : p));
+                setPaths(prev => prev.map(p => p.id === pathId ? { ...p, text: newText, name: `Text: ${newText.substring(0, 10)}...` } : p));
             }
             return;
         }
@@ -1555,9 +1573,9 @@ function useDraw() {
         const point = getPointFromEvent(e);
         if (!point) return;
 
-        setPaths(prev => prev.map(path => {
-            if (path.id === selectedId) {
-                const newPoints = [...path.points];
+        setPaths(prev => prev.map(p => {
+            if (p.id === pathId) {
+                const newPoints = [...p.points];
                 let bestIdx = -1;
                 let minDist = 20;
 
@@ -1565,18 +1583,33 @@ function useDraw() {
                     const d = distToSegment(point, newPoints[i], newPoints[i + 1]);
                     if (d < minDist) { minDist = d; bestIdx = i + 1; }
                 }
-                if (path.closed && newPoints.length > 2) {
+                if (p.closed && newPoints.length > 2) {
                     const d = distToSegment(point, newPoints[newPoints.length - 1], newPoints[0]);
                     if (d < minDist) { minDist = d; bestIdx = newPoints.length; }
                 }
                 if (bestIdx !== -1) {
                     newPoints.splice(bestIdx, 0, point);
-                    return { ...path, points: newPoints };
+                    // Update multiPathPoints if it exists (for internal point tracking)
+                    let newMultiPoints = undefined;
+                    if (p.multiPathPoints) {
+                        let remainingIdx = bestIdx;
+                        newMultiPoints = p.multiPathPoints.map(seg => {
+                            if (remainingIdx >= 0 && remainingIdx <= seg.length) {
+                                const newSeg = [...seg];
+                                newSeg.splice(remainingIdx, 0, point);
+                                remainingIdx = -1; // Done
+                                return newSeg;
+                            }
+                            remainingIdx -= seg.length;
+                            return seg;
+                        });
+                    }
+                    return { ...p, points: newPoints, multiPathPoints: newMultiPoints, d: undefined } as PathLayer;
                 }
             }
-            return path;
+            return p;
         }));
-    }, [mode, selectedPathIds, paths, getPointFromEvent, setPaths]);
+    }, [mode, paths, getPointFromEvent, setPaths, setIsVertexEditEnabled]);
 
     const handleContextMenu = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -1649,6 +1682,8 @@ function useDraw() {
         } else {
             setSelectedPathIds([id]);
         }
+        // Always exit vertex edit mode when interacting via Layer Panel
+        setIsVertexEditEnabled(false);
         setLastSelectedId(id);
     }, [paths, lastSelectedId]);
 
