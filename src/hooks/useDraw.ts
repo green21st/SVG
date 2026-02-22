@@ -347,6 +347,9 @@ function useDraw() {
         const segmentTensions = sortedSelected.flatMap(p =>
             p.segmentTensions || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.tension) : [p.tension])
         );
+        const segmentGroupings = sortedSelected.flatMap(p =>
+            p.segmentGroupings || (p.multiPathPoints ? [p.multiPathPoints.length] : [1])
+        );
 
         const mergedPath: PathLayer = {
             ...first,
@@ -361,6 +364,7 @@ function useDraw() {
             segmentAnimations,
             segmentClosed,
             segmentTensions,
+            segmentGroupings,
             animation: first.animation || { types: [], duration: 1, delay: 0, ease: 'linear' }
         };
 
@@ -385,28 +389,41 @@ function useDraw() {
             prev.forEach(p => {
                 if (selectedPathIds.includes(p.id) && p.multiPathPoints && p.multiPathPoints.length > 1) {
                     splitOccurred = true;
-                    p.multiPathPoints.forEach((seg, sIdx) => {
+                    const groupings = p.segmentGroupings || p.multiPathPoints.map(() => 1);
+                    let sIdx = 0;
+
+                    groupings.forEach((count, gIdx) => {
+                        const segs = p.multiPathPoints!.slice(sIdx, sIdx + count);
+                        const cArr = p.segmentColors?.slice(sIdx, sIdx + count);
+                        const fArr = p.segmentFills?.slice(sIdx, sIdx + count);
+                        const wArr = p.segmentWidths?.slice(sIdx, sIdx + count);
+                        const aArr = p.segmentAnimations?.slice(sIdx, sIdx + count);
+                        const clArr = p.segmentClosed?.slice(sIdx, sIdx + count);
+                        const tArr = p.segmentTensions?.slice(sIdx, sIdx + count);
+
                         newPaths.push({
                             ...p,
-                            id: `split-${p.id}-${sIdx}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                            name: `${p.name} (Part ${sIdx + 1})`,
-                            points: seg,
-                            multiPathPoints: undefined,
-                            segmentColors: undefined,
-                            segmentFills: undefined,
-                            segmentWidths: undefined,
-                            segmentAnimations: undefined,
-                            segmentClosed: undefined,
-                            segmentTensions: undefined,
+                            id: `split-${p.id}-${gIdx}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                            name: `${p.name} (Part ${gIdx + 1})`,
+                            points: segs[0],
+                            multiPathPoints: count > 1 ? segs : undefined,
+                            segmentColors: count > 1 ? cArr : undefined,
+                            segmentFills: count > 1 ? fArr : undefined,
+                            segmentWidths: count > 1 ? wArr : undefined,
+                            segmentAnimations: count > 1 ? aArr : undefined,
+                            segmentClosed: count > 1 ? clArr : undefined,
+                            segmentTensions: count > 1 ? tArr : undefined,
+                            segmentGroupings: undefined,
                             d: undefined,
-                            // Restore individual properties
-                            color: p.segmentColors?.[sIdx] || p.color,
-                            fill: p.segmentFills?.[sIdx] || p.fill,
-                            width: p.segmentWidths?.[sIdx] ?? p.width,
-                            animation: p.segmentAnimations?.[sIdx] || p.animation,
-                            closed: p.segmentClosed?.[sIdx] ?? p.closed,
-                            tension: p.segmentTensions?.[sIdx] ?? p.tension
+                            color: cArr?.[0] ?? p.color,
+                            fill: fArr?.[0] ?? p.fill,
+                            width: wArr?.[0] ?? p.width,
+                            animation: aArr?.[0] ?? p.animation,
+                            closed: clArr?.[0] ?? p.closed,
+                            tension: tArr?.[0] ?? p.tension
                         });
+
+                        sIdx += count;
                     });
                 } else {
                     newPaths.push(p);

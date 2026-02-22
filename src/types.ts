@@ -52,6 +52,7 @@ export interface PathLayer {
     segmentAnimations?: AnimationSettings[];
     segmentClosed?: boolean[];
     segmentTensions?: number[];
+    segmentGroupings?: number[];
 }
 
 export type AnimationType = 'none' | 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';

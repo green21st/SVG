@@ -63,9 +63,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     return getBoundingBox(allPoints);
                 }
             }
-            // User requested to disable overall selection box for merged layers.
-            // Only show box if specific segments are focused.
-            return null;
+            // If no specific segments are focused, return bounding box for the entire path
+            return getBoundingBox(path.points);
         }
         return getBoundingBox(path.points);
     }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, path.type, path.fontSize, path.text, getBoundingBox]);
@@ -544,36 +543,38 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                         )}
 
                                         {/* Direct Point Edit Handles - Show Focused Segments if MultiPath and focused, otherwise show all */}
-                                        {(path.multiPathPoints
-                                            ? (focusedSegmentIndices.length > 0 && config.multiPoints
-                                                ? focusedSegmentIndices.flatMap(idx => config.multiPoints![idx] || [])
-                                                : config.points)
-                                            : config.points
-                                        ).map((p, i) => (
-                                            <g key={`handle-group-${i}`} className="group pointer-events-auto">
-                                                <circle
-                                                    cx={p.x}
-                                                    cy={p.y}
-                                                    r={12}
-                                                    fill="transparent"
-                                                    className="cursor-grab"
-                                                />
-                                                <circle
-                                                    cx={p.x}
-                                                    cy={p.y}
-                                                    r={4}
-                                                    fill="#f59e0b"
-                                                    stroke="#fff"
-                                                    strokeWidth={2}
-                                                    className={cn(
-                                                        "transition-all duration-300 ease-out pointer-events-none",
-                                                        "group-hover:scale-150 group-hover:shadow-lg",
-                                                        isDragging && "transition-none scale-110"
-                                                    )}
-                                                    style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-                                                />
-                                            </g>
-                                        ))}
+                                        {!path.id.startsWith('merged-') && (
+                                            (path.multiPathPoints
+                                                ? (focusedSegmentIndices.length > 0 && config.multiPoints
+                                                    ? focusedSegmentIndices.flatMap(idx => config.multiPoints![idx] || [])
+                                                    : config.points)
+                                                : config.points
+                                            ).map((p, i) => (
+                                                <g key={`handle-group-${i}`} className="group pointer-events-auto">
+                                                    <circle
+                                                        cx={p.x}
+                                                        cy={p.y}
+                                                        r={12}
+                                                        fill="transparent"
+                                                        className="cursor-grab"
+                                                    />
+                                                    <circle
+                                                        cx={p.x}
+                                                        cy={p.y}
+                                                        r={4}
+                                                        fill="#f59e0b"
+                                                        stroke="#fff"
+                                                        strokeWidth={2}
+                                                        className={cn(
+                                                            "transition-all duration-300 ease-out pointer-events-none",
+                                                            "group-hover:scale-150 group-hover:shadow-lg",
+                                                            isDragging && "transition-none scale-110"
+                                                        )}
+                                                        style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+                                                    />
+                                                </g>
+                                            ))
+                                        )}
                                     </g>,
                                     config.groupAnimations,
                                     'handles'
@@ -694,7 +695,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                     )}
 
                                     {/* Direct Point Edit Handles */}
-                                    {config.points.map((p, i) => (
+                                    {!path.id.startsWith('merged-') && config.points.map((p, i) => (
                                         <g key={`handle-group-${i}`} className="group pointer-events-auto">
                                             <circle
                                                 cx={p.x}
