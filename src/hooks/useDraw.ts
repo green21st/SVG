@@ -561,17 +561,29 @@ function useDraw() {
         updateSelectedPathProperty(p => {
             const defaultAnim: AnimationSettings = { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' };
             if (p.multiPathPoints) {
-                const newSegmentAnimations = (p.segmentAnimations || []).map((v, i) =>
-                    (focusedSegmentIndices.length === 0 || focusedSegmentIndices.includes(i)) ? anim : v
-                );
-                while (newSegmentAnimations.length < p.multiPathPoints.length) {
-                    newSegmentAnimations.push(focusedSegmentIndices.length === 0 ? anim : (p.animation || defaultAnim));
+                if (focusedSegmentIndices.length > 0) {
+                    // Focus mode: only update the focused segments' animations
+                    const newSegmentAnimations = [...(p.segmentAnimations || p.multiPathPoints.map(() => defaultAnim))];
+                    while (newSegmentAnimations.length < p.multiPathPoints.length) {
+                        newSegmentAnimations.push(defaultAnim);
+                    }
+                    focusedSegmentIndices.forEach(idx => {
+                        if (idx < newSegmentAnimations.length) {
+                            newSegmentAnimations[idx] = anim;
+                        }
+                    });
+                    return { ...p, segmentAnimations: newSegmentAnimations };
+                } else {
+                    // Whole-layer mode: only set global animation, preserve segment animations
+                    return { ...p, animation: anim };
                 }
-                return { ...p, animation: anim, segmentAnimations: newSegmentAnimations };
             }
             return { ...p, animation: anim };
         }, commit);
     }, [updateSelectedPathProperty, focusedSegmentIndices]);
+
+
+
 
     const toggleSymmetry = useCallback((key: keyof SymmetrySettings) => {
         setSymmetry(prev => ({ ...prev, [key]: !prev[key] }));

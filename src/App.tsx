@@ -13,6 +13,30 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0224.1110',
+    date: '2026-02-24',
+    items: [
+      '实现合并图层动画双层独立控制：整体动画和子图案独立动画现在完全互不干扰，可同时共存',
+      '示例：全选图层设置 spin 旋转，再单选子图案设置 pulse 闪烁 —— 整体旋转的同时，该子图案还会独立闪烁'
+    ]
+  },
+  {
+    version: 'v26.0224.1103',
+    date: '2026-02-24',
+    items: [
+      '修复合并图层全选模式下动画叠加的问题：全选模式下设置动画（如旋转）现在只在整体层级应用，不会同时复制到每个子图案产生重复旋转',
+      '优化动画层级逻辑：整体动画通过外层包裹实现，子图案独立动画仅在局部单选时设置，互不干扰'
+    ]
+  },
+  {
+    version: 'v26.0224.1058',
+    date: '2026-02-24',
+    items: [
+      '支持合并图层子图案独立动画：在局部单选模式下设置动画只会应用于当前聚焦的子图案，而不会影响其它子图案或整体动画',
+      '优化整体动画设置：在全选模式下，动画变更将统一同步到所有子图案，保持视觉一致性'
+    ]
+  },
+  {
     version: 'v26.0224.1045',
     date: '2026-02-24',
     items: [
@@ -538,7 +562,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0224.1045`);
+    console.log(`Fantastic SVG v26.0224.1110`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -893,7 +917,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0224.1045
+              v26.0224.1110
             </button>
           </h1>
         </div>
