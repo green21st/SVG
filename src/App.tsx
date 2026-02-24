@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0224.1045',
+    date: '2026-02-24',
+    items: [
+      '修复合并图层非选中子图案仍显示顶点的问题：统一两处顶点渲染分支（有动画/无动画）的过滤逻辑，确保只显示当前局部单选图案的顶点',
+      '提升视觉清晰度：整体选中合并图层时不再展示大量重叠的顶点手柄，避免视觉干扰'
+    ]
+  },
+  {
     version: 'v26.0224.1030',
     date: '2026-02-24',
     items: [
@@ -530,7 +538,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0224.1030`);
+    console.log(`Fantastic SVG v26.0224.1045`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -885,7 +893,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0224.1030
+              v26.0224.1045
             </button>
           </h1>
         </div>

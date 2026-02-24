@@ -587,7 +587,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                             (path.multiPathPoints
                                                 ? (focusedSegmentIndices.length > 0 && config.multiPoints
                                                     ? focusedSegmentIndices.flatMap(idx => config.multiPoints![idx] || [])
-                                                    : config.points)
+                                                    : []) // Don't show any vertex handles when entire merged layer is selected
                                                 : config.points
                                             ).map((p, i) => (
                                                 <g key={`handle-group-${i}`} className="group pointer-events-auto">
@@ -735,31 +735,38 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                     )}
 
                                     {/* Direct Point Edit Handles */}
-                                    {isVertexEditEnabled && config.points.map((p, i) => (
-                                        <g key={`handle-group-${i}`} className="group pointer-events-auto">
-                                            <circle
-                                                cx={p.x}
-                                                cy={p.y}
-                                                r={12}
-                                                fill="transparent"
-                                                className="cursor-grab"
-                                            />
-                                            <circle
-                                                cx={p.x}
-                                                cy={p.y}
-                                                r={4}
-                                                fill="#f59e0b"
-                                                stroke="#fff"
-                                                strokeWidth={2}
-                                                className={cn(
-                                                    "transition-all duration-300 ease-out pointer-events-none",
-                                                    "group-hover:scale-150 group-hover:shadow-lg",
-                                                    isDragging && "transition-none scale-110"
-                                                )}
-                                                style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-                                            />
-                                        </g>
-                                    ))}
+                                    {isVertexEditEnabled && (
+                                        (path.multiPathPoints
+                                            ? (focusedSegmentIndices.length > 0 && config.multiPoints
+                                                ? focusedSegmentIndices.flatMap(idx => config.multiPoints![idx] || [])
+                                                : []) // Don't show vertex handles when entire merged layer is selected
+                                            : config.points
+                                        ).map((p, i) => (
+                                            <g key={`handle-group-${i}`} className="group pointer-events-auto">
+                                                <circle
+                                                    cx={p.x}
+                                                    cy={p.y}
+                                                    r={12}
+                                                    fill="transparent"
+                                                    className="cursor-grab"
+                                                />
+                                                <circle
+                                                    cx={p.x}
+                                                    cy={p.y}
+                                                    r={4}
+                                                    fill="#f59e0b"
+                                                    stroke="#fff"
+                                                    strokeWidth={2}
+                                                    className={cn(
+                                                        "transition-all duration-300 ease-out pointer-events-none",
+                                                        "group-hover:scale-150 group-hover:shadow-lg",
+                                                        isDragging && "transition-none scale-110"
+                                                    )}
+                                                    style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
+                                                />
+                                            </g>
+                                        ))
+                                    )}
                                 </g>
                         )}
                     </g>
