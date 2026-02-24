@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Point, PathLayer, SymmetrySettings, AnimationSettings, Transform, AnimationKeyframe } from '../types';
-import { applySymmetry, distToSegment, simplifyPath, smoothPath } from '../utils/geometry';
+import { distToSegment, simplifyPath, smoothPath } from '../utils/geometry';
 import { interpolateTransform } from '../utils/animation';
 import useHistory from './useHistory';
 
@@ -57,7 +57,7 @@ function useDraw() {
     const isDrawingBrushRef = useRef(false);
 
     // Transformation State
-    const [transformMode, setTransformMode] = useState<'none' | 'rotate' | 'scale' | 'translate'>('none');
+    const [transformMode, setTransformMode] = useState<'none' | 'rotate' | 'scale' | 'translate' | 'pivot'>('none');
     const [transformHandle, setTransformHandle] = useState<string | null>(null);
     const [transformPivot, setTransformPivot] = useState<Point | null>(null);
     const [initialPoints, setInitialPoints] = useState<Point[] | null>(null);
@@ -816,22 +816,60 @@ function useDraw() {
                         if (interpolated) effectiveTransform = interpolated;
                     }
 
+                    // If focused on segment(s), apply segment-level transform too
+                    let segTransform: Transform | undefined = undefined;
+                    if (selectedPaths.length === 1 && focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                        const idx = focusedSegmentIndices[0];
+                        segTransform = p.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                        if (isAnimationMode && p.segmentKeyframes?.[idx] && p.segmentKeyframes[idx]!.length > 0) {
+                            const interpolated = interpolateTransform(p.segmentKeyframes[idx]!, currentTime);
+                            if (interpolated) segTransform = interpolated;
+                        }
+                    }
+
                     let points = p.points;
                     if (selectedPaths.length === 1 && focusedSegmentIndices.length > 0 && p.multiPathPoints) {
-                        // Collect points from all focused segments
                         points = focusedSegmentIndices.flatMap(idx => p.multiPathPoints![idx] || []);
                     }
 
-                    // Map points to their visual position (applying translation)
-                    // We only apply translation because rotation/scale happens around the center,
-                    // so the center of the bounding box is preserved relative to translation.
-                    return points.map(pt => ({
-                        x: pt.x + effectiveTransform.x,
-                        y: pt.y + effectiveTransform.y
-                    }));
+                    return points.map(pt => {
+                        let x = pt.x + effectiveTransform.x;
+                        let y = pt.y + effectiveTransform.y;
+                        if (segTransform) {
+                            x += segTransform.x;
+                            y += segTransform.y;
+                        }
+                        return { x, y };
+                    });
                 });
                 const box = getBoundingBox(allPoints);
-                const pivot = { x: box.centerX, y: box.centerY };
+
+                // Calculate visual pivot accounting for px/py
+                let px = 0;
+                let py = 0;
+                if (selectedPaths.length === 1) {
+                    const p = selectedPaths[0];
+                    let effectiveTransform = p.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
+                    if (isAnimationMode && p.keyframes && p.keyframes.length > 0) {
+                        const interpolated = interpolateTransform(p.keyframes, currentTime);
+                        if (interpolated) effectiveTransform = interpolated;
+                    }
+                    px = effectiveTransform.px || 0;
+                    py = effectiveTransform.py || 0;
+
+                    if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                        const idx = focusedSegmentIndices[0];
+                        let segT = p.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                        if (isAnimationMode && p.segmentKeyframes?.[idx] && p.segmentKeyframes[idx]!.length > 0) {
+                            const interpolated = interpolateTransform(p.segmentKeyframes[idx]!, currentTime);
+                            if (interpolated) segT = interpolated;
+                        }
+                        px = segT.px || 0;
+                        py = segT.py || 0;
+                    }
+                }
+
+                const pivot = { x: box.centerX + px, y: box.centerY + py };
                 const rect = canvasRef.current!.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
@@ -879,6 +917,8 @@ function useDraw() {
                     setInitialAngle(startAngle);
                     setRotationStartAngle(startAngle);
                     setCurrentRotationDelta(0);
+                } else if (handleType === 'pivot') {
+                    setTransformMode('pivot');
                 } else {
                     setTransformMode('scale');
                     setInitialDist(Math.sqrt(Math.pow(mouseX - pivot.x, 2) + Math.pow(mouseY - pivot.y, 2)));
@@ -886,6 +926,7 @@ function useDraw() {
 
                 dragStartPathsRef.current = JSON.parse(JSON.stringify(paths));
                 dragStartMousePosRef.current = { x: mouseX, y: mouseY };
+                setInitialMousePos({ x: mouseX, y: mouseY });
 
                 // IMPORTANT: Synchronize all selected points for transformation
                 setInitialPoints(null); // We don't use a single initialPoints for multi-transform anymore
@@ -939,36 +980,117 @@ function useDraw() {
 
             const pathId = target.dataset.pathId || (['path', 'text'].includes(target.tagName.toLowerCase()) ? (target as any).dataset.pathId : null);
 
-            const mouseSVG = point; // point already has (mouseX - panOffset.x) / zoom
 
             // 1. Handle individual point dragging (Vertex Edit Mode)
             if (isVertexEditEnabled && selectedPathIds.length === 1) {
                 const path = paths.find(p => p.id === selectedPathIds[0]);
                 if (path && !path.locked) {
                     const HIT_RADIUS = 12;
-                    const { width, height } = rect;
-                    const centerX = width / (2 * zoom);
-                    const centerY = height / (2 * zoom);
 
-                    // Note: We might need inverse mapping if the path itself has a transform
-                    // For now, follow existing patterns
-                    const variants = applySymmetry(path.points, path.symmetry, centerX, centerY);
+                    // Calculate effective transform for inverse mapping
+                    let effectiveTransform = path.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
+                    if (isAnimationMode && path.keyframes && path.keyframes.length > 0) {
+                        const interpolated = interpolateTransform(path.keyframes, currentTime);
+                        if (interpolated) effectiveTransform = interpolated;
+                    }
+
+                    const inverseTransformPoint = (pt: { x: number, y: number }, segIdx?: number) => {
+                        const box = getBoundingBox(path.points);
+
+                        // Layer-level center
+                        let cx = box.centerX + (effectiveTransform.px || 0);
+                        let cy = box.centerY + (effectiveTransform.py || 0);
+
+                        // Undo Translate (Layer)
+                        let lx = pt.x - effectiveTransform.x;
+                        let ly = pt.y - effectiveTransform.y;
+
+                        // Undo Rotate (Layer)
+                        if (effectiveTransform.rotation) {
+                            const rad = -effectiveTransform.rotation * Math.PI / 180;
+                            const dx = lx - cx;
+                            const dy = ly - cy;
+                            lx = cx + dx * Math.cos(rad) - dy * Math.sin(rad);
+                            ly = cy + dx * Math.sin(rad) + dy * Math.cos(rad);
+                        }
+
+                        // Undo Scale (Layer)
+                        if (effectiveTransform.scale !== 1 || effectiveTransform.scaleX !== undefined || effectiveTransform.scaleY !== undefined) {
+                            const sx = effectiveTransform.scaleX ?? effectiveTransform.scale ?? 1;
+                            const sy = effectiveTransform.scaleY ?? effectiveTransform.scale ?? 1;
+                            const dx = lx - cx;
+                            const dy = ly - cy;
+                            lx = cx + dx / sx;
+                            ly = cy + dy / sy;
+                        }
+
+                        // If we have a segment index, also undo segment transform
+                        if (segIdx !== undefined && path.multiPathPoints && path.segmentTransforms?.[segIdx]) {
+                            // Note: Segment transforms are applied inside the group that has layer transform.
+                            // So lx, ly is now in "pre-layer-transform" space but "post-segment-transform" space.
+
+                            // For simplicity, we assume segment transforms are just translation for now in hit detection
+                            // Or we could implement full inverse. Let's do a basic one.
+                            let segT = path.segmentTransforms[segIdx]!;
+                            if (isAnimationMode && path.segmentKeyframes?.[segIdx] && path.segmentKeyframes[segIdx]!.length > 0) {
+                                const interpolated = interpolateTransform(path.segmentKeyframes[segIdx]!, currentTime);
+                                if (interpolated) segT = interpolated;
+                            }
+
+                            // Segment-level pivot
+                            const segBox = getBoundingBox(path.multiPathPoints[segIdx]!);
+                            const scx = segBox.centerX + (segT.px || 0);
+                            const scy = segBox.centerY + (segT.py || 0);
+
+                            // Undo Translate (Seg)
+                            lx -= segT.x;
+                            ly -= segT.y;
+
+                            // Undo Rotate (Seg)
+                            if (segT.rotation) {
+                                const rad = -segT.rotation * Math.PI / 180;
+                                const dx = lx - scx;
+                                const dy = ly - scy;
+                                lx = scx + dx * Math.cos(rad) - dy * Math.sin(rad);
+                                ly = scy + dx * Math.sin(rad) + dy * Math.cos(rad);
+                            }
+
+                            // Undo Scale (Seg)
+                            const ssx = segT.scaleX ?? segT.scale ?? 1;
+                            const ssy = segT.scaleY ?? segT.scale ?? 1;
+                            if (ssx !== 1 || ssy !== 1) {
+                                const dx = lx - scx;
+                                const dy = ly - scy;
+                                lx = scx + dx / ssx;
+                                ly = scy + dy / ssy;
+                            }
+                        }
+
+                        return { x: lx, y: ly };
+                    };
 
                     let clickedPointIndex = -1;
-                    const originalPathPoints = path.multiPathPoints ? path.multiPathPoints.flat() : path.points;
 
-                    clickedPointIndex = originalPathPoints.findIndex(pt => {
-                        return Math.sqrt(Math.pow(pt.x - mouseSVG.x, 2) + Math.pow(pt.y - mouseSVG.y, 2)) <= (HIT_RADIUS / zoom);
-                    });
-
-                    // If not found in original points, check symmetric variants
-                    if (clickedPointIndex === -1) {
-                        for (const v of variants) {
-                            const idx = v.points.findIndex(pt => {
-                                return Math.sqrt(Math.pow(pt.x - mouseSVG.x, 2) + Math.pow(pt.y - mouseSVG.y, 2)) <= (HIT_RADIUS / zoom);
+                    if (path.multiPathPoints) {
+                        // Check each segment with its specific transform
+                        let pointOffset = 0;
+                        for (let sIdx = 0; sIdx < path.multiPathPoints.length; sIdx++) {
+                            const seg = path.multiPathPoints[sIdx];
+                            const localMouse = inverseTransformPoint(point, sIdx);
+                            const idx = seg.findIndex(pt => {
+                                return Math.sqrt(Math.pow(pt.x - localMouse.x, 2) + Math.pow(pt.y - localMouse.y, 2)) <= (HIT_RADIUS / zoom);
                             });
-                            if (idx !== -1) { clickedPointIndex = idx; break; }
+                            if (idx !== -1) {
+                                clickedPointIndex = pointOffset + idx;
+                                break;
+                            }
+                            pointOffset += seg.length;
                         }
+                    } else {
+                        const localMouse = inverseTransformPoint(point);
+                        clickedPointIndex = path.points.findIndex(pt => {
+                            return Math.sqrt(Math.pow(pt.x - localMouse.x, 2) + Math.pow(pt.y - localMouse.y, 2)) <= (HIT_RADIUS / zoom);
+                        });
                     }
 
                     if (clickedPointIndex !== -1) {
@@ -1006,8 +1128,8 @@ function useDraw() {
                 const inverseTransformPoint = (pt: { x: number, y: number }) => {
                     // 1. Get Bounding Box Center (Pivot) of ORIGINAL points
                     const box = getBoundingBox(path.points);
-                    const cx = box.centerX;
-                    const cy = box.centerY;
+                    const cx = box.centerX + (effectiveTransform.px || 0);
+                    const cy = box.centerY + (effectiveTransform.py || 0);
 
                     // 2. Undo Translate
                     let x = pt.x - effectiveTransform.x;
@@ -1024,7 +1146,7 @@ function useDraw() {
 
                     // 4. Undo Scale (scale by 1/s around center)
                     // Note: Canvas.tsx uses scale(sx, sy) centered on bounding box
-                    if (effectiveTransform.scale !== 1 || (effectiveTransform.scaleX !== undefined && effectiveTransform.scaleX !== 1)) {
+                    if (effectiveTransform.scale !== 1 || (effectiveTransform.scaleX !== undefined && effectiveTransform.scaleX !== undefined)) {
                         const sx = effectiveTransform.scaleX ?? effectiveTransform.scale ?? 1;
                         const sy = effectiveTransform.scaleY ?? effectiveTransform.scale ?? 1;
                         const dx = x - cx;
@@ -1163,10 +1285,25 @@ function useDraw() {
 
                 const box = getBoundingBox(pointsForBox);
 
+                // Calculate visual pivot accounting for px/py
+                let px = effectiveTransform.px || 0;
+                let py = effectiveTransform.py || 0;
+
+                if (path.multiPathPoints && nextFocusedIndices.length > 0) {
+                    const idx = nextFocusedIndices[0];
+                    let segT = path.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                    if (isAnimationMode && path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0) {
+                        const interpolated = interpolateTransform(path.segmentKeyframes[idx]!, currentTime);
+                        if (interpolated) segT = interpolated;
+                    }
+                    px = segT.px || 0;
+                    py = segT.py || 0;
+                }
+
                 // Apply translation to pivot so rotation/scale happens around the visual center
                 setTransformPivot({
-                    x: box.centerX + effectiveTransform.x,
-                    y: box.centerY + effectiveTransform.y
+                    x: box.centerX + effectiveTransform.x + px,
+                    y: box.centerY + effectiveTransform.y + py
                 });
 
                 setTransformMode('translate');
@@ -1365,6 +1502,28 @@ function useDraw() {
                                             const scaleFactor = currentDist / initialDist;
                                             newSegTransform.scale = initialSegTransform.scale * scaleFactor;
                                             setCurrentScaleFactor(scaleFactor);
+                                        } else if (transformMode === 'pivot' && initialMousePos) {
+                                            const rawDx = (mouseX - initialMousePos.x) / zoom;
+                                            const rawDy = (mouseY - initialMousePos.y) / zoom;
+
+                                            // Rotate delta by -rotation to map screen movement to local px/py
+                                            const layerRotation = initialTransformsRef.current.get(p.id)?.rotation || 0;
+                                            const segRotation = initialSegTransform.rotation || 0;
+                                            const totalRad = -(layerRotation + segRotation) * Math.PI / 180;
+
+                                            const ldx = rawDx * Math.cos(totalRad) - rawDy * Math.sin(totalRad);
+                                            const ldy = rawDx * Math.sin(totalRad) + rawDy * Math.cos(totalRad);
+
+                                            // Also compensate for scale
+                                            const lScaleX = initialTransformsRef.current.get(p.id)?.scaleX ?? initialTransformsRef.current.get(p.id)?.scale ?? 1;
+                                            const lScaleY = initialTransformsRef.current.get(p.id)?.scaleY ?? initialTransformsRef.current.get(p.id)?.scale ?? 1;
+                                            const sScaleX = initialSegTransform.scaleX ?? initialSegTransform.scale ?? 1;
+                                            const sScaleY = initialSegTransform.scaleY ?? initialSegTransform.scale ?? 1;
+                                            const totalScaleX = lScaleX * sScaleX;
+                                            const totalScaleY = lScaleY * sScaleY;
+
+                                            newSegTransform.px = (initialSegTransform.px || 0) + (ldx / (totalScaleX || 1));
+                                            newSegTransform.py = (initialSegTransform.py || 0) + (ldy / (totalScaleY || 1));
                                         }
 
                                         newSegmentTransforms[idx] = newSegTransform;
@@ -1415,6 +1574,21 @@ function useDraw() {
                                     const scaleFactor = currentDist / initialDist;
                                     newTransform.scale = initialTransform.scale * scaleFactor;
                                     setCurrentScaleFactor(scaleFactor);
+                                } else if (transformMode === 'pivot' && initialMousePos) {
+                                    const rawDx = (mouseX - initialMousePos.x) / zoom;
+                                    const rawDy = (mouseY - initialMousePos.y) / zoom;
+
+                                    const rotation = initialTransform.rotation || 0;
+                                    const rad = -rotation * Math.PI / 180;
+                                    const ldx = rawDx * Math.cos(rad) - rawDy * Math.sin(rad);
+                                    const ldy = rawDx * Math.sin(rad) + rawDy * Math.cos(rad);
+
+                                    // Compensate for scale
+                                    const sx = initialTransform.scaleX ?? initialTransform.scale ?? 1;
+                                    const sy = initialTransform.scaleY ?? initialTransform.scale ?? 1;
+
+                                    newTransform.px = (initialTransform.px || 0) + (ldx / (sx || 1));
+                                    newTransform.py = (initialTransform.py || 0) + (ldy / (sy || 1));
                                 }
 
                                 let newKeyframes = [...(p.keyframes || [])];
@@ -1554,6 +1728,43 @@ function useDraw() {
                                                 x: pt.x + dx_s, y: pt.y + dy_s
                                             })));
                                         }
+                                    }
+                                } else if (transformMode === 'pivot' && initialMousePos) {
+                                    const rawDx = (mouseX - initialMousePos.x) / zoom;
+                                    const rawDy = (mouseY - initialMousePos.y) / zoom;
+
+                                    if (focusedSegmentIndices.length > 0 && startPath.multiPathPoints) {
+                                        const newSegmentTransforms = [...(startPath.segmentTransforms || startPath.multiPathPoints.map(() => undefined))];
+                                        focusedSegmentIndices.forEach(idx => {
+                                            const initialT = startPath.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                                            const layerRot = startPath.transform?.rotation || 0;
+                                            const segRot = initialT.rotation || 0;
+                                            const totalRad = -(layerRot + segRot) * Math.PI / 180;
+
+                                            const ldx = rawDx * Math.cos(totalRad) - rawDy * Math.sin(totalRad);
+                                            const ldy = rawDx * Math.sin(totalRad) + rawDy * Math.cos(totalRad);
+
+                                            newSegmentTransforms[idx] = {
+                                                ...initialT,
+                                                px: (initialT.px || 0) + ldx,
+                                                py: (initialT.py || 0) + ldy
+                                            };
+                                        });
+                                        return { ...p, segmentTransforms: newSegmentTransforms };
+                                    } else {
+                                        const initialT = startPath.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
+                                        const rad = -(initialT.rotation || 0) * Math.PI / 180;
+                                        const ldx = rawDx * Math.cos(rad) - rawDy * Math.sin(rad);
+                                        const ldy = rawDx * Math.sin(rad) + rawDy * Math.cos(rad);
+
+                                        return {
+                                            ...p,
+                                            transform: {
+                                                ...initialT,
+                                                px: (initialT.px || 0) + ldx,
+                                                py: (initialT.py || 0) + ldy
+                                            }
+                                        };
                                     }
                                 }
                             }

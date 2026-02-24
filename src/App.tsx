@@ -12,7 +12,11 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
-  { version: 'v26.0224.2230', date: '2026-02-24', items: ['修复导出 SVG 在 Chrome 中 Hover 效果导致 3D 滤镜失效的问题：通过 \u003cg\u003e 标签隔离交互样式，确保立体感与交互反馈完美共存'] },
+  { version: 'v26.0225.0055', date: '2026-02-25', items: ['深度同步包围盒与动画：将预设动画（旋转、弹跳等）的变换坐标系统一至 SVG 绝对坐标空间，彻底解决动画过程中包围盒与图形位移不同步、中心点偏移的问题'] },
+  { version: 'v26.0225.0040', date: '2026-02-25', items: ['优化 Pivot Point 交互体验：修复拖拽中心点时不跟随鼠标的偏移问题及缩放补偿，增大点击判定范围并使装饰图标忽略点击，提升精准度与易用性'] },
+  { version: 'v26.0225.0020', date: '2026-02-25', items: ['根本修复 Pivot Point 旋转中心偏差问题：弃用 fill-box 相对坐标，改用 SVG viewBox 绝对坐标精准锚定旋转轴位置，确保瞄准镜所在位置与实际旋转中心完全重合'] },
+  { version: 'v26.0225.0005', date: '2026-02-25', items: ['新增“自定义变换中心（Pivot Point）”功能：在编辑模式下可自由拖拽各图层（及合并图层子图案）的旋转/缩放中心', '适配关键帧动画：Pivot 偏移量支持随时间轴记录并插值，实现更复杂的动力学表现', '导出优化：生成的 SVG 代码完美保留自定义 Pivot 属性，确保在任意浏览器中动画表现与编辑器一致'] },
+  { version: 'v26.0224.2230', date: '2026-02-24', items: ['修复导出 SVG 在 Chrome 中 Hover 效果导致 3D 滤镜失效的问题：通过 <g> 标签隔离交互样式，确保立体感与交互反馈完美共存'] },
   { version: 'v26.0224.2215', date: '2026-02-24', items: ['新增“可交互 UI”开关：支持为 SVG 图形一键添加 Hover（悬停）与 Click（点击）反馈效果，生成可直接交互的 UI 组件'] },
   { version: 'v26.0224.2201', date: '2026-02-24', items: ['支持“预设风格绘制”：在绘制模式下选中风格后，新画出的图形将直接应用该风格，无需事后修改'] },
   { version: 'v26.0224.2155', date: '2026-02-24', items: ['修复 SVG 导出时滤镜丢失的问题；优化滤镜光照坐标系，确保立体效果在任意位置均能正确显现'] },
@@ -575,7 +579,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0224.1620`);
+    console.log(`Fantastic SVG v26.0225.0055`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -722,11 +726,11 @@ function App() {
       if (path.keyframes && path.keyframes.length > 0) {
         const sortedFrames = [...path.keyframes].sort((a, b) => a.time - b.time);
         const steps = sortedFrames.map(kf => {
-          const { x, y, rotation, scale, scaleX, scaleY } = kf.value;
+          const percentage = (kf.time / (effectiveDuration || 1)) * 100;
+          const { x, y, rotation, scale, scaleX, scaleY, px = 0, py = 0 } = kf.value;
           const sx = scaleX ?? scale ?? 1;
           const sy = scaleY ?? scale ?? 1;
-          const percentage = (kf.time / effectiveDuration) * 100;
-          return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); animation-timing-function: ${kf.ease}; }`;
+          return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); animation-timing-function: ${kf.ease}; }`;
         }).join('\n    ');
 
         keyframes += `\n  @keyframes anim-${path.id} {\n    ${steps}\n  }`;
@@ -738,11 +742,11 @@ function App() {
           if (segKfs && segKfs.length > 0) {
             const sortedFrames = [...segKfs].sort((a, b) => a.time - b.time);
             const steps = sortedFrames.map(kf => {
-              const { x, y, rotation, scale, scaleX, scaleY } = kf.value;
+              const percentage = (kf.time / (effectiveDuration || 1)) * 100;
+              const { x, y, rotation, scale, scaleX, scaleY, px = 0, py = 0 } = kf.value;
               const sx = scaleX ?? scale ?? 1;
               const sy = scaleY ?? scale ?? 1;
-              const percentage = (kf.time / effectiveDuration) * 100;
-              return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); animation-timing-function: ${kf.ease}; }`;
+              return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); animation-timing-function: ${kf.ease}; }`;
             }).join('\n    ');
 
             keyframes += `\n  @keyframes anim-${path.id}-seg${idx} {\n    ${steps}\n  }`;
@@ -807,7 +811,11 @@ function App() {
                   }
                   if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
                   if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
-                  if (['spin', 'bounce', 'swing', 'tada'].includes(type)) animStyle += 'transform-origin: center; transform-box: fill-box; ';
+                  if (['spin', 'bounce', 'swing', 'tada'].includes(type)) {
+                    const px = segTrans?.px || 0;
+                    const py = segTrans?.py || 0;
+                    animStyle += `transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box; `;
+                  }
                   if (type === 'float' && (v.type === 'V' || v.type === 'C')) animStyle += '--float-dist: 10px; ';
 
                   animWrapperStart += `<g style="${animStyle}">`;
@@ -828,14 +836,16 @@ function App() {
 
               if (segKfs && segKfs.length > 0) {
                 const durationSec = effectiveDuration / 1000;
-                const animStyle = `animation: anim-${path.id}-seg${firstSIdx} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: center;`;
+                const px = segTrans?.px || 0;
+                const py = segTrans?.py || 0;
+                const animStyle = `animation: anim-${path.id}-seg${firstSIdx} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: calc(50% + ${px}px) calc(50% + ${py}px);`;
                 segmentNode = `<g style="${animStyle}">${segmentNode}</g>`;
               } else if (segTrans) {
-                const { x, y, rotation, scale, scaleX, scaleY } = segTrans;
-                if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1)) {
+                const { x, y, rotation, scale, scaleX, scaleY, px = 0, py = 0 } = segTrans;
+                if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1) || px !== 0 || py !== 0) {
                   const sx = scaleX ?? scale ?? 1;
                   const sy = scaleY ?? scale ?? 1;
-                  const transformStyle = `transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: center;`;
+                  const transformStyle = `transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: calc(50% + ${px}px) calc(50% + ${py}px);`;
                   segmentNode = `<g style="${transformStyle}">${segmentNode}</g>`;
                 }
               }
@@ -875,7 +885,11 @@ function App() {
             if (finalDirection === 'alternate') styleStr += ' animation-direction: alternate;';
 
             if (type === 'draw') styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
-            if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') styleStr += ' transform-origin: center; transform-box: fill-box;';
+            if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') {
+              const px = path.transform?.px || 0;
+              const py = path.transform?.py || 0;
+              styleStr += ` transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box;`;
+            }
 
             if (type === 'float' && (v.type === 'V' || v.type === 'C')) {
               styleStr += ' --float-dist: 10px;';
@@ -893,7 +907,9 @@ function App() {
         const animName = `anim-${path.id}`;
         // Note: duration here is the global timeline duration (in ms, convert to seconds)
         const durationSec = effectiveDuration / 1000;
-        return `<g style="animation: ${animName} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: center;">
+        const px = path.transform?.px || 0;
+        const py = path.transform?.py || 0;
+        return `<g style="animation: ${animName} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: calc(50% + ${px}px) calc(50% + ${py}px);">
           ${variantCode}
         </g>`;
       }
@@ -902,11 +918,11 @@ function App() {
       // But wait, in the editor, the transform is applied via style.
       // If we export without animation, we should at least export the static transform position.
       if (path.transform) {
-        const { x, y, rotation, scale, scaleX, scaleY } = path.transform;
-        if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1)) {
+        const { x, y, rotation, scale, scaleX, scaleY, px = 0, py = 0 } = path.transform;
+        if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1) || px !== 0 || py !== 0) {
           const sx = scaleX ?? scale ?? 1;
           const sy = scaleY ?? scale ?? 1;
-          return `<g style="transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: center;">
+          return `<g style="transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: calc(50% + ${px}px) calc(50% + ${py}px);">
                   ${variantCode}
               </g>`;
         }
@@ -986,7 +1002,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0224.2230
+              v26.0225.0055
             </button>
           </h1>
         </div>

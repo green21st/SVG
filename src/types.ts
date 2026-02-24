@@ -10,6 +10,8 @@ export interface Transform {
     scale: number;
     scaleX?: number;
     scaleY?: number;
+    px?: number; // Pivot X offset from center
+    py?: number; // Pivot Y offset from center
 }
 
 export interface AnimationKeyframe {

@@ -32,14 +32,13 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
     }, [path.multiPathPoints, path.points, path.symmetry, centerX, centerY]);
 
     const box = useMemo(() => {
-        if (!selected) return null;
         if (path.type === 'text') {
             const centerX = path.points[0].x;
             const centerY = path.points[0].y;
             const fs = path.fontSize || 40;
-            const charWidth = fs * 0.65; // Improved estimate for common fonts
+            const charWidth = fs * 0.65;
             const width = (path.text?.length || 1) * charWidth;
-            const height = fs * 0.85; // Tighter estimate for visual height
+            const height = fs * 0.85;
             return {
                 minX: centerX - width / 2,
                 maxX: centerX + width / 2,
@@ -52,10 +51,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
             };
         }
         if (path.multiPathPoints) {
-            // Calculate static bounding box for segments (without applying transforms in JS)
-            // The transforms will be applied via CSS to the handle group, matching the path's behavior.
             const allPoints: Point[] = [];
-            const targetIndices = focusedSegmentIndices.length > 0
+            const targetIndices = (selected && focusedSegmentIndices.length > 0)
                 ? focusedSegmentIndices
                 : path.multiPathPoints.map((_, i) => i);
 
@@ -69,7 +66,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
             }
         }
         return getBoundingBox(path.points);
-    }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, getBoundingBox]);
+    }, [selected, focusedSegmentIndices, path.multiPathPoints, path.points, getBoundingBox, path.type, path.text, path.fontSize]);
 
     const currentTransform = useMemo(() => {
         if (path.keyframes && path.keyframes.length > 0 && currentTime !== undefined) {
@@ -80,13 +77,20 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
     const rootTransformStyle = useMemo(() => {
         if (!currentTransform) return {};
-        const { x, y, rotation, scale, scaleX, scaleY } = currentTransform;
+        const { x, y, rotation, scale, scaleX, scaleY, px = 0, py = 0 } = currentTransform;
         const sx = scaleX ?? scale ?? 1;
         const sy = scaleY ?? scale ?? 1;
 
+        // Use absolute SVG viewBox coordinates for transform-origin.
+        // box.centerX is in viewBox space (same as path.points), so this precisely
+        // matches where we draw the crosshair (box.centerX + pivotX).
+        // We do NOT use fill-box here because the root <g> also contains the
+        // handles elements, which would distort fill-box's 50% reference.
+        const originX = box ? box.centerX + px : 400 + px;
+        const originY = box ? box.centerY + py : 300 + py;
         return {
             transform: `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy})`,
-            transformOrigin: box ? `${box.centerX}px ${box.centerY}px` : 'center'
+            transformOrigin: `${originX}px ${originY}px`,
         };
     }, [currentTransform, box]);
 
@@ -95,7 +99,9 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         anim: AnimationSettings | undefined,
         color: string,
         variantType: string | undefined,
-        isPaused: boolean
+        isPaused: boolean,
+        originX?: number,
+        originY?: number
     ) => {
         if (!anim || !anim.types || anim.types.length === 0) {
             return { pathStyles: {}, groupAnimations: [] };
@@ -118,6 +124,10 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
             let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
                 direction === 'forward' ? 'normal' :
                     direction === 'alternate' ? 'alternate' : 'reverse';
+
+            const tOrigin = (originX !== undefined && originY !== undefined)
+                ? `${originX}px ${originY}px`
+                : 'center';
 
             switch (type) {
                 case 'draw':
@@ -147,10 +157,10 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         if (finalDirection === 'normal') finalDirection = 'reverse';
                         else if (finalDirection === 'reverse') finalDirection = 'normal';
                     }
-                    groupAnimations.push({ ...baseStyle, animationName: 'spinPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                    groupAnimations.push({ ...baseStyle, animationName: 'spinPath', transformOrigin: tOrigin, animationDirection: finalDirection });
                     break;
                 case 'bounce':
-                    groupAnimations.push({ ...baseStyle, animationName: 'bouncePath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                    groupAnimations.push({ ...baseStyle, animationName: 'bouncePath', transformOrigin: tOrigin, animationDirection: finalDirection });
                     break;
                 case 'glow':
                     const glowStyle = { ...baseStyle, animationName: 'glowPath', animationDirection: finalDirection };
@@ -162,10 +172,10 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     groupAnimations.push({ ...baseStyle, animationName: 'shakePath', animationDirection: finalDirection });
                     break;
                 case 'swing':
-                    groupAnimations.push({ ...baseStyle, animationName: 'swingPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                    groupAnimations.push({ ...baseStyle, animationName: 'swingPath', transformOrigin: tOrigin, animationDirection: finalDirection });
                     break;
                 case 'tada':
-                    groupAnimations.push({ ...baseStyle, animationName: 'tadaPath', transformOrigin: 'center', transformBox: 'fill-box', animationDirection: finalDirection });
+                    groupAnimations.push({ ...baseStyle, animationName: 'tadaPath', transformOrigin: tOrigin, animationDirection: finalDirection });
                     break;
             }
         });
@@ -175,12 +185,15 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
     const variantConfigs = useMemo(() => {
         return variants.map(v => {
+            const { px = 0, py = 0 } = currentTransform ?? path.transform ?? { px: 0, py: 0 };
             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
             const { pathStyles, groupAnimations } = getStylesForAnimation(
                 path.animation,
                 glowColor,
                 v.type,
-                isDragging || animationPaused
+                isDragging || animationPaused,
+                (box?.centerX ?? 400) + px,
+                (box?.centerY ?? 300) + py
             );
 
             return {
@@ -193,7 +206,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 multiD: v.multiD
             };
         });
-    }, [path.animation, variants, path.color, isDragging, animationPaused]);
+    }, [path.animation, variants, path.color, isDragging, animationPaused, currentTransform]);
+
 
     return (
         <g style={rootTransformStyle}>
@@ -308,7 +322,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
                     const segTransformStyle: React.CSSProperties = segTransform ? {
                         transform: `translate(${segTransform.x}px, ${segTransform.y}px) rotate(${segTransform.rotation}deg) scale(${segTransform.scaleX ?? segTransform.scale ?? 1}, ${segTransform.scaleY ?? segTransform.scale ?? 1})`,
-                        transformOrigin: `${(box?.centerX ?? 0)}px ${(box?.centerY ?? 0)}px`
+                        transformOrigin: `${(box?.centerX ?? 0) + (segTransform.px || 0)}px ${(box?.centerY ?? 0) + (segTransform.py || 0)}px`
                     } : {};
 
                     // Calculate segment-specific animations
@@ -317,7 +331,9 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         segmentAnim,
                         segmentGlowColor,
                         config.variantType,
-                        isDragging || animationPaused
+                        isDragging || animationPaused,
+                        (box?.centerX ?? 0) + (segTransform?.px || 0),
+                        (box?.centerY ?? 0) + (segTransform?.py || 0)
                     );
 
                     let pathElement = (
@@ -348,7 +364,9 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
                     if (path.interactive || (firstSIdx !== undefined && path.segmentInteractive?.[firstSIdx])) {
                         pathElement = (
-                            <g className="interactive-ui" key={`${firstSIdx ?? 'main'}-int`}>
+                            <g className="interactive-ui" key={`${firstSIdx ?? 'main'}-int`} style={{
+                                transformOrigin: box ? `${box.centerX + (segTransform?.px || 0)}px ${box.centerY + (segTransform?.py || 0)}px` : 'center'
+                            }}>
                                 {pathElement}
                             </g>
                         );
@@ -512,6 +530,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                             (() => {
                                 // Calculate handles transform/animation style (for following sub-items in merged layers)
                                 const handlesTransformStyle = (() => {
+                                    const globalTransform = path.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
                                     if (focusedSegmentIndices.length > 0) {
                                         const idx = focusedSegmentIndices[0];
                                         const segTransform = (() => {
@@ -520,16 +539,18 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                             }
                                             return path.segmentTransforms?.[idx];
                                         })();
-                                        if (!segTransform) return {};
+                                        if (!segTransform) return { pivotX: globalTransform.px || 0, pivotY: globalTransform.py || 0 };
                                         const sx = segTransform.scaleX ?? segTransform.scale ?? 1;
                                         const sy = segTransform.scaleY ?? segTransform.scale ?? 1;
                                         return {
                                             transform: `translate(${segTransform.x}px, ${segTransform.y}px) rotate(${segTransform.rotation}deg) scale(${sx}, ${sy})`,
                                             transformOrigin: 'center',
-                                            transformBox: 'fill-box' as const
-                                        };
+                                            transformBox: 'fill-box' as const,
+                                            pivotX: segTransform.px || 0,
+                                            pivotY: segTransform.py || 0
+                                        } as any;
                                     }
-                                    return {};
+                                    return { pivotX: globalTransform.px || 0, pivotY: globalTransform.py || 0 };
                                 })();
 
                                 const handlesGroupAnims = (() => {
@@ -537,19 +558,41 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                         const idx = focusedSegmentIndices[0];
                                         const segmentAnim = path.segmentAnimations?.[idx];
                                         if (!segmentAnim || segmentAnim.types.length === 0) return [];
+                                        const pX = (handlesTransformStyle as any).pivotX || 0;
+                                        const pY = (handlesTransformStyle as any).pivotY || 0;
                                         const segmentColor = path.segmentColors?.[idx] || path.color || '#22d3ee';
                                         const segmentFill = path.segmentFills?.[idx] || path.fill || 'none';
                                         const glowC = (segmentColor && segmentColor !== 'none') ? segmentColor : (segmentFill && segmentFill !== 'none' ? segmentFill : '#22d3ee');
-                                        const styles = getStylesForAnimation(segmentAnim, glowC, config.variantType, isDragging || animationPaused);
+                                        const styles = getStylesForAnimation(
+                                            segmentAnim,
+                                            glowC,
+                                            config.variantType,
+                                            isDragging || animationPaused,
+                                            (box?.centerX ?? 0) + pX,
+                                            (box?.centerY ?? 0) + pY
+                                        );
                                         return styles.groupAnimations;
                                     }
-                                    return config.groupAnimations;
+                                    const pX = currentTransform?.px || path.transform?.px || 0;
+                                    const pY = currentTransform?.py || path.transform?.py || 0;
+                                    const styles = getStylesForAnimation(
+                                        path.animation,
+                                        (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee'),
+                                        config.variantType,
+                                        isDragging || animationPaused,
+                                        (box?.centerX ?? 0) + pX,
+                                        (box?.centerY ?? 0) + pY
+                                    );
+                                    return styles.groupAnimations;
                                 })();
+
+                                const pivotX = (handlesTransformStyle as any).pivotX || 0;
+                                const pivotY = (handlesTransformStyle as any).pivotY || 0;
 
                                 const handles = (
                                     <g className="pointer-events-none" style={{
                                         ...handlesTransformStyle,
-                                        transformOrigin: box ? `${box.centerX}px ${box.centerY}px` : 'center'
+                                        transformOrigin: box ? `${box.centerX + pivotX}px ${box.centerY + pivotY}px` : 'center'
                                     }}>
                                         {box && (
                                             <g>
@@ -639,6 +682,33 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                                         />
                                                     </g>
                                                 ))}
+
+                                                {/* Pivot Point Handle */}
+                                                <g className="group pointer-events-auto cursor-move">
+                                                    <circle
+                                                        cx={box.centerX + pivotX}
+                                                        cy={box.centerY + pivotY}
+                                                        r={30}
+                                                        fill="transparent"
+                                                        data-handle="pivot"
+                                                    />
+                                                    {/* Crosshair/Target Icon for Pivot */}
+                                                    <g className={cn(
+                                                        "pointer-events-none",
+                                                        "transition-all duration-300 ease-out",
+                                                        "group-hover:scale-150 group-hover:drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+                                                        isDragging && "transition-none scale-125"
+                                                    )} style={{
+                                                        transformOrigin: 'center',
+                                                        transformBox: 'fill-box',
+                                                        transform: `translate(${box.centerX + pivotX}px, ${box.centerY + pivotY}px)`
+                                                    }}>
+                                                        <circle cx={0} cy={0} r={5} fill="none" stroke="#f59e0b" strokeWidth={1} />
+                                                        <circle cx={0} cy={0} r={2} fill="#f59e0b" className={cn(isDragging && "animate-pulse")} />
+                                                        <line x1={-8} y1={0} x2={8} y2={0} stroke="#f59e0b" strokeWidth={1} />
+                                                        <line x1={0} y1={-8} x2={0} y2={8} stroke="#f59e0b" strokeWidth={1} />
+                                                    </g>
+                                                </g>
                                             </g>
                                         )}
 
@@ -720,7 +790,7 @@ interface CanvasProps {
     panOffset: Point;
     isSpacePressed: boolean;
     focusedSegmentIndices: number[];
-    transformMode: 'none' | 'rotate' | 'scale' | 'translate';
+    transformMode: 'none' | 'rotate' | 'scale' | 'translate' | 'pivot';
     transformPivot: Point | null;
     currentRotationDelta: number;
     currentScaleFactor: number;
