@@ -980,7 +980,6 @@ function useDraw() {
                         // Only clear if not already focused or explicitly resetting
                         if (focusedSegmentIndices.length === 0) {
                             setFocusedSegmentIndices([]);
-                            setIsVertexEditEnabled(false);
                         }
                     } else {
                         // Single select (or keep multi-select if clicking existing to allow drag)
@@ -989,14 +988,12 @@ function useDraw() {
                             setSelectedPathIds(nextSelectedPathIds);
                             if (focusedSegmentIndices.length === 0) {
                                 setFocusedSegmentIndices([]);
-                                setIsVertexEditEnabled(false);
                             }
                         } else {
                             // Already selected. Don't clear multi-selection!
                             // Only clear focused segment if it's clicking the background of the path cluster
                             if (focusedSegmentIndices.length === 0) {
                                 setFocusedSegmentIndices([]);
-                                setIsVertexEditEnabled(false);
                             }
                         }
                     }
@@ -1055,7 +1052,7 @@ function useDraw() {
             }
             isDraggingRef.current = false;
         }
-    }, [getPointFromEvent, mode, paths, selectedPathIds, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset, focusedSegmentIndices, currentTime, isAnimationMode]);
+    }, [getPointFromEvent, mode, paths, selectedPathIds, getBoundingBox, activeTool, bgTransform, isSpacePressed, zoom, panOffset, focusedSegmentIndices, currentTime, isAnimationMode, isVertexEditEnabled]);
 
     const handlePointerMove = useCallback((e: React.MouseEvent) => {
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -1395,7 +1392,7 @@ function useDraw() {
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom, isShiftPressed, marqueeStart, marqueeEnd]);
+    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom, isShiftPressed, marqueeStart, marqueeEnd, isAnimationMode, currentTime]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
@@ -1489,9 +1486,7 @@ function useDraw() {
             } else {
                 setSelectedPathIds(selectedIds);
             }
-            if (selectedIds.length > 0) {
-                setIsVertexEditEnabled(false);
-            }
+
             setMarqueeStart(null);
             setMarqueeEnd(null);
             setIsInteracting(false);
@@ -1504,7 +1499,7 @@ function useDraw() {
         setShapeStartPoint(null);
         dragStartPathsRef.current = null;
         dragStartMousePosRef.current = null;
-    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths, activeTool, animation, fillOpacity, paths, strokeOpacity, draggingPointIndex, marqueeStart, marqueeEnd, isShiftPressed]);
+    }, [mode, shapeStartPoint, currentPoints, strokeColor, fillColor, strokeWidth, symmetry, tension, setPaths, activeTool, animation, fillOpacity, paths, strokeOpacity, draggingPointIndex, marqueeStart, marqueeEnd, isShiftPressed, isVertexEditEnabled, selectedPathIds]);
 
     const handlePointerLeave = useCallback(() => {
         setCursorPos(null);
@@ -1622,7 +1617,6 @@ function useDraw() {
                 }
                 setSelectedPathIds([pathId]);
                 setFocusedSegmentIndices(chunkIndices);
-                setIsVertexEditEnabled(false); // Default to OFF even when double-clicking segments
                 return;
             }
         }

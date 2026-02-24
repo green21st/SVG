@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0223.2320',
+    date: '2026-02-23',
+    items: [
+      '修复顶点选择模式自动关闭的问题：通过修正事件处理函数的闭包依赖项（Stale Closure），确保顶点命中检测能始终识别最新状态',
+      '增强手动控制稳定性：移除了路径选择、框选及双击操作时的自动重置逻辑，顶点选择开关现在完全由用户手动掌控，不会因画布点击而意外退出'
+    ]
+  },
+  {
     version: 'v26.0222.1802',
     date: '2026-02-22',
     items: [
@@ -498,7 +506,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0222.1802`);
+    console.log(`Fantastic SVG v26.0223.2320`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -853,7 +861,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0222.1802
+              v26.0223.2320
             </button>
           </h1>
         </div>
@@ -1059,7 +1067,6 @@ ${pathsCode}
                   if (id) setSelectedPathIds([id]);
                   else setSelectedPathIds([]);
                   setFocusedSegmentIndices([]);
-                  setIsVertexEditEnabled(false);
                 }}
                 isDragging={isDragging}
                 activeTool={activeTool}
