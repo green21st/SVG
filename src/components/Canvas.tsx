@@ -19,7 +19,7 @@ interface PathItemProps {
     isVertexEditEnabled: boolean;
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, isAnimationMode, currentTime, isVertexEditEnabled }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime, isVertexEditEnabled }) => {
     const selected = selectedPathIds.includes(path.id);
     // Canvas dimensions for symmetry center
     const width = 800;
@@ -216,8 +216,6 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 isDragging || animationPaused
             );
 
-            // Need to return multiD if it exists in v
-            // v structure comes from applySymmetry: { points, type, multiPoints?, multiD? }
             return {
                 points: v.points,
                 multiPoints: v.multiPoints,

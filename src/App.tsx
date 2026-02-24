@@ -12,6 +12,7 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0224.1646', date: '2026-02-24', items: ['修复单个图层有动画时合并后动画被错误应用到整体合并图层的问题；合并时所有 CSS 动画被重置，避免双重应用'] },
   { version: 'v26.0224.1620', date: '2026-02-24', items: ['支持合并图层内部子图案的独立关键帧动画与实时变换录制'] },
   { version: 'v26.0222.1750', date: '2026-02-22', items: ['修复合并图层批量修改颜色属性的逻辑问题'] },
   {
@@ -919,7 +920,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0224.1620
+              v26.0224.1646
             </button>
           </h1>
         </div>

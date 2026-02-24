@@ -399,9 +399,13 @@ function useDraw() {
         const segmentWidths = sortedSelected.flatMap(p =>
             p.segmentWidths || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.width) : [p.width])
         );
+        // Each sub-path retains its own animation; the whole-layer animation is reset on merge.
         const segmentAnimations = sortedSelected.flatMap(p =>
-            p.segmentAnimations || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' }) : [p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' }])
+            p.segmentAnimations || (p.multiPathPoints
+                ? Array(p.multiPathPoints.length).fill(p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' })
+                : [p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' }])
         );
+
         const segmentClosed = sortedSelected.flatMap(p =>
             p.segmentClosed || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.closed) : [p.closed])
         );
@@ -411,6 +415,23 @@ function useDraw() {
         const segmentGroupings = sortedSelected.flatMap(p =>
             p.segmentGroupings || (p.multiPathPoints ? [p.multiPathPoints.length] : [1])
         );
+
+        // Carry over per-segment keyframe animations from individual layers
+        const segmentKeyframes = sortedSelected.flatMap(p => {
+            if (p.multiPathPoints) {
+                return p.segmentKeyframes || p.multiPathPoints.map(() => undefined);
+            }
+            return [p.keyframes && p.keyframes.length > 0 ? p.keyframes : undefined];
+        });
+
+        // Carry over per-segment transforms from individual layers
+        const segmentTransforms = sortedSelected.flatMap(p => {
+            if (p.multiPathPoints) {
+                return p.segmentTransforms || p.multiPathPoints.map(() => undefined);
+            }
+            const t = p.transform;
+            return [t && (t.x !== 0 || t.y !== 0 || t.rotation !== 0 || (t.scale ?? 1) !== 1) ? t : undefined];
+        });
 
         const mergedPath: PathLayer = {
             ...first,
@@ -426,7 +447,12 @@ function useDraw() {
             segmentClosed,
             segmentTensions,
             segmentGroupings,
-            animation: first.animation || { types: [], duration: 1, delay: 0, ease: 'linear' }
+            segmentKeyframes,
+            segmentTransforms,
+            // Reset whole-layer animation on merge — sub-paths keep their own via segmentAnimations
+            animation: { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' } as AnimationSettings,
+            keyframes: [],
+            transform: { x: 0, y: 0, rotation: 0, scale: 1 },
         };
 
         // Remove old paths and insert the merged one at the position of the first selected path
