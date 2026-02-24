@@ -13,6 +13,30 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0224.1030',
+    date: '2026-02-24',
+    items: [
+      '优化图层编辑功能：限制“双击添加顶点”仅在“顶点选择开关”开启时生效，防止在基础编辑模式下产生误操作',
+      '提升交互逻辑一致性：确保只有在用户明确意图编辑形状锚点时，才响应路径上的加点操作'
+    ]
+  },
+  {
+    version: 'v26.0224.1020',
+    date: '2026-02-24',
+    items: [
+      '优化顶点编辑交互：调整顶点锚点后，系统将自动保持当前的局部单选状态，不再跳转回图层全选模式',
+      '增强操作连续性：确保在单选模式下进行多轮顶点微调时，无需重复双击进入局部模式'
+    ]
+  },
+  {
+    version: 'v26.0224.1026',
+    date: '2026-02-24',
+    items: [
+      '修复合并图层局部编辑顶点失效的问题：优化事件处理优先级，确保在单选模式（Focus Mode）下锁定交互时，顶点手柄点击依然被正确优先识别',
+      '提升顶点编辑兼容性：统一了顶点命中检测的坐标计算逻辑，修复了在锁定区域内无法拖拽锚点的 Bug'
+    ]
+  },
+  {
     version: 'v26.0223.2320',
     date: '2026-02-23',
     items: [
@@ -506,7 +530,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0223.2320`);
+    console.log(`Fantastic SVG v26.0224.1030`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -861,7 +885,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0223.2320
+              v26.0224.1030
             </button>
           </h1>
         </div>

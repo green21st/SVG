@@ -791,21 +791,9 @@ function useDraw() {
 
             const pathId = target.dataset.pathId || (['path', 'text'].includes(target.tagName.toLowerCase()) ? (target as any).dataset.pathId : null);
 
-            // Lockdown single-select mode for merged layers
-            if (focusedSegmentIndices.length > 0 && selectedPathIds.length === 1) {
-                const currentId = selectedPathIds[0];
-                if (handleType) {
-                    // Allow handles
-                } else if (pathId === currentId) {
-                    // Allow interaction with same path
-                } else {
-                    // Block clicking away to other paths or background to prevent accidental exit
-                    if (isSpacePressed) return; // Allow space-panning
-                    return;
-                }
-            }
+            const mouseSVG = point; // point already has (mouseX - panOffset.x) / zoom
 
-            // Handle individual point dragging (only for single selection or first of multi?)
+            // 1. Handle individual point dragging (Vertex Edit Mode)
             if (isVertexEditEnabled && selectedPathIds.length === 1) {
                 const path = paths.find(p => p.id === selectedPathIds[0]);
                 if (path && !path.locked) {
@@ -813,12 +801,14 @@ function useDraw() {
                     const { width, height } = rect;
                     const centerX = width / (2 * zoom);
                     const centerY = height / (2 * zoom);
+
+                    // Note: We might need inverse mapping if the path itself has a transform
+                    // For now, follow existing patterns
                     const variants = applySymmetry(path.points, path.symmetry, centerX, centerY);
 
                     let clickedPointIndex = -1;
-                    // Check original path points first
-                    const mouseSVG = { x: (mouseX - panOffset.x) / zoom, y: (mouseY - panOffset.y) / zoom };
                     const originalPathPoints = path.multiPathPoints ? path.multiPathPoints.flat() : path.points;
+
                     clickedPointIndex = originalPathPoints.findIndex(pt => {
                         return Math.sqrt(Math.pow(pt.x - mouseSVG.x, 2) + Math.pow(pt.y - mouseSVG.y, 2)) <= (HIT_RADIUS / zoom);
                     });
@@ -829,7 +819,7 @@ function useDraw() {
                             const idx = v.points.findIndex(pt => {
                                 return Math.sqrt(Math.pow(pt.x - mouseSVG.x, 2) + Math.pow(pt.y - mouseSVG.y, 2)) <= (HIT_RADIUS / zoom);
                             });
-                            if (idx !== -1) { clickedPointIndex = idx; break; } // Found in a variant, but we need the index for the original path
+                            if (idx !== -1) { clickedPointIndex = idx; break; }
                         }
                     }
 
@@ -838,6 +828,20 @@ function useDraw() {
                         isDraggingRef.current = false;
                         return;
                     }
+                }
+            }
+
+            // 2. Lockdown single-select mode for merged layers
+            if (focusedSegmentIndices.length > 0 && selectedPathIds.length === 1) {
+                const currentId = selectedPathIds[0];
+                if (handleType) {
+                    // Allow handles (rotate, scale, etc.)
+                } else if (pathId === currentId) {
+                    // Allow interaction with same path
+                } else {
+                    // Block clicking away to other paths or background to prevent accidental exit
+                    if (isSpacePressed) return; // Allow space-panning
+                    return;
                 }
             }
 
@@ -1450,12 +1454,8 @@ function useDraw() {
 
         setCursorPos(null);
 
-        // Only clear focusedSegmentIndices when dragging individual points, not during transform operations
-        if (draggingPointIndex !== null) {
-            setFocusedSegmentIndices([]);
-        }
-        // Keep focusedSegmentIndices intact for transform operations (translate/rotate/scale)
-        // This allows continuous transformations on the selected sub-shapes
+        // Keep focusedSegmentIndices intact even after dragging individual points
+        // to stay in sub-shape selection mode.
 
         setDraggingPointIndex(null);
         setTransformMode('none');
@@ -1629,6 +1629,8 @@ function useDraw() {
             return;
         }
 
+        if (!isVertexEditEnabled) return;
+
         const point = getPointFromEvent(e);
         if (!point) return;
 
@@ -1668,7 +1670,7 @@ function useDraw() {
             }
             return p;
         }));
-    }, [mode, paths, getPointFromEvent, setPaths, setIsVertexEditEnabled]);
+    }, [mode, paths, getPointFromEvent, setPaths, setIsVertexEditEnabled, isVertexEditEnabled]);
 
     const handleContextMenu = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
