@@ -68,6 +68,7 @@ function useDraw() {
     const [currentTranslationDelta, setCurrentTranslationDelta] = useState<Point>({ x: 0, y: 0 });
     const [rotationStartAngle, setRotationStartAngle] = useState<number>(0);
     const initialTransformsRef = useRef<Map<string, Transform>>(new Map());
+    const initialSegmentTransformsRef = useRef<Map<number, Transform>>(new Map());
 
     // Animation State
     const [isAnimationMode, setIsAnimationMode] = useState(false);
@@ -126,6 +127,36 @@ function useDraw() {
 
         setPaths(prev => prev.map(p => {
             if (selectedPathIds.includes(p.id)) {
+                // Check if we're in focus mode for a merged layer
+                if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                    // Add keyframe to focused segments
+                    const newSegmentKeyframes = [...(p.segmentKeyframes || p.multiPathPoints.map(() => undefined))];
+                    while (newSegmentKeyframes.length < p.multiPathPoints.length) {
+                        newSegmentKeyframes.push(undefined);
+                    }
+
+                    focusedSegmentIndices.forEach(idx => {
+                        const segKfs = newSegmentKeyframes[idx] || [];
+                        const segTransform = p.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                        const interpolated = interpolateTransform(segKfs, currentTime);
+                        const value = interpolated || segTransform;
+
+                        let newKfs = [...segKfs];
+                        newKfs = newKfs.filter(k => Math.abs(k.time - currentTime) > 0.1);
+                        newKfs.push({
+                            id: `kf-${p.id}-seg${idx}-${Math.round(currentTime)}`,
+                            time: currentTime,
+                            value: value,
+                            ease: 'linear'
+                        });
+                        newKfs.sort((a, b) => a.time - b.time);
+                        newSegmentKeyframes[idx] = newKfs;
+                    });
+
+                    return { ...p, segmentKeyframes: newSegmentKeyframes };
+                }
+
+                // Whole-layer keyframe
                 const interpolated = interpolateTransform(p.keyframes || [], currentTime);
                 const value = interpolated || p.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
 
@@ -143,19 +174,32 @@ function useDraw() {
             }
             return p;
         }));
-    }, [selectedPathIds, currentTime, setPaths]);
+    }, [selectedPathIds, currentTime, setPaths, focusedSegmentIndices]);
 
     const handleDeleteKeyframe = useCallback(() => {
         if (selectedPathIds.length === 0) return;
 
         setPaths(prev => prev.map(p => {
             if (selectedPathIds.includes(p.id)) {
+                // Check if we're in focus mode for a merged layer
+                if (focusedSegmentIndices.length > 0 && p.multiPathPoints && p.segmentKeyframes) {
+                    const newSegmentKeyframes = [...p.segmentKeyframes];
+                    focusedSegmentIndices.forEach(idx => {
+                        if (newSegmentKeyframes[idx]) {
+                            newSegmentKeyframes[idx] = newSegmentKeyframes[idx]!.filter(k => Math.abs(k.time - currentTime) > 100);
+                        }
+                    });
+                    return { ...p, segmentKeyframes: newSegmentKeyframes };
+                }
+
+                // Whole-layer keyframe deletion
                 const newKeyframes = (p.keyframes || []).filter(k => Math.abs(k.time - currentTime) > 100);
                 return { ...p, keyframes: newKeyframes };
             }
             return p;
         }));
-    }, [selectedPathIds, currentTime, setPaths]);
+    }, [selectedPathIds, currentTime, setPaths, focusedSegmentIndices]);
+
     const [isReorderingLayers, setIsReorderingLayers] = useState(false);
 
     // Snapping Settings
@@ -725,10 +769,30 @@ function useDraw() {
 
                 // Capture initial transforms for animation
                 const initialMap = new Map<string, Transform>();
+                const initialSegMap = new Map<number, Transform>();
+
                 selectedPaths.forEach(p => {
-                    initialMap.set(p.id, { ...(p.transform || { x: 0, y: 0, rotation: 0, scale: 1 }) });
+                    let startTransform = p.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
+                    if (isAnimationMode && p.keyframes && p.keyframes.length > 0) {
+                        const interpolated = interpolateTransform(p.keyframes, currentTime);
+                        if (interpolated) startTransform = interpolated;
+                    }
+                    initialMap.set(p.id, { ...startTransform });
+
+                    // If we're in focus mode for a single merged layer, capture its segment transforms
+                    if (focusedSegmentIndices.length > 0 && p.multiPathPoints && selectedPaths.length === 1) {
+                        focusedSegmentIndices.forEach(idx => {
+                            let segTransform = p.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                            if (isAnimationMode && p.segmentKeyframes?.[idx] && p.segmentKeyframes[idx]!.length > 0) {
+                                const interpolated = interpolateTransform(p.segmentKeyframes[idx]!, currentTime);
+                                if (interpolated) segTransform = interpolated;
+                            }
+                            initialSegMap.set(idx, { ...segTransform });
+                        });
+                    }
                 });
                 initialTransformsRef.current = initialMap;
+                initialSegmentTransformsRef.current = initialSegMap;
 
                 // Text specific initial states (use first selected if multiple?)
                 const firstText = selectedPaths.find(p => p.type === 'text');
@@ -1039,18 +1103,30 @@ function useDraw() {
                 dragStartPathsRef.current = JSON.parse(JSON.stringify(paths));
 
                 const initialMap = new Map<string, Transform>();
+                const initialSegMap = new Map<number, Transform>();
                 const pathsToMove = nextSelectedPathIds.length > 0 ? paths.filter(p => nextSelectedPathIds.includes(p.id)) : [path];
                 pathsToMove.forEach(p => {
                     let startTransform = p.transform || { x: 0, y: 0, rotation: 0, scale: 1 };
                     if (isAnimationMode && p.keyframes && p.keyframes.length > 0) {
                         const interpolated = interpolateTransform(p.keyframes, currentTime);
-                        if (interpolated) {
-                            startTransform = interpolated;
-                        }
+                        if (interpolated) startTransform = interpolated;
                     }
                     initialMap.set(p.id, { ...startTransform });
+
+                    // Capture segment transforms if in focus mode
+                    if (nextFocusedIndices.length > 0 && p.multiPathPoints && pathsToMove.length === 1) {
+                        nextFocusedIndices.forEach(idx => {
+                            let segTransform = p.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                            if (isAnimationMode && p.segmentKeyframes?.[idx] && p.segmentKeyframes[idx]!.length > 0) {
+                                const interpolated = interpolateTransform(p.segmentKeyframes[idx]!, currentTime);
+                                if (interpolated) segTransform = interpolated;
+                            }
+                            initialSegMap.set(idx, { ...segTransform });
+                        });
+                    }
                 });
                 initialTransformsRef.current = initialMap;
+                initialSegmentTransformsRef.current = initialSegMap;
 
 
             } else {
@@ -1182,6 +1258,62 @@ function useDraw() {
                     const updateFn = (prevList: PathLayer[]): PathLayer[] => prevList.map(p => {
                         if (initialTransformsRef.current.has(p.id)) {
                             if (isAnimationMode) {
+                                // 1. Determine if we operate on segments or whole layer
+                                const isFocusMode = focusedSegmentIndices.length > 0 && p.multiPathPoints && initialTransformsRef.current.size === 1;
+
+                                if (isFocusMode) {
+                                    const newSegmentTransforms = [...(p.segmentTransforms || p.multiPathPoints!.map(() => undefined))];
+                                    const newSegmentKeyframes = [...(p.segmentKeyframes || p.multiPathPoints!.map(() => undefined))];
+
+                                    focusedSegmentIndices.forEach(idx => {
+                                        const initialSegTransform = initialSegmentTransformsRef.current.get(idx) || { x: 0, y: 0, rotation: 0, scale: 1 };
+                                        let newSegTransform = { ...initialSegTransform };
+
+                                        if (transformMode === 'translate' && initialMousePos) {
+                                            let dx = (mouseX - initialMousePos.x) / zoom;
+                                            let dy = (mouseY - initialMousePos.y) / zoom;
+                                            if (isShiftPressed) {
+                                                const angle = Math.atan2(dy, dx);
+                                                const snappedAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+                                                const dist = Math.sqrt(dx * dx + dy * dy);
+                                                dx = dist * Math.cos(snappedAngle);
+                                                dy = dist * Math.sin(snappedAngle);
+                                            }
+                                            newSegTransform.x = initialSegTransform.x + dx;
+                                            newSegTransform.y = initialSegTransform.y + dy;
+                                            setCurrentTranslationDelta({ x: dx, y: dy });
+                                        } else if (transformMode === 'rotate' && transformPivot) {
+                                            const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
+                                            let deltaDegrees = ((currentAngle - initialAngle) * 180) / Math.PI;
+                                            if (isShiftPressed) deltaDegrees = Math.round(deltaDegrees / 15) * 15;
+                                            newSegTransform.rotation = initialSegTransform.rotation + deltaDegrees;
+                                            setCurrentRotationDelta(deltaDegrees);
+                                        } else if (transformMode === 'scale' && transformPivot) {
+                                            const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
+                                            const scaleFactor = currentDist / initialDist;
+                                            newSegTransform.scale = initialSegTransform.scale * scaleFactor;
+                                            setCurrentScaleFactor(scaleFactor);
+                                        }
+
+                                        newSegmentTransforms[idx] = newSegTransform;
+
+                                        // Update Keyframes for this segment
+                                        let segKfs = [...(newSegmentKeyframes[idx] || [])];
+                                        segKfs = segKfs.filter(k => Math.abs(k.time - currentTime) > 0.1);
+                                        segKfs.push({
+                                            id: `kf-${p.id}-seg${idx}-${Math.round(currentTime)}`,
+                                            time: currentTime,
+                                            value: newSegTransform,
+                                            ease: 'linear'
+                                        });
+                                        segKfs.sort((a, b) => a.time - b.time);
+                                        newSegmentKeyframes[idx] = segKfs;
+                                    });
+
+                                    return { ...p, segmentTransforms: newSegmentTransforms, segmentKeyframes: newSegmentKeyframes };
+                                }
+
+                                // 2. Whole-layer animation logic (original)
                                 const initialTransform = initialTransformsRef.current.get(p.id) || { x: 0, y: 0, rotation: 0, scale: 1 };
                                 let newTransform = { ...initialTransform };
 
@@ -1798,10 +1930,27 @@ function useDraw() {
 
         setPaths(prev => prev.map(p => {
             if (p.id !== pathId) return p;
+
+            // Check if the keyframe belongs to a segment
+            if (p.segmentKeyframes) {
+                for (let sIdx = 0; sIdx < p.segmentKeyframes.length; sIdx++) {
+                    const segKfs = p.segmentKeyframes[sIdx];
+                    if (segKfs && segKfs.some(k => k.id === id)) {
+                        const newSegmentKeyframes = [...p.segmentKeyframes];
+                        let newKfs = segKfs.map(k => k.id === id ? { ...k, ...updates } : k);
+                        if (updates.time !== undefined) {
+                            newKfs.sort((a, b) => a.time - b.time);
+                        }
+                        newSegmentKeyframes[sIdx] = newKfs;
+                        return { ...p, segmentKeyframes: newSegmentKeyframes };
+                    }
+                }
+            }
+
+            // Whole-layer keyframe update
             const newKeyframes = p.keyframes?.map(k =>
                 k.id === id ? { ...k, ...updates } : k
             ) || [];
-            // Re-sort if time changed
             if (updates.time !== undefined) {
                 newKeyframes.sort((a, b) => a.time - b.time);
             }

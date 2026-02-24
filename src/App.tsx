@@ -12,6 +12,8 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0224.1620', date: '2026-02-24', items: ['支持合并图层内部子图案的独立关键帧动画与实时变换录制'] },
+  { version: 'v26.0222.1750', date: '2026-02-22', items: ['修复合并图层批量修改颜色属性的逻辑问题'] },
   {
     version: 'v26.0224.1110',
     date: '2026-02-24',
@@ -562,7 +564,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0224.1110`);
+    console.log(`Fantastic SVG v26.0224.1620`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -917,7 +919,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0224.1110
+              v26.0224.1620
             </button>
           </h1>
         </div>
@@ -1244,7 +1246,7 @@ ${pathsCode}
                 <button
                   onClick={() => setAnimationPaused(!animationPaused)}
                   className={`p-1.5 rounded-md transition-all hover:scale-110 active:scale-95 ${animationPaused
-                    ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                    ? 'bg-amber-500/20 text-amber-400'
                     : 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
                     }`}
                   title={animationPaused ? '播放动画' : '暂停动画'}
@@ -1357,7 +1359,15 @@ ${pathsCode}
             onAddKeyframe={handleAddKeyframe}
             onDeleteKeyframe={handleDeleteKeyframe}
             onUpdateKeyframe={handleUpdateKeyframe}
-            keyframes={selectedPathIds.length === 1 ? paths.find(p => p.id === selectedPathIds[0])?.keyframes || [] : []}
+            keyframes={selectedPathIds.length === 1 ? (() => {
+              const p = paths.find(p => p.id === selectedPathIds[0]);
+              if (!p) return [];
+              // If in focus mode for segments, show those keyframes
+              if (focusedSegmentIndices.length > 0 && p.segmentKeyframes) {
+                return p.segmentKeyframes[focusedSegmentIndices[0]] || [];
+              }
+              return p.keyframes || [];
+            })() : []}
             isAnimationMode={isAnimationMode}
             onToggleAnimationMode={() => {
               const nextMode = !isAnimationMode;
@@ -1367,16 +1377,46 @@ ${pathsCode}
                 // Automatically add a 0s keyframe for selected paths if they have none
                 if (selectedPathIds.length > 0) {
                   setPaths(prev => prev.map(p => {
-                    if (selectedPathIds.includes(p.id) && (!p.keyframes || p.keyframes.length === 0)) {
-                      return {
-                        ...p,
-                        keyframes: [{
+                    if (selectedPathIds.includes(p.id)) {
+                      let updatedP = { ...p };
+
+                      // 1. Handle focused segments if any
+                      if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                        const newSegmentKeyframes = [...(p.segmentKeyframes || p.multiPathPoints.map(() => undefined))];
+                        while (newSegmentKeyframes.length < p.multiPathPoints.length) {
+                          newSegmentKeyframes.push(undefined);
+                        }
+
+                        let modified = false;
+                        focusedSegmentIndices.forEach(idx => {
+                          if (!newSegmentKeyframes[idx] || newSegmentKeyframes[idx]!.length === 0) {
+                            const segTransform = p.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                            newSegmentKeyframes[idx] = [{
+                              id: `kf-${p.id}-seg${idx}-0`,
+                              time: 0,
+                              value: { ...segTransform },
+                              ease: 'linear'
+                            }];
+                            modified = true;
+                          }
+                        });
+
+                        if (modified) {
+                          updatedP.segmentKeyframes = newSegmentKeyframes;
+                        }
+                      }
+
+                      // 2. Handle whole-layer keyframes if no segments are focused
+                      if (focusedSegmentIndices.length === 0 && (!p.keyframes || p.keyframes.length === 0)) {
+                        updatedP.keyframes = [{
                           id: `kf-${p.id}-0`,
                           time: 0,
                           value: { ...(p.transform || { x: 0, y: 0, rotation: 0, scale: 1 }) },
                           ease: 'linear'
-                        }]
-                      };
+                        }];
+                      }
+
+                      return updatedP;
                     }
                     return p;
                   }));

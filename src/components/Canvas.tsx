@@ -19,7 +19,7 @@ interface PathItemProps {
     isVertexEditEnabled: boolean;
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime, isVertexEditEnabled }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, isAnimationMode, currentTime, isVertexEditEnabled }) => {
     const selected = selectedPathIds.includes(path.id);
     // Canvas dimensions for symmetry center
     const width = 800;
@@ -53,11 +53,44 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         }
         if (path.multiPathPoints) {
             if (focusedSegmentIndices.length > 0) {
-                // Calculate bounding box for all focused segments
+                // Calculate bounding box for all focused segments, ACCOUNTING for FULL segment transforms
                 const allPoints: Point[] = [];
                 focusedSegmentIndices.forEach(idx => {
-                    if (path.multiPathPoints && path.multiPathPoints[idx]) {
-                        allPoints.push(...path.multiPathPoints[idx]);
+                    const pts = path.multiPathPoints![idx];
+                    if (pts) {
+                        const segTransform = (() => {
+                            if (path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0 && currentTime !== undefined) {
+                                return interpolateTransform(path.segmentKeyframes[idx]!, currentTime);
+                            }
+                            return path.segmentTransforms?.[idx];
+                        })();
+
+                        if (segTransform) {
+                            // Calculate center for rotation/scale relative to fill-box
+                            const segBox = getBoundingBox(pts);
+                            const c = { x: (segBox.minX + segBox.maxX) / 2, y: (segBox.minY + segBox.maxY) / 2 };
+
+                            const sx = segTransform.scaleX ?? segTransform.scale ?? 1;
+                            const sy = segTransform.scaleY ?? segTransform.scale ?? 1;
+                            const rad = ((segTransform.rotation || 0) * Math.PI) / 180;
+                            const cos = Math.cos(rad);
+                            const sin = Math.sin(rad);
+
+                            allPoints.push(...pts.map(p => {
+                                // 1. Scale
+                                let px = c.x + (p.x - c.x) * sx;
+                                let py = c.y + (p.y - c.y) * sy;
+                                // 2. Rotate
+                                const dx = px - c.x;
+                                const dy = py - c.y;
+                                px = c.x + dx * cos - dy * sin;
+                                py = c.y + dx * sin + dy * cos;
+                                // 3. Translate
+                                return { x: px + (segTransform.x || 0), y: py + (segTransform.y || 0) };
+                            }));
+                        } else {
+                            allPoints.push(...pts);
+                        }
                     }
                 });
                 if (allPoints.length > 0) {
@@ -68,7 +101,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
             return getBoundingBox(path.points);
         }
         return getBoundingBox(path.points);
-    }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, path.type, path.fontSize, path.text, getBoundingBox]);
+    }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, path.segmentTransforms, path.segmentKeyframes, path.transform, path.keyframes, currentTime, path.type, path.fontSize, path.text, getBoundingBox, isDragging]);
 
     const currentTransform = useMemo(() => {
         if (path.keyframes && path.keyframes.length > 0 && currentTime !== undefined) {
@@ -283,9 +316,22 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     const segmentWidth = (firstSIdx !== undefined ? path.segmentWidths?.[firstSIdx] : undefined) ?? (path.width || 2);
                     const segmentAnim = (firstSIdx !== undefined ? path.segmentAnimations?.[firstSIdx] : undefined) || undefined;
 
+                    // Calculate segment-specific transform (interpolated if animating)
+                    const segTransform = (() => {
+                        const idx = firstSIdx;
+                        if (idx !== undefined && path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0 && currentTime !== undefined) {
+                            return interpolateTransform(path.segmentKeyframes[idx]!, currentTime);
+                        }
+                        return idx !== undefined ? path.segmentTransforms?.[idx] : undefined;
+                    })();
+
+                    const segTransformStyle: React.CSSProperties = segTransform ? {
+                        transform: `translate(${segTransform.x}px, ${segTransform.y}px) rotate(${segTransform.rotation}deg) scale(${segTransform.scaleX ?? segTransform.scale ?? 1}, ${segTransform.scaleY ?? segTransform.scale ?? 1})`,
+                        transformOrigin: 'center',
+                        transformBox: 'fill-box'
+                    } : {};
+
                     // Calculate segment-specific animations
-                    // Note: variantType is inherited from the parent configuration if applicable, but for merged layers it might be less relevant unless symmetry is involved.
-                    // We use config.variantType if available.
                     const segmentGlowColor = (segmentColor && segmentColor !== 'none') ? segmentColor : (segmentFill && segmentFill !== 'none' ? segmentFill : '#22d3ee');
                     const { pathStyles: segPathStyles, groupAnimations: segGroupAnimations } = getStylesForAnimation(
                         segmentAnim,
@@ -313,7 +359,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                             style={{
                                 pointerEvents: (mode === 'edit' && !path.locked) ? 'all' : 'none',
                                 ...config.pathStyles, // Apply global path styles (e.g. from global animation if any)
-                                ...segPathStyles     // Apply segment specific path styles (overrides global if collision, but usually distinct)
+                                ...segPathStyles,     // Apply segment specific path styles
+                                ...segTransformStyle // Apply segment-specific transform (keyframes)
                             }}
                         />
                     );
@@ -586,7 +633,16 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                         {isVertexEditEnabled && (
                                             (path.multiPathPoints
                                                 ? (focusedSegmentIndices.length > 0 && config.multiPoints
-                                                    ? focusedSegmentIndices.flatMap(idx => config.multiPoints![idx] || [])
+                                                    ? focusedSegmentIndices.flatMap(idx => {
+                                                        const pts = config.multiPoints![idx] || [];
+                                                        let segTransform = path.segmentTransforms?.[idx];
+                                                        if (path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0 && currentTime !== undefined) {
+                                                            segTransform = interpolateTransform(path.segmentKeyframes[idx]!, currentTime) || undefined;
+                                                        }
+                                                        const tx = segTransform?.x || 0;
+                                                        const ty = segTransform?.y || 0;
+                                                        return tx || ty ? pts.map(p => ({ x: p.x + tx, y: p.y + ty })) : pts;
+                                                    })
                                                     : []) // Don't show any vertex handles when entire merged layer is selected
                                                 : config.points
                                             ).map((p, i) => (
@@ -738,7 +794,16 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                     {isVertexEditEnabled && (
                                         (path.multiPathPoints
                                             ? (focusedSegmentIndices.length > 0 && config.multiPoints
-                                                ? focusedSegmentIndices.flatMap(idx => config.multiPoints![idx] || [])
+                                                ? focusedSegmentIndices.flatMap(idx => {
+                                                    const pts = config.multiPoints![idx] || [];
+                                                    let segTransform = path.segmentTransforms?.[idx];
+                                                    if (path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0 && currentTime !== undefined) {
+                                                        segTransform = interpolateTransform(path.segmentKeyframes[idx]!, currentTime) || undefined;
+                                                    }
+                                                    const tx = segTransform?.x || 0;
+                                                    const ty = segTransform?.y || 0;
+                                                    return tx || ty ? pts.map(p => ({ x: p.x + tx, y: p.y + ty })) : pts;
+                                                })
                                                 : []) // Don't show vertex handles when entire merged layer is selected
                                             : config.points
                                         ).map((p, i) => (
