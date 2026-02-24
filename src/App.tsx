@@ -12,6 +12,8 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0224.2230', date: '2026-02-24', items: ['修复导出 SVG 在 Chrome 中 Hover 效果导致 3D 滤镜失效的问题：通过 \u003cg\u003e 标签隔离交互样式，确保立体感与交互反馈完美共存'] },
+  { version: 'v26.0224.2215', date: '2026-02-24', items: ['新增“可交互 UI”开关：支持为 SVG 图形一键添加 Hover（悬停）与 Click（点击）反馈效果，生成可直接交互的 UI 组件'] },
   { version: 'v26.0224.2201', date: '2026-02-24', items: ['支持“预设风格绘制”：在绘制模式下选中风格后，新画出的图形将直接应用该风格，无需事后修改'] },
   { version: 'v26.0224.2155', date: '2026-02-24', items: ['修复 SVG 导出时滤镜丢失的问题；优化滤镜光照坐标系，确保立体效果在任意位置均能正确显现'] },
   { version: 'v26.0224.2148', date: '2026-02-24', items: ['深度优化 UI 风格库：新增“高级 3D 倒角”与“软质塑料”立体效果，通过 Specular Lighting 模拟真实高光与阴影显现体积感'] },
@@ -526,7 +528,9 @@ function App() {
     setIsVertexEditEnabled,
     setFocusedSegmentIndices,
     filter,
-    setFilter
+    setFilter,
+    interactive,
+    setInteractive
   } = useDraw();
 
   const totalVertices = useMemo(() => {
@@ -705,6 +709,13 @@ function App() {
       .filter(Boolean)
       .join('\n  ');
 
+    const hasInteractive = paths.some(p => p.interactive || p.segmentInteractive?.some(i => i));
+    if (hasInteractive) {
+      keyframes += `\n  .interactive-ui { transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; transform-box: fill-box; transform-origin: center; }
+  .interactive-ui:hover { transform: scale(1.03); filter: brightness(1.1); }
+  .interactive-ui:active { transform: scale(0.97); filter: brightness(0.9); }`;
+    }
+
     // Generate Custom Keyframes for Path Layers
     paths.forEach(path => {
       // 1. Whole-layer keyframes
@@ -757,7 +768,8 @@ function App() {
           const fill = path.fill || path.color || '#22d3ee';
           const glowColor = (path.color && path.color !== 'none') ? path.color : (fill && fill !== 'none' ? fill : '#22d3ee');
           const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : '';
-          finalCode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
+          const textNode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
+          finalCode = path.interactive ? `<g class="interactive-ui">${textNode}</g>` : textNode;
         } else {
           if (path.id.startsWith('merged-') && path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
             const groupings = path.segmentGroupings || v.multiPoints!.map(() => 1);
@@ -806,6 +818,9 @@ function App() {
               const segFilter = path.segmentFilters?.[firstSIdx] || path.filter || 'none';
               const filterAttr = segFilter !== 'none' ? ` filter="${segFilter}"` : '';
               let segmentNode = `<path d="${d}" stroke="${segColor}" stroke-opacity="${sOp}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${filterAttr} />`;
+              if (path.interactive || path.segmentInteractive?.[firstSIdx]) {
+                segmentNode = `<g class="interactive-ui">${segmentNode}</g>`;
+              }
 
               // Apply Segment-specific Keyframes or Static Transform
               const segKfs = path.segmentKeyframes?.[firstSIdx];
@@ -832,7 +847,8 @@ function App() {
             const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
             const filterAttr = path.filter && path.filter !== 'none' ? ` filter="${path.filter}"` : '';
-            finalCode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : ''}${filterAttr} />`;
+            const pathNode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : ''}${filterAttr} />`;
+            finalCode = path.interactive ? `<g class="interactive-ui">${pathNode}</g>` : pathNode;
           }
         }
 
@@ -970,7 +986,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0224.2201
+              v26.0224.2230
             </button>
           </h1>
         </div>
@@ -1008,6 +1024,8 @@ ${pathsCode}
             setActiveTool={setActiveTool}
             filter={filter}
             setFilter={setFilter}
+            interactive={interactive}
+            setInteractive={setInteractive}
           />
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
           <input type="file" ref={svgInputRef} className="hidden" accept=".svg" onChange={handleSvgFileChange} />

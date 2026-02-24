@@ -57,6 +57,8 @@ export interface PathLayer {
     segmentKeyframes?: (AnimationKeyframe[] | undefined)[];
     filter?: string;
     segmentFilters?: string[];
+    interactive?: boolean;
+    segmentInteractive?: boolean[];
 }
 
 export type AnimationType = 'none' | 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';

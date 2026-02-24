@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Download, Upload, Save, Eye, EyeOff, Undo2, Trash2, Move, Sparkles, X, Layout } from 'lucide-react';
+import { Download, Upload, Save, Eye, EyeOff, Undo2, Trash2, Move, Sparkles, X, Layout, MousePointer2 } from 'lucide-react';
 import { UI_STYLES, type UIStyle } from '../utils/uiStyles';
 
 interface ToolbarProps {
@@ -34,6 +34,8 @@ interface ToolbarProps {
     setActiveTool: (tool: any) => void;
     filter: string;
     setFilter: (val: string, commit?: boolean) => void;
+    interactive: boolean;
+    setInteractive: (val: boolean, commit?: boolean) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -66,7 +68,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     activeTool,
     setActiveTool,
     filter,
-    setFilter
+    setFilter,
+    interactive,
+    setInteractive
 }) => {
     const [showMaterialPicker, setShowMaterialPicker] = useState(false);
     const [showStylePicker, setShowStylePicker] = useState(false);
@@ -491,6 +495,29 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                        {/* Interactive Toggle */}
+                        <div className="mb-4">
+                            <button
+                                onClick={() => setInteractive(!interactive)}
+                                className={`w-full p-4 rounded-xl border transition-all flex items-center justify-between group ${interactive ? 'bg-indigo-500/10 border-indigo-500/50 shadow-lg shadow-indigo-500/10' : 'bg-slate-900 border-white/5 hover:bg-slate-800'}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-lg transition-colors ${interactive ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'}`}>
+                                        <MousePointer2 size={16} />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className={`text-[10px] font-black uppercase tracking-tighter ${interactive ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                            Interactive UI
+                                        </div>
+                                        <div className="text-[9px] text-slate-500 font-medium">Add hover & click effects</div>
+                                    </div>
+                                </div>
+                                <div className={`w-8 h-4 rounded-full relative transition-colors ${interactive ? 'bg-indigo-500' : 'bg-slate-800'}`}>
+                                    <div className={`absolute top-1 w-2 h-2 rounded-full bg-white transition-all ${interactive ? 'right-1' : 'left-1'}`} />
+                                </div>
+                            </button>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 onClick={() => {

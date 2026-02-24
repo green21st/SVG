@@ -40,6 +40,7 @@ function useDraw() {
         direction: 'forward'
     });
     const [filter, setFilter] = useState<string>('none');
+    const [interactive, setInteractive] = useState<boolean>(false);
     const [isInteracting, setIsInteracting] = useState(false);
 
     // Edit Mode State
@@ -644,6 +645,23 @@ function useDraw() {
                 return { ...p, filter: f, segmentFilters: newSegmentFilters };
             }
             return { ...p, filter: f };
+        }, commit);
+    }, [updateSelectedPathProperty, focusedSegmentIndices]);
+
+    const setInteractiveEnhanced = useCallback((val: boolean, commit: boolean = true) => {
+        setIsInteracting(!commit);
+        setInteractive(val);
+        updateSelectedPathProperty(p => {
+            if (p.multiPathPoints) {
+                const newSegmentInteractive = (p.segmentInteractive || []).map((v, i) =>
+                    (focusedSegmentIndices.length === 0 || focusedSegmentIndices.includes(i)) ? val : v
+                );
+                while (newSegmentInteractive.length < p.multiPathPoints.length) {
+                    newSegmentInteractive.push(focusedSegmentIndices.length === 0 ? val : (p.interactive || false));
+                }
+                return { ...p, interactive: val, segmentInteractive: newSegmentInteractive };
+            }
+            return { ...p, interactive: val };
         }, commit);
     }, [updateSelectedPathProperty, focusedSegmentIndices]);
 
@@ -1594,7 +1612,7 @@ function useDraw() {
                 }
             }
         }
-    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom, isShiftPressed, marqueeStart, marqueeEnd, isAnimationMode, currentTime]);
+    }, [getPointFromEvent, mode, draggingPointIndex, focusedSegmentIndices, selectedPathIds, setPaths, setInternalState, transformMode, transformHandle, initialPoints, transformPivot, initialAngle, initialDist, initialMousePos, shapeStartPoint, activeTool, initialFontSize, initialRotation, zoom, isShiftPressed, marqueeStart, marqueeEnd, isAnimationMode, currentTime, interactive]);
 
     const handlePointerUp = useCallback(() => {
         if (mode === 'draw' && isDrawingBrushRef.current && currentPoints.length > 2) {
@@ -1614,6 +1632,7 @@ function useDraw() {
                 fillOpacity,
                 animation: { ...animation },
                 filter: filter,
+                interactive: interactive,
                 symmetry: { ...symmetry },
                 visible: true,
                 name: `Brush ${paths.length + 1}`,
@@ -1639,6 +1658,7 @@ function useDraw() {
                 fillOpacity,
                 animation: { ...animation },
                 filter: filter,
+                interactive: interactive,
                 symmetry: { ...symmetry },
                 visible: true,
                 name: `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} ${paths.length + 1}`,
@@ -1892,6 +1912,7 @@ function useDraw() {
             fillOpacity,
             animation: { ...animation },
             filter: filter,
+            interactive: interactive,
             symmetry: { ...symmetry },
             visible: true,
             name: `Path ${paths.length + 1}`,
@@ -1900,7 +1921,7 @@ function useDraw() {
         };
         setPaths([...paths, newPath]);
         setCurrentPoints([]);
-    }, [currentPoints, paths, setPaths, symmetry, strokeColor, fillColor, strokeWidth, tension, isClosed, mode, strokeOpacity, fillOpacity, animation]);
+    }, [currentPoints, paths, setPaths, symmetry, strokeColor, fillColor, strokeWidth, tension, isClosed, mode, strokeOpacity, fillOpacity, animation, filter, interactive]);
 
     const clearCanvas = useCallback(() => {
         setPaths([]);
@@ -1969,6 +1990,7 @@ function useDraw() {
             fontSize: 40,
             fontFamily: 'Inter, system-ui, sans-serif',
             filter: filter,
+            interactive: interactive,
             visible: true,
             symmetry: { ...symmetry },
             name: `Text: ${content.substring(0, 10)}...`,
@@ -1978,7 +2000,7 @@ function useDraw() {
 
         setPaths(prev => [...prev, newPath]);
         setSelectedPathIds([newPath.id]);
-    }, [strokeColor, symmetry, setPaths]);
+    }, [strokeColor, symmetry, setPaths, filter, interactive]);
 
     const handleUpdateKeyframe = useCallback((id: string, updates: Partial<AnimationKeyframe>) => {
         if (selectedPathIds.length !== 1) return;
@@ -2124,7 +2146,9 @@ function useDraw() {
         isVertexEditEnabled,
         setIsVertexEditEnabled,
         filter,
-        setFilter: setFilterEnhanced
+        setFilter: setFilterEnhanced,
+        interactive,
+        setInteractive: setInteractiveEnhanced
     };
 }
 

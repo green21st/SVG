@@ -241,6 +241,21 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); }
                         100% { transform: scale(1) rotate(0); }
                     }
+                    .interactive-ui {
+                        transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                        cursor: pointer !important;
+                        pointer-events: all !important;
+                        transform-box: fill-box;
+                        transform-origin: center;
+                    }
+                    .interactive-ui:hover {
+                        transform: scale(1.03);
+                        filter: brightness(1.1);
+                    }
+                    .interactive-ui:active {
+                        transform: scale(0.97);
+                        filter: brightness(0.9);
+                    }
                 `}
             </style>
             {variantConfigs.map((config, vIdx) => {
@@ -305,7 +320,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         isDragging || animationPaused
                     );
 
-                    const pathElement = (
+                    let pathElement = (
                         <path
                             key={firstSIdx ?? 'main'}
                             d={dStr}
@@ -331,13 +346,21 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         />
                     );
 
+                    if (path.interactive || (firstSIdx !== undefined && path.segmentInteractive?.[firstSIdx])) {
+                        pathElement = (
+                            <g className="interactive-ui" key={`${firstSIdx ?? 'main'}-int`}>
+                                {pathElement}
+                            </g>
+                        );
+                    }
+
                     if (segGroupAnimations.length > 0) {
                         return wrapInAnimations(pathElement, segGroupAnimations, `seg-${firstSIdx ?? 'main'}`);
                     }
                     return pathElement;
                 };
 
-                const element = path.type === 'text' ? (
+                const textElement = (
                     <text
                         x={0}
                         y={0}
@@ -363,6 +386,14 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     >
                         {path.text}
                     </text>
+                );
+
+                const element = path.type === 'text' ? (
+                    path.interactive ? (
+                        <g className="interactive-ui">
+                            {textElement}
+                        </g>
+                    ) : textElement
                 ) : (
                     (config.variantType === 'I' && path.d && !isDragging && !config.multiPoints) ? (
                         path.importedScale !== undefined ? (
