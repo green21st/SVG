@@ -12,8 +12,8 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0224.1656', date: '2026-02-24', items: ['修复导出 SVG 或复制代码时，合并图层内部子图形的关键帧动画和静态变换丢失的问题'] },
   { version: 'v26.0224.1646', date: '2026-02-24', items: ['修复单个图层有动画时合并后动画被错误应用到整体合并图层的问题；合并时所有 CSS 动画被重置，避免双重应用'] },
-  { version: 'v26.0224.1620', date: '2026-02-24', items: ['支持合并图层内部子图案的独立关键帧动画与实时变换录制'] },
   { version: 'v26.0222.1750', date: '2026-02-22', items: ['修复合并图层批量修改颜色属性的逻辑问题'] },
   {
     version: 'v26.0224.1110',
@@ -701,6 +701,7 @@ function App() {
 
     // Generate Custom Keyframes for Path Layers
     paths.forEach(path => {
+      // 1. Whole-layer keyframes
       if (path.keyframes && path.keyframes.length > 0) {
         const sortedFrames = [...path.keyframes].sort((a, b) => a.time - b.time);
         const steps = sortedFrames.map(kf => {
@@ -712,6 +713,24 @@ function App() {
         }).join('\n    ');
 
         keyframes += `\n  @keyframes anim-${path.id} {\n    ${steps}\n  }`;
+      }
+
+      // 2. Per-segment keyframes for merged layers
+      if (path.segmentKeyframes && path.segmentKeyframes.length > 0) {
+        path.segmentKeyframes.forEach((segKfs, idx) => {
+          if (segKfs && segKfs.length > 0) {
+            const sortedFrames = [...segKfs].sort((a, b) => a.time - b.time);
+            const steps = sortedFrames.map(kf => {
+              const { x, y, rotation, scale, scaleX, scaleY } = kf.value;
+              const sx = scaleX ?? scale ?? 1;
+              const sy = scaleY ?? scale ?? 1;
+              const percentage = (kf.time / effectiveDuration) * 100;
+              return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); animation-timing-function: ${kf.ease}; }`;
+            }).join('\n    ');
+
+            keyframes += `\n  @keyframes anim-${path.id}-seg${idx} {\n    ${steps}\n  }`;
+          }
+        });
       }
     });
 
@@ -778,7 +797,27 @@ function App() {
                 });
               }
 
-              return `${animWrapperStart}<path d="${d}" stroke="${segColor}" stroke-opacity="${sOp}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round" />${animWrapperEnd}`;
+              let segmentNode = `<path d="${d}" stroke="${segColor}" stroke-opacity="${sOp}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round" />`;
+
+              // Apply Segment-specific Keyframes or Static Transform
+              const segKfs = path.segmentKeyframes?.[firstSIdx];
+              const segTrans = path.segmentTransforms?.[firstSIdx];
+
+              if (segKfs && segKfs.length > 0) {
+                const durationSec = effectiveDuration / 1000;
+                const animStyle = `animation: anim-${path.id}-seg${firstSIdx} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: center;`;
+                segmentNode = `<g style="${animStyle}">${segmentNode}</g>`;
+              } else if (segTrans) {
+                const { x, y, rotation, scale, scaleX, scaleY } = segTrans;
+                if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1)) {
+                  const sx = scaleX ?? scale ?? 1;
+                  const sy = scaleY ?? scale ?? 1;
+                  const transformStyle = `transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: center;`;
+                  segmentNode = `<g style="${transformStyle}">${segmentNode}</g>`;
+                }
+              }
+
+              return `${animWrapperStart}${segmentNode}${animWrapperEnd}`;
             }).join('\n');
             finalCode = `<g>${groups}</g>`;
           } else {
@@ -920,7 +959,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0224.1646
+              v26.0224.1656
             </button>
           </h1>
         </div>

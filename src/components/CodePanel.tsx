@@ -88,6 +88,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
         // Generate Custom Keyframes for Path Layers
         paths.forEach(path => {
+            // 1. Whole-layer keyframes
             if (path.keyframes && path.keyframes.length > 0) {
                 const sortedFrames = [...path.keyframes].sort((a, b) => a.time - b.time);
                 const steps = sortedFrames.map(kf => {
@@ -99,6 +100,24 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                 }).join('\n    ');
 
                 keyframes += `\n  @keyframes anim-${path.id} {\n    ${steps}\n  }`;
+            }
+
+            // 2. Per-segment keyframes for merged layers
+            if (path.segmentKeyframes && path.segmentKeyframes.length > 0) {
+                path.segmentKeyframes.forEach((segKfs, idx) => {
+                    if (segKfs && segKfs.length > 0) {
+                        const sortedFrames = [...segKfs].sort((a, b) => a.time - b.time);
+                        const steps = sortedFrames.map(kf => {
+                            const { x, y, rotation, scale, scaleX, scaleY } = kf.value;
+                            const sx = scaleX ?? scale ?? 1;
+                            const sy = scaleY ?? scale ?? 1;
+                            const percentage = (kf.time / duration) * 100;
+                            return `${percentage.toFixed(2)}% { transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); animation-timing-function: ${kf.ease}; }`;
+                        }).join('\n    ');
+
+                        keyframes += `\n  @keyframes anim-${path.id}-seg${idx} {\n    ${steps}\n  }`;
+                    }
+                });
             }
         });
 
@@ -154,7 +173,27 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                             });
                         }
 
-                        return `${animWrapperStart}<path d="${d}" stroke="${segColor}" stroke-opacity="${path.strokeOpacity ?? 1}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round" />${animWrapperEnd}`;
+                        let segmentNode = `<path d="${d}" stroke="${segColor}" stroke-opacity="${path.strokeOpacity ?? 1}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${path.fillOpacity ?? 1}" stroke-linecap="round" stroke-linejoin="round" />`;
+
+                        // Apply Segment-specific Keyframes or Static Transform
+                        const segKfs = path.segmentKeyframes?.[firstSIdx];
+                        const segTrans = path.segmentTransforms?.[firstSIdx];
+
+                        if (segKfs && segKfs.length > 0) {
+                            const durationSec = duration / 1000;
+                            const animStyle = `animation: anim-${path.id}-seg${firstSIdx} ${durationSec}s linear infinite; transform-box: fill-box; transform-origin: center;`;
+                            segmentNode = `<g style="${animStyle}">${segmentNode}</g>`;
+                        } else if (segTrans) {
+                            const { x, y, rotation, scale, scaleX, scaleY } = segTrans;
+                            if (x !== 0 || y !== 0 || rotation !== 0 || scale !== 1 || (scaleX && scaleX !== 1) || (scaleY && scaleY !== 1)) {
+                                const sx = scaleX ?? scale ?? 1;
+                                const sy = scaleY ?? scale ?? 1;
+                                const transformStyle = `transform: translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy}); transform-box: fill-box; transform-origin: center;`;
+                                segmentNode = `<g style="${transformStyle}">${segmentNode}</g>`;
+                            }
+                        }
+
+                        return `${animWrapperStart}${segmentNode}${animWrapperEnd}`;
                     }).join('\n');
 
                     finalCode = `<g>${groups}</g>`;
