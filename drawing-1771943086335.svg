@@ -1,0 +1,20 @@
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="filter-3d-bevel" x="-40%" y="-40%" width="180%" height="180%" primitiveUnits="objectBoundingBox">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.03" result="blur" />
+        <feSpecularLighting in="blur" surfaceScale="0.1" specularConstant="2" specularExponent="15" lighting-color="#ffffff" result="specOut">
+          <fePointLight x="0.1" y="0.1" z="0.2" />
+        </feSpecularLighting>
+        <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut" />
+        <feComposite in="SourceGraphic" in2="specOut" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litPaint" />
+        <feDropShadow dx="0.03" dy="0.03" stdDeviation="0.02" flood-opacity="0.5" />
+      </filter>
+  </defs>
+  <style>
+
+  .interactive-ui { transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer; transform-box: fill-box; transform-origin: center; }
+  .interactive-ui:hover { transform: scale(1.03); filter: brightness(1.1); }
+  .interactive-ui:active { transform: scale(0.97); filter: brightness(0.9); }
+  </style>
+	<path d="M 199 177.39999389648438 C 223.08 165.40, 463.92 165.40, 488.00 177.40 C 512.08 189.40, 512.08 309.40, 488.00 321.40 C 463.92 333.40, 223.08 333.40, 199.00 321.40 C 174.92 309.40, 174.92 189.40, 199.00 177.40 Z" stroke="none" stroke-opacity="1" stroke-width="2" fill="#f472b6" fill-opacity="1" stroke-linecap="round" stroke-linejoin="round" filter="url(#filter-3d-bevel)" class="interactive-ui" />
+</svg>
