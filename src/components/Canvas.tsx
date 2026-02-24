@@ -52,56 +52,24 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
             };
         }
         if (path.multiPathPoints) {
-            if (focusedSegmentIndices.length > 0) {
-                // Calculate bounding box for all focused segments, ACCOUNTING for FULL segment transforms
-                const allPoints: Point[] = [];
-                focusedSegmentIndices.forEach(idx => {
-                    const pts = path.multiPathPoints![idx];
-                    if (pts) {
-                        const segTransform = (() => {
-                            if (path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0 && currentTime !== undefined) {
-                                return interpolateTransform(path.segmentKeyframes[idx]!, currentTime);
-                            }
-                            return path.segmentTransforms?.[idx];
-                        })();
+            // Calculate static bounding box for segments (without applying transforms in JS)
+            // The transforms will be applied via CSS to the handle group, matching the path's behavior.
+            const allPoints: Point[] = [];
+            const targetIndices = focusedSegmentIndices.length > 0
+                ? focusedSegmentIndices
+                : path.multiPathPoints.map((_, i) => i);
 
-                        if (segTransform) {
-                            // Calculate center for rotation/scale relative to fill-box
-                            const segBox = getBoundingBox(pts);
-                            const c = { x: (segBox.minX + segBox.maxX) / 2, y: (segBox.minY + segBox.maxY) / 2 };
+            targetIndices.forEach(idx => {
+                const pts = path.multiPathPoints![idx];
+                if (pts) allPoints.push(...pts);
+            });
 
-                            const sx = segTransform.scaleX ?? segTransform.scale ?? 1;
-                            const sy = segTransform.scaleY ?? segTransform.scale ?? 1;
-                            const rad = ((segTransform.rotation || 0) * Math.PI) / 180;
-                            const cos = Math.cos(rad);
-                            const sin = Math.sin(rad);
-
-                            allPoints.push(...pts.map(p => {
-                                // 1. Scale
-                                let px = c.x + (p.x - c.x) * sx;
-                                let py = c.y + (p.y - c.y) * sy;
-                                // 2. Rotate
-                                const dx = px - c.x;
-                                const dy = py - c.y;
-                                px = c.x + dx * cos - dy * sin;
-                                py = c.y + dx * sin + dy * cos;
-                                // 3. Translate
-                                return { x: px + (segTransform.x || 0), y: py + (segTransform.y || 0) };
-                            }));
-                        } else {
-                            allPoints.push(...pts);
-                        }
-                    }
-                });
-                if (allPoints.length > 0) {
-                    return getBoundingBox(allPoints);
-                }
+            if (allPoints.length > 0) {
+                return getBoundingBox(allPoints);
             }
-            // If no specific segments are focused, return bounding box for the entire path
-            return getBoundingBox(path.points);
         }
         return getBoundingBox(path.points);
-    }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, path.segmentTransforms, path.segmentKeyframes, path.transform, path.keyframes, currentTime, path.type, path.fontSize, path.text, getBoundingBox, isDragging]);
+    }, [selected, selectedPathIds.length, focusedSegmentIndices, path.multiPathPoints, path.points, getBoundingBox]);
 
     const currentTransform = useMemo(() => {
         if (path.keyframes && path.keyframes.length > 0 && currentTime !== undefined) {
@@ -118,10 +86,9 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
         return {
             transform: `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${sx}, ${sy})`,
-            transformOrigin: 'center',
-            transformBox: 'fill-box' as const
+            transformOrigin: box ? `${box.centerX}px ${box.centerY}px` : 'center'
         };
-    }, [currentTransform]);
+    }, [currentTransform, box]);
 
     // Helper to generate animation styles
     const getStylesForAnimation = (
@@ -325,8 +292,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
                     const segTransformStyle: React.CSSProperties = segTransform ? {
                         transform: `translate(${segTransform.x}px, ${segTransform.y}px) rotate(${segTransform.rotation}deg) scale(${segTransform.scaleX ?? segTransform.scale ?? 1}, ${segTransform.scaleY ?? segTransform.scale ?? 1})`,
-                        transformOrigin: 'center',
-                        transformBox: 'fill-box'
+                        transformOrigin: `${(box?.centerX ?? 0)}px ${(box?.centerY ?? 0)}px`
                     } : {};
 
                     // Calculate segment-specific animations
@@ -510,9 +476,48 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
 
                         {/* Bounding Box & Handles - Only for the primary variant and if not locked */}
                         {mode === 'edit' && selected && !path.locked && config.variantType === 'I' && (
-                            config.groupAnimations.length > 0
-                                ? wrapInAnimations(
-                                    <g className="pointer-events-none">
+                            (() => {
+                                // Calculate handles transform/animation style (for following sub-items in merged layers)
+                                const handlesTransformStyle = (() => {
+                                    if (focusedSegmentIndices.length > 0) {
+                                        const idx = focusedSegmentIndices[0];
+                                        const segTransform = (() => {
+                                            if (path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0 && currentTime !== undefined) {
+                                                return interpolateTransform(path.segmentKeyframes[idx]!, currentTime);
+                                            }
+                                            return path.segmentTransforms?.[idx];
+                                        })();
+                                        if (!segTransform) return {};
+                                        const sx = segTransform.scaleX ?? segTransform.scale ?? 1;
+                                        const sy = segTransform.scaleY ?? segTransform.scale ?? 1;
+                                        return {
+                                            transform: `translate(${segTransform.x}px, ${segTransform.y}px) rotate(${segTransform.rotation}deg) scale(${sx}, ${sy})`,
+                                            transformOrigin: 'center',
+                                            transformBox: 'fill-box' as const
+                                        };
+                                    }
+                                    return {};
+                                })();
+
+                                const handlesGroupAnims = (() => {
+                                    if (focusedSegmentIndices.length > 0) {
+                                        const idx = focusedSegmentIndices[0];
+                                        const segmentAnim = path.segmentAnimations?.[idx];
+                                        if (!segmentAnim || segmentAnim.types.length === 0) return [];
+                                        const segmentColor = path.segmentColors?.[idx] || path.color || '#22d3ee';
+                                        const segmentFill = path.segmentFills?.[idx] || path.fill || 'none';
+                                        const glowC = (segmentColor && segmentColor !== 'none') ? segmentColor : (segmentFill && segmentFill !== 'none' ? segmentFill : '#22d3ee');
+                                        const styles = getStylesForAnimation(segmentAnim, glowC, config.variantType, isDragging || animationPaused);
+                                        return styles.groupAnimations;
+                                    }
+                                    return config.groupAnimations;
+                                })();
+
+                                const handles = (
+                                    <g className="pointer-events-none" style={{
+                                        ...handlesTransformStyle,
+                                        transformOrigin: box ? `${box.centerX}px ${box.centerY}px` : 'center'
+                                    }}>
                                         {box && (
                                             <g>
                                                 {/* Bounding Box */}
@@ -527,7 +532,6 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                                     strokeDasharray="4,4"
                                                     opacity={0.6}
                                                 />
-
                                                 {/* Rotation Handle */}
                                                 <line
                                                     x1={box.centerX}
@@ -558,7 +562,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                                             "group-hover:scale-125 group-hover:-translate-y-2",
                                                             isDragging && "transition-none translate-y-0 scale-110"
                                                         )}
-                                                        style={{ pointerEvents: 'none', transformOrigin: 'center', transformBox: 'fill-box' }}
+                                                        style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
                                                     />
                                                 </g>
 
@@ -600,48 +604,17 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                                                 transform: `translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))`
                                                             }}
                                                         />
-                                                        {/* Hidden CSS variable to handle the pop out movement */}
-                                                        <style>{`
-                                                    .group:hover rect[data-pop="${h.h}"] {
-                                                        transform: translate(${h.tx}px, ${h.ty}px) scale(1.25) !important;
-                                                    }
-                                                `}</style>
-                                                        <rect
-                                                            x={h.x - 4}
-                                                            y={h.y - 4}
-                                                            width={8}
-                                                            height={8}
-                                                            fill="#fff"
-                                                            stroke="#f59e0b"
-                                                            strokeWidth={2}
-                                                            data-pop={h.h}
-                                                            className={cn(
-                                                                "pointer-events-none transition-all duration-300 ease-out opacity-0",
-                                                                "group-hover:opacity-100",
-                                                                isDragging && "hidden"
-                                                            )}
-                                                            style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-                                                        />
                                                     </g>
                                                 ))}
                                             </g>
                                         )}
 
-                                        {/* Direct Point Edit Handles - Show Focused Segments if MultiPath and focused, otherwise show all */}
+                                        {/* Direct Point Edit Handles */}
                                         {isVertexEditEnabled && (
                                             (path.multiPathPoints
                                                 ? (focusedSegmentIndices.length > 0 && config.multiPoints
-                                                    ? focusedSegmentIndices.flatMap(idx => {
-                                                        const pts = config.multiPoints![idx] || [];
-                                                        let segTransform = path.segmentTransforms?.[idx];
-                                                        if (path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0 && currentTime !== undefined) {
-                                                            segTransform = interpolateTransform(path.segmentKeyframes[idx]!, currentTime) || undefined;
-                                                        }
-                                                        const tx = segTransform?.x || 0;
-                                                        const ty = segTransform?.y || 0;
-                                                        return tx || ty ? pts.map(p => ({ x: p.x + tx, y: p.y + ty })) : pts;
-                                                    })
-                                                    : []) // Don't show any vertex handles when entire merged layer is selected
+                                                    ? config.multiPoints[focusedSegmentIndices[0]] || []
+                                                    : [])
                                                 : config.points
                                             ).map((p, i) => (
                                                 <g key={`handle-group-${i}`} className="group pointer-events-auto">
@@ -669,168 +642,13 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                                 </g>
                                             ))
                                         )}
-                                    </g>,
-                                    config.groupAnimations,
-                                    'handles'
-                                )
-                                : <g className="pointer-events-none">
-                                    {box && (
-                                        <g>
-                                            {/* Bounding Box */}
-                                            <rect
-                                                x={box.minX - 5}
-                                                y={box.minY - 5}
-                                                width={box.width + 10}
-                                                height={box.height + 10}
-                                                fill="none"
-                                                stroke="#f59e0b"
-                                                strokeWidth={1}
-                                                strokeDasharray="4,4"
-                                                opacity={0.6}
-                                            />
+                                    </g>
+                                );
 
-                                            {/* Rotation Handle */}
-                                            <line
-                                                x1={box.centerX}
-                                                y1={box.minY - 5}
-                                                x2={box.centerX}
-                                                y2={box.minY - 25}
-                                                stroke="#f59e0b"
-                                                strokeWidth={1}
-                                                opacity={0.6}
-                                            />
-                                            <g className="group pointer-events-auto cursor-grab">
-                                                <circle
-                                                    cx={box.centerX}
-                                                    cy={box.minY - 25}
-                                                    r={15}
-                                                    fill="transparent"
-                                                    data-handle="rotate"
-                                                />
-                                                <circle
-                                                    cx={box.centerX}
-                                                    cy={box.minY - 25}
-                                                    r={6}
-                                                    fill="#f59e0b"
-                                                    stroke="#fff"
-                                                    strokeWidth={2}
-                                                    className={cn(
-                                                        "transition-all duration-300 ease-out",
-                                                        "group-hover:scale-125 group-hover:-translate-y-2",
-                                                        isDragging && "transition-none translate-y-0 scale-110"
-                                                    )}
-                                                    style={{ pointerEvents: 'none', transformOrigin: 'center', transformBox: 'fill-box' }}
-                                                />
-                                            </g>
-
-                                            {/* Scale Corner Handles */}
-                                            {[
-                                                { x: box.minX - 5, y: box.minY - 5, h: 'nw', tx: -4, ty: -4 },
-                                                { x: box.maxX + 5, y: box.minY - 5, h: 'ne', tx: 4, ty: -4 },
-                                                { x: box.minX - 5, y: box.maxY + 5, h: 'sw', tx: -4, ty: 4 },
-                                                { x: box.maxX + 5, y: box.maxY + 5, h: 'se', tx: 4, ty: 4 }
-                                            ].map((h, i) => (
-                                                <g key={i} className="group pointer-events-auto">
-                                                    <rect
-                                                        x={h.x - 10}
-                                                        y={h.y - 10}
-                                                        width={20}
-                                                        height={20}
-                                                        fill="transparent"
-                                                        className={cn(
-                                                            (h.h === 'nw' || h.h === 'se') ? "cursor-nwse-resize" : "cursor-nesw-resize"
-                                                        )}
-                                                        data-handle={h.h}
-                                                    />
-                                                    <rect
-                                                        x={h.x - 4}
-                                                        y={h.y - 4}
-                                                        width={8}
-                                                        height={8}
-                                                        fill="#fff"
-                                                        stroke="#f59e0b"
-                                                        strokeWidth={2}
-                                                        className={cn(
-                                                            "pointer-events-none transition-all duration-300 ease-out",
-                                                            "group-hover:scale-125",
-                                                            isDragging && "transition-none scale-110 translate-x-0 translate-y-0"
-                                                        )}
-                                                        style={{
-                                                            transformOrigin: 'center',
-                                                            transformBox: 'fill-box',
-                                                            transform: `translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))`
-                                                        }}
-                                                    />
-                                                    {/* Hidden CSS variable to handle the pop out movement */}
-                                                    <style>{`
-                                                    .group:hover rect[data-pop="${h.h}"] {
-                                                        transform: translate(${h.tx}px, ${h.ty}px) scale(1.25) !important;
-                                                    }
-                                                `}</style>
-                                                    <rect
-                                                        x={h.x - 4}
-                                                        y={h.y - 4}
-                                                        width={8}
-                                                        height={8}
-                                                        fill="#fff"
-                                                        stroke="#f59e0b"
-                                                        strokeWidth={2}
-                                                        data-pop={h.h}
-                                                        className={cn(
-                                                            "pointer-events-none transition-all duration-300 ease-out opacity-0",
-                                                            "group-hover:opacity-100",
-                                                            isDragging && "hidden"
-                                                        )}
-                                                        style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-                                                    />
-                                                </g>
-                                            ))}
-                                        </g>
-                                    )}
-
-                                    {/* Direct Point Edit Handles */}
-                                    {isVertexEditEnabled && (
-                                        (path.multiPathPoints
-                                            ? (focusedSegmentIndices.length > 0 && config.multiPoints
-                                                ? focusedSegmentIndices.flatMap(idx => {
-                                                    const pts = config.multiPoints![idx] || [];
-                                                    let segTransform = path.segmentTransforms?.[idx];
-                                                    if (path.segmentKeyframes?.[idx] && path.segmentKeyframes[idx]!.length > 0 && currentTime !== undefined) {
-                                                        segTransform = interpolateTransform(path.segmentKeyframes[idx]!, currentTime) || undefined;
-                                                    }
-                                                    const tx = segTransform?.x || 0;
-                                                    const ty = segTransform?.y || 0;
-                                                    return tx || ty ? pts.map(p => ({ x: p.x + tx, y: p.y + ty })) : pts;
-                                                })
-                                                : []) // Don't show vertex handles when entire merged layer is selected
-                                            : config.points
-                                        ).map((p, i) => (
-                                            <g key={`handle-group-${i}`} className="group pointer-events-auto">
-                                                <circle
-                                                    cx={p.x}
-                                                    cy={p.y}
-                                                    r={12}
-                                                    fill="transparent"
-                                                    className="cursor-grab"
-                                                />
-                                                <circle
-                                                    cx={p.x}
-                                                    cy={p.y}
-                                                    r={4}
-                                                    fill="#f59e0b"
-                                                    stroke="#fff"
-                                                    strokeWidth={2}
-                                                    className={cn(
-                                                        "transition-all duration-300 ease-out pointer-events-none",
-                                                        "group-hover:scale-150 group-hover:shadow-lg",
-                                                        isDragging && "transition-none scale-110"
-                                                    )}
-                                                    style={{ transformOrigin: 'center', transformBox: 'fill-box' }}
-                                                />
-                                            </g>
-                                        ))
-                                    )}
-                                </g>
+                                return handlesGroupAnims.length > 0
+                                    ? wrapInAnimations(handles, handlesGroupAnims, 'handles')
+                                    : handles;
+                            })()
                         )}
                     </g>
                 );

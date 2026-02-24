@@ -80,8 +80,15 @@ function useDraw() {
     const maxKeyframeTime = useCallback(() => {
         let max = 0;
         paths.forEach(p => {
+            // Check whole-layer keyframes
             p.keyframes?.forEach(kf => {
                 if (kf.time > max) max = kf.time;
+            });
+            // Check individual segment keyframes in merged layers
+            p.segmentKeyframes?.forEach(segKfs => {
+                segKfs?.forEach(kf => {
+                    if (kf.time > max) max = kf.time;
+                });
             });
         });
         return max;
