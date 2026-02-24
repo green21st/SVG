@@ -39,6 +39,8 @@ function useDraw() {
         ease: 'ease-in-out',
         direction: 'forward'
     });
+    const [filter, setFilter] = useState<string>('none');
+    const [isInteracting, setIsInteracting] = useState(false);
 
     // Edit Mode State
     const [mode, setMode] = useState<'draw' | 'edit'>('draw');
@@ -264,6 +266,7 @@ function useDraw() {
                 const targetStrokeOpacity = path.strokeOpacity ?? 1;
                 const targetFillOpacity = path.fillOpacity ?? 1;
                 const targetFontFamily = path.fontFamily || 'Inter, system-ui, sans-serif';
+                const targetFilter = (hasFocusedSegment ? path.segmentFilters?.[segmentIndex] : undefined) || path.filter || 'none';
 
                 setStrokeColor(prev => prev !== targetStrokeColor ? targetStrokeColor : prev);
                 setFillColor(prev => prev !== targetFillColor ? targetFillColor : prev);
@@ -273,6 +276,7 @@ function useDraw() {
                 setStrokeOpacity(prev => prev !== targetStrokeOpacity ? targetStrokeOpacity : prev);
                 setFillOpacity(prev => prev !== targetFillOpacity ? targetFillOpacity : prev);
                 setFontFamily(prev => prev !== targetFontFamily ? targetFontFamily : prev);
+                setFilter(prev => prev !== targetFilter ? targetFilter : prev);
 
                 const targetAnimation = (hasFocusedSegment ? path.segmentAnimations?.[segmentIndex] : undefined) || path.animation || {
                     types: [],
@@ -625,6 +629,23 @@ function useDraw() {
         setFillOpacity(opacity);
         updateSelectedPathProperty(p => ({ ...p, fillOpacity: opacity }), commit);
     }, [updateSelectedPathProperty]);
+
+    const setFilterEnhanced = useCallback((f: string, commit: boolean = true) => {
+        setIsInteracting(!commit);
+        setFilter(f);
+        updateSelectedPathProperty(p => {
+            if (p.multiPathPoints) {
+                const newSegmentFilters = (p.segmentFilters || []).map((v, i) =>
+                    (focusedSegmentIndices.length === 0 || focusedSegmentIndices.includes(i)) ? f : v
+                );
+                while (newSegmentFilters.length < p.multiPathPoints.length) {
+                    newSegmentFilters.push(focusedSegmentIndices.length === 0 ? f : (p.filter || 'none'));
+                }
+                return { ...p, filter: f, segmentFilters: newSegmentFilters };
+            }
+            return { ...p, filter: f };
+        }, commit);
+    }, [updateSelectedPathProperty, focusedSegmentIndices]);
 
     const setFontFamilyEnhanced = useCallback((font: string, commit: boolean = true) => {
         setIsInteracting(!commit);
@@ -1592,6 +1613,7 @@ function useDraw() {
                 strokeOpacity,
                 fillOpacity,
                 animation: { ...animation },
+                filter: filter,
                 symmetry: { ...symmetry },
                 visible: true,
                 name: `Brush ${paths.length + 1}`,
@@ -1616,6 +1638,7 @@ function useDraw() {
                 strokeOpacity,
                 fillOpacity,
                 animation: { ...animation },
+                filter: filter,
                 symmetry: { ...symmetry },
                 visible: true,
                 name: `${activeTool.charAt(0).toUpperCase() + activeTool.slice(1)} ${paths.length + 1}`,
@@ -1868,6 +1891,7 @@ function useDraw() {
             strokeOpacity,
             fillOpacity,
             animation: { ...animation },
+            filter: filter,
             symmetry: { ...symmetry },
             visible: true,
             name: `Path ${paths.length + 1}`,
@@ -1888,8 +1912,6 @@ function useDraw() {
         setMode('draw');
         setCurrentPoints([]);
     }, []);
-
-    const [isInteracting, setIsInteracting] = useState(false);
 
     const handleSelectPath = useCallback((id: string, isMulti?: boolean, isRange?: boolean) => {
         setFocusedSegmentIndices([]);
@@ -1946,6 +1968,7 @@ function useDraw() {
             closed: false,
             fontSize: 40,
             fontFamily: 'Inter, system-ui, sans-serif',
+            filter: filter,
             visible: true,
             symmetry: { ...symmetry },
             name: `Text: ${content.substring(0, 10)}...`,
@@ -2099,7 +2122,9 @@ function useDraw() {
         marqueeStart,
         marqueeEnd,
         isVertexEditEnabled,
-        setIsVertexEditEnabled
+        setIsVertexEditEnabled,
+        filter,
+        setFilter: setFilterEnhanced
     };
 }
 

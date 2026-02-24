@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
-import { Download, Upload, Save, Eye, EyeOff, Undo2, Trash2, Move } from 'lucide-react';
+import { Download, Upload, Save, Eye, EyeOff, Undo2, Trash2, Move, Sparkles, X, Layout } from 'lucide-react';
+import { UI_STYLES, type UIStyle } from '../utils/uiStyles';
 
 interface ToolbarProps {
     tension: number;
@@ -31,6 +32,8 @@ interface ToolbarProps {
     selectedPathType?: string;
     activeTool: string;
     setActiveTool: (tool: any) => void;
+    filter: string;
+    setFilter: (val: string, commit?: boolean) => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -61,9 +64,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     setFontFamily,
     selectedPathType,
     activeTool,
-    setActiveTool
+    setActiveTool,
+    filter,
+    setFilter
 }) => {
     const [showMaterialPicker, setShowMaterialPicker] = useState(false);
+    const [showStylePicker, setShowStylePicker] = useState(false);
+
+    const applyUIStyle = (style: UIStyle) => {
+        if (style.properties.fill) setFillColor(style.properties.fill);
+        if (style.properties.stroke) setStrokeColor(style.properties.stroke);
+        if (style.properties.strokeWidth !== undefined) setStrokeWidth(style.properties.strokeWidth);
+        if (style.properties.filter) setFilter(style.properties.filter);
+        if (style.properties.fillOpacity !== undefined) {
+            // We need setFillOpacity prop, but let's check if it exists or if we should skip it
+        }
+    };
 
     return (
         <div className="relative flex flex-col h-full bg-slate-950 overflow-hidden">
@@ -198,16 +214,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                         ))}
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setShowMaterialPicker(true)}
-                                    className="w-full h-10 rounded-lg border border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-secondary hover:text-white transition-all flex items-center justify-center gap-2 group"
-                                >
-                                    <div
-                                        className="w-4 h-4 rounded-full border border-white/20"
-                                        style={{ background: fillColor.startsWith('url') ? 'conic-gradient(#6366f1, #a855f7, #ec4899, #6366f1)' : (fillColor === 'none' ? 'transparent' : fillColor) }}
-                                    />
-                                    <span className="text-xs font-bold uppercase tracking-wider">Materials Library</span>
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setShowMaterialPicker(true)}
+                                        className="flex-1 h-10 rounded-lg border border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-secondary hover:text-white transition-all flex items-center justify-center gap-2 group"
+                                        title="Materials Library"
+                                    >
+                                        <Layout size={14} className="text-primary group-hover:scale-110 transition-transform" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Materials</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setShowStylePicker(true)}
+                                        className="flex-1 h-10 rounded-lg border border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-secondary hover:text-white transition-all flex items-center justify-center gap-2 group"
+                                        title="Style Library"
+                                    >
+                                        <Sparkles size={14} className="text-amber-400 group-hover:scale-110 transition-transform" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Styles</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -449,6 +473,62 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </div>
                 )
             }
+
+            {/* UI Style Picker Overlay */}
+            {showStylePicker && (
+                <div className="absolute inset-0 z-[110] bg-slate-950 flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="text-amber-400" size={18} />
+                            <h3 className="font-black text-xs uppercase tracking-widest text-white">Style Library</h3>
+                        </div>
+                        <button
+                            onClick={() => setShowStylePicker(false)}
+                            className="p-2 hover:bg-white/5 rounded-lg transition-colors text-slate-500 hover:text-white"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => {
+                                    setFilter('none');
+                                    setShowStylePicker(false);
+                                }}
+                                className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 group ${filter === 'none' ? 'bg-slate-800 border-primary' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}
+                            >
+                                <div className="w-full aspect-square rounded-lg bg-slate-800 border border-white/5 flex items-center justify-center">
+                                    <X size={20} className="text-slate-600" />
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400">Default</span>
+                            </button>
+
+                            {UI_STYLES.map((style) => (
+                                <button
+                                    key={style.id}
+                                    onClick={() => {
+                                        applyUIStyle(style);
+                                        setShowStylePicker(false);
+                                    }}
+                                    className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 group ${filter === style.properties.filter ? 'bg-slate-800 border-primary shadow-lg shadow-primary/20' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}
+                                >
+                                    <div
+                                        className="w-full aspect-square rounded-lg border border-white/5 flex items-center justify-center overflow-hidden"
+                                        style={{ background: style.previewBackground }}
+                                    >
+                                        <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm border border-white/30" />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-white group-hover:text-primary transition-colors">
+                                        {style.label}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 };

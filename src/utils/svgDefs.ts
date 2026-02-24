@@ -131,7 +131,81 @@ export const SVG_DEF_MAP: Record<string, string> = {
           <rect width="14" height="24" fill="#ffcc00" />
           <path d="M7,0 L14,4 L14,12 L7,16 L0,12 L0,4 Z" fill="none" stroke="#cc9900" stroke-width="1" />
           <path d="M7,16 L14,20 L14,28 L7,32 L0,28 L0,20 Z" fill="none" stroke="#cc9900" stroke-width="1" />
-      </pattern>`
+      </pattern>`,
+
+  // UI STYLE FILTERS
+  'filter-glass': `<filter id="filter-glass" x="-30%" y="-30%" width="160%" height="160%" primitiveUnits="objectBoundingBox">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.02" result="blur" />
+        <feSpecularLighting in="blur" surfaceScale="0.05" specularConstant="2" specularExponent="35" lighting-color="#ffffff" result="specOut">
+          <fePointLight x="0.2" y="0.2" z="0.5" />
+        </feSpecularLighting>
+        <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut" />
+        <feComposite in="SourceGraphic" in2="specOut" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litPaint" />
+        <feColorMatrix in="litPaint" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.9 0.1" />
+      </filter>`,
+  'filter-3d-bevel': `<filter id="filter-3d-bevel" x="-40%" y="-40%" width="180%" height="180%" primitiveUnits="objectBoundingBox">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.03" result="blur" />
+        <feSpecularLighting in="blur" surfaceScale="0.1" specularConstant="2" specularExponent="15" lighting-color="#ffffff" result="specOut">
+          <fePointLight x="0.1" y="0.1" z="0.2" />
+        </feSpecularLighting>
+        <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut" />
+        <feComposite in="SourceGraphic" in2="specOut" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litPaint" />
+        <feDropShadow dx="0.03" dy="0.03" stdDeviation="0.02" flood-opacity="0.5" />
+      </filter>`,
+  'filter-soft-3d': `<filter id="filter-soft-3d" x="-50%" y="-50%" width="200%" height="200%" primitiveUnits="objectBoundingBox">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.05" result="blur" />
+        <feDiffuseLighting in="blur" lighting-color="#ffffff" surfaceScale="0.15" diffuseConstant="1.5" result="diffuseOut">
+          <fePointLight x="0.3" y="0.3" z="0.5" />
+        </feDiffuseLighting>
+        <feComposite in="diffuseOut" in2="SourceAlpha" operator="in" result="diffuseOut" />
+        <feSpecularLighting in="blur" surfaceScale="0.1" specularConstant="1.2" specularExponent="30" lighting-color="#ffffff" result="specularOut">
+          <fePointLight x="0.3" y="0.3" z="0.5" />
+        </feSpecularLighting>
+        <feComposite in="specularOut" in2="SourceAlpha" operator="in" result="specularOut" />
+        <feComposite in="SourceGraphic" in2="diffuseOut" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="diffused" />
+        <feComposite in="diffused" in2="specularOut" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="final" />
+        <feDropShadow dx="0.02" dy="0.05" stdDeviation="0.05" flood-color="#000" flood-opacity="0.3" />
+      </filter>`,
+  'filter-neumorphic': `<filter id="filter-neumorphic" x="-50%" y="-50%" width="200%" height="200%" primitiveUnits="objectBoundingBox">
+        <feDropShadow dx="-0.03" dy="-0.03" stdDeviation="0.03" flood-color="#ffffff" flood-opacity="0.9" />
+        <feDropShadow dx="0.03" dy="0.03" stdDeviation="0.03" flood-color="#000000" flood-opacity="0.4" />
+      </filter>`,
+  'filter-claymorphic': `<filter id="filter-claymorphic" x="-50%" y="-50%" width="200%" height="200%" primitiveUnits="objectBoundingBox">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.08" result="blur" />
+        <feOffset dx="0" dy="0.08" result="offsetblur" />
+        <feFlood flood-color="rgba(0,0,0,0.3)" result="color" />
+        <feComposite in2="offsetblur" operator="in" result="shadow" />
+        <feSpecularLighting in="blur" surfaceScale="0.15" specularConstant="1" specularExponent="20" lighting-color="#ffffff" result="highlight">
+          <fePointLight x="0.3" y="0.3" z="0.8" />
+        </feSpecularLighting>
+        <feComposite in="highlight" in2="SourceAlpha" operator="in" result="highlight" />
+        <feMerge>
+          <feMergeNode in="shadow" />
+          <feMergeNode in="SourceGraphic" />
+          <feMergeNode in="highlight" />
+        </feMerge>
+      </filter>`,
+  'filter-neon': `<filter id="filter-neon" x="-100%" y="-100%" width="300%" height="300%" primitiveUnits="objectBoundingBox">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.02" result="blur2" />
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.05" result="blur5" />
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.1" result="blur10" />
+        <feFlood flood-color="currentColor" result="color" />
+        <feComposite in="color" in2="blur2" operator="in" result="glow2" />
+        <feComposite in="color" in2="blur5" operator="in" result="glow5" />
+        <feComposite in="color" in2="blur10" operator="in" result="glow10" />
+        <feMerge>
+          <feMergeNode in="glow10" />
+          <feMergeNode in="glow5" />
+          <feMergeNode in="glow2" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>`,
+  'filter-retro': `<filter id="filter-retro" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="4" dy="4" stdDeviation="0" flood-color="#000000" />
+      </filter>`,
+  'filter-pixel': `<filter id="filter-pixel" x="0%" y="0%" width="100%" height="100%">
+        <feMorphology operator="dilate" radius="1" />
+      </filter>`
 };
 
 export const SVG_DEFS = Object.values(SVG_DEF_MAP).join('\n');

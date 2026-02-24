@@ -280,6 +280,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     const segmentFill = (firstSIdx !== undefined && path.segmentFills?.[firstSIdx]) || path.fill || 'none';
                     const segmentWidth = (firstSIdx !== undefined ? path.segmentWidths?.[firstSIdx] : undefined) ?? (path.width || 2);
                     const segmentAnim = (firstSIdx !== undefined ? path.segmentAnimations?.[firstSIdx] : undefined) || undefined;
+                    const segmentFilter = (firstSIdx !== undefined && path.segmentFilters?.[firstSIdx]) || path.filter || 'none';
 
                     // Calculate segment-specific transform (interpolated if animating)
                     const segTransform = (() => {
@@ -324,7 +325,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                 pointerEvents: (mode === 'edit' && !path.locked) ? 'all' : 'none',
                                 ...config.pathStyles, // Apply global path styles (e.g. from global animation if any)
                                 ...segPathStyles,     // Apply segment specific path styles
-                                ...segTransformStyle // Apply segment-specific transform (keyframes)
+                                ...segTransformStyle, // Apply segment-specific transform (keyframes)
+                                filter: segmentFilter !== 'none' ? segmentFilter : undefined
                             }}
                         />
                     );

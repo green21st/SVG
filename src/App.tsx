@@ -12,6 +12,10 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0224.2201', date: '2026-02-24', items: ['支持“预设风格绘制”：在绘制模式下选中风格后，新画出的图形将直接应用该风格，无需事后修改'] },
+  { version: 'v26.0224.2155', date: '2026-02-24', items: ['修复 SVG 导出时滤镜丢失的问题；优化滤镜光照坐标系，确保立体效果在任意位置均能正确显现'] },
+  { version: 'v26.0224.2148', date: '2026-02-24', items: ['深度优化 UI 风格库：新增“高级 3D 倒角”与“软质塑料”立体效果，通过 Specular Lighting 模拟真实高光与阴影显现体积感'] },
+  { version: 'v26.0224.1735', date: '2026-02-24', items: ['新增 UI 风格库（Style Library），支持一键应用玻璃拟态、新拟态、黏土拟态、霓虹等流行 UI 视觉效果'] },
   { version: 'v26.0224.1656', date: '2026-02-24', items: ['修复导出 SVG 或复制代码时，合并图层内部子图形的关键帧动画和静态变换丢失的问题'] },
   { version: 'v26.0224.1646', date: '2026-02-24', items: ['修复单个图层有动画时合并后动画被错误应用到整体合并图层的问题；合并时所有 CSS 动画被重置，避免双重应用'] },
   { version: 'v26.0222.1750', date: '2026-02-22', items: ['修复合并图层批量修改颜色属性的逻辑问题'] },
@@ -520,7 +524,9 @@ function App() {
     marqueeEnd,
     isVertexEditEnabled,
     setIsVertexEditEnabled,
-    setFocusedSegmentIndices
+    setFocusedSegmentIndices,
+    filter,
+    setFilter
   } = useDraw();
 
   const totalVertices = useMemo(() => {
@@ -797,7 +803,9 @@ function App() {
                 });
               }
 
-              let segmentNode = `<path d="${d}" stroke="${segColor}" stroke-opacity="${sOp}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round" />`;
+              const segFilter = path.segmentFilters?.[firstSIdx] || path.filter || 'none';
+              const filterAttr = segFilter !== 'none' ? ` filter="${segFilter}"` : '';
+              let segmentNode = `<path d="${d}" stroke="${segColor}" stroke-opacity="${sOp}" stroke-width="${segWidth}" fill="${segFill}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${filterAttr} />`;
 
               // Apply Segment-specific Keyframes or Static Transform
               const segKfs = path.segmentKeyframes?.[firstSIdx];
@@ -823,7 +831,8 @@ function App() {
           } else {
             const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
-            finalCode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : ''} />`;
+            const filterAttr = path.filter && path.filter !== 'none' ? ` filter="${path.filter}"` : '';
+            finalCode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : ''}${filterAttr} />`;
           }
         }
 
@@ -903,8 +912,10 @@ function App() {
     paths.filter(p => p.visible !== false).forEach(path => {
       checkAndAddDef(path.fill);
       checkAndAddDef(path.color); // stroke color
+      checkAndAddDef(path.filter); // filter
       path.segmentColors?.forEach(c => checkAndAddDef(c));
       path.segmentFills?.forEach(f => checkAndAddDef(f));
+      path.segmentFilters?.forEach(f => checkAndAddDef(f));
     });
 
     const defsContent = Array.from(usedDefs)
@@ -959,7 +970,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0224.1656
+              v26.0224.2201
             </button>
           </h1>
         </div>
@@ -995,6 +1006,8 @@ ${pathsCode}
             selectedPathType={paths.find(p => selectedPathIds.includes(p.id))?.type}
             activeTool={activeTool}
             setActiveTool={setActiveTool}
+            filter={filter}
+            setFilter={setFilter}
           />
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileChange} />
           <input type="file" ref={svgInputRef} className="hidden" accept=".svg" onChange={handleSvgFileChange} />
