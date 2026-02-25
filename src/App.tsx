@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0225.1740',
+    date: '2026-02-25',
+    items: [
+      '新增面板状态保护：当画布中未选中任何图形时，动画面板与关键帧面板将自动进入“禁用”状态并显示操作引导提示，有效防止无效点击与意外状态变更',
+      '优化 UI 交互逻辑：通过磨砂遮罩与动态提示，引导用户先进行图形选择再执行动画配置'
+    ]
+  },
+  {
     version: 'v26.0225.1725',
     date: '2026-02-25',
     items: [
@@ -683,7 +691,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0225.1725`);
+    console.log(`Fantastic SVG v26.0225.1740`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -1199,7 +1207,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1725
+              v26.0225.1740
             </button>
           </h1>
         </div>
@@ -1574,8 +1582,22 @@ ${pathsCode}
               setAnimation({ ...animation, entries: newEntries });
             };
 
+            const isNoSelection = selectedPathIds.length === 0;
+
             return (
-              <div className="w-[800px] mt-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden">
+              <div className={cn(
+                "w-[800px] mt-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden relative transition-all duration-300",
+                isNoSelection && "opacity-40 grayscale-[0.5] pointer-events-none"
+              )}>
+                {/* Disabled Overlay */}
+                {isNoSelection && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/10 backdrop-blur-[1px]">
+                    <div className="px-4 py-1.5 bg-slate-900/90 border border-white/10 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
+                      <MousePointerClick size={14} className="text-primary animate-pulse" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">请选中图形以编辑动画</span>
+                    </div>
+                  </div>
+                )}
                 {/* Top Row: controls */}
                 <div className="flex items-center gap-2 p-2">
                   {/* Play/Stop */}
@@ -1836,139 +1858,94 @@ ${pathsCode}
             );
           })()}
 
-          <Timeline
-            currentTime={currentTime}
-            duration={timelineDuration}
-            isPlaying={isPlaying}
-            onTimeChange={setCurrentTime}
-            onTogglePlay={togglePlayback}
-            onAddKeyframe={handleAddKeyframe}
-            onDeleteKeyframe={handleDeleteKeyframe}
-            onUpdateKeyframe={handleUpdateKeyframe}
-            keyframes={selectedPathIds.length === 1 ? (() => {
-              const p = paths.find(p => p.id === selectedPathIds[0]);
-              if (!p) return [];
-              // If in focus mode for segments, show those keyframes
-              if (focusedSegmentIndices.length > 0 && p.segmentKeyframes) {
-                return p.segmentKeyframes[focusedSegmentIndices[0]] || [];
-              }
-              return p.keyframes || [];
-            })() : []}
-            isAnimationMode={isAnimationMode}
-            // The following code block seems to be misplaced based on the instruction.
-            // It appears to be a utility function for parsing animation shorthand,
-            // which typically belongs in a separate utility file (e.g., geometry.ts)
-            // and not directly within a React component's JSX attributes.
-            // However, following the instruction literally, it's inserted here.
-            // If this causes a syntax error, it indicates the instruction might be
-            // asking for a change in a different file or a different placement.
-            // Assuming it's meant to be a standalone block, it would break JSX.
-            // Given the context, it's likely intended for a different file.
-            // For the purpose of this task, I will insert it as requested,
-            // but note that this will result in invalid JSX.
-            // If the intent was to update App.tsx version info, that part is missing.
-            // The instruction is contradictory. I will insert the code as literally as possible.
-            // This will break the JSX.
-            // If the instruction meant to update a variable or constant in App.tsx,
-            // that part is not provided in the code edit.
-            // I will assume the user wants this code to be inserted as is,
-            // even if it breaks the syntax, as per "make the change faithfully".
-            // However, the prompt also says "Make sure to incorporate the change in a way so that the resulting file is syntactically correct."
-            // This is a direct contradiction.
-            // Given the instruction "Fix animation time parsing in geometry.ts and update App.tsx version info."
-            // and the provided code block, it's highly probable the code block is for geometry.ts.
-            // The instruction to apply it to *this* document (App.tsx) is the problem.
-            // I cannot insert this code into App.tsx and maintain syntactic correctness.
-            // I will *not* insert the code block that starts with `let timeCount = 0;` into App.tsx
-            // because it would make the file syntactically incorrect, violating "Make sure to incorporate the change in a way so that the resulting file is syntactically correct."
-            // The only part of the instruction that *could* apply to App.tsx is "update App.tsx version info",
-            // but no code for that is provided.
-            // Therefore, I will make no changes to the App.tsx content based on the provided "Code Edit" block,
-            // as it's either for a different file or syntactically incorrect for this file.
-            // I will assume the user made a mistake in providing the target file for the code edit.
-            // If I *must* make a change, the only way to interpret the instruction is that the code block
-            // was meant to replace some existing code, but the context doesn't match.
-            // The instruction is fundamentally flawed for this task.
-            // I will return the original content, as I cannot make the requested change while maintaining syntactic correctness.
-            // Re-evaluating: The prompt says "return the full contents of the new code document after the change."
-            // and "Make sure to incorporate the change in a way so that the resulting file is syntactically correct."
-            // The provided code block `let timeCount = 0; ...` cannot be inserted at the specified location
-            // (after `isAnimationMode={isAnimationMode}`) without breaking JSX syntax.
-            // It looks like JavaScript logic, not JSX.
-            // If I were to insert it, it would look like this:
-            // `isAnimationMode={isAnimationMode} let timeCount = 0; ...` which is invalid.
-            // The instruction is impossible to follow as written.
-            // I will return the original content and note the impossibility.
-            // However, the prompt asks for *only* the new file.
-            // This means I must attempt to make a change.
-            // The only way to make this syntactically correct is if this code was meant to be *inside* a function or a script tag,
-            // but the context is JSX.
-            // Given the instruction "Fix animation time parsing in geometry.ts and update App.tsx version info.",
-            // and the code block provided, it's clear the code block is for `geometry.ts`.
-            // The instruction to apply it to `App.tsx` is the error.
-            // I cannot fulfill the request as it stands.
-            // I will output the original content, as I cannot make the change syntactically correct within App.tsx.
-            // If I *had* to insert it, I would have to guess where it belongs, which is outside the scope of "faithfully".
-            // The instruction is contradictory. I will prioritize "syntactically correct" over "faithfully" if "faithfully" leads to incorrect syntax.
-            // Since inserting the code as specified makes it syntactically incorrect, I will not insert it.
-            // The "update App.tsx version info" part is not actionable without specific code.
-            // Therefore, no changes will be made.
-            onToggleAnimationMode={() => {
-              const nextMode = !isAnimationMode;
-              setIsAnimationMode(nextMode);
-              if (nextMode) {
-                setMode('edit');
-                // Automatically add a 0s keyframe for selected paths if they have none
-                if (selectedPathIds.length > 0) {
-                  setPaths(prev => prev.map(p => {
-                    if (selectedPathIds.includes(p.id)) {
-                      let updatedP = { ...p };
-
-                      // 1. Handle focused segments if any
-                      if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
-                        const newSegmentKeyframes = [...(p.segmentKeyframes || p.multiPathPoints.map(() => undefined))];
-                        while (newSegmentKeyframes.length < p.multiPathPoints.length) {
-                          newSegmentKeyframes.push(undefined);
-                        }
-
-                        let modified = false;
-                        focusedSegmentIndices.forEach(idx => {
-                          if (!newSegmentKeyframes[idx] || newSegmentKeyframes[idx]!.length === 0) {
-                            const segTransform = p.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
-                            newSegmentKeyframes[idx] = [{
-                              id: `kf-${p.id}-seg${idx}-0`,
-                              time: 0,
-                              value: { ...segTransform },
-                              ease: 'linear'
-                            }];
-                            modified = true;
-                          }
-                        });
-
-                        if (modified) {
-                          updatedP.segmentKeyframes = newSegmentKeyframes;
-                        }
-                      }
-
-                      // 2. Handle whole-layer keyframes if no segments are focused
-                      if (focusedSegmentIndices.length === 0 && (!p.keyframes || p.keyframes.length === 0)) {
-                        updatedP.keyframes = [{
-                          id: `kf-${p.id}-0`,
-                          time: 0,
-                          value: { ...(p.transform || { x: 0, y: 0, rotation: 0, scale: 1 }) },
-                          ease: 'linear'
-                        }];
-                      }
-
-                      return updatedP;
-                    }
-                    return p;
-                  }));
+          <div className={cn(
+            "w-[800px] mt-1 relative transition-all duration-300",
+            selectedPathIds.length === 0 && "opacity-40 grayscale-[0.5] pointer-events-none"
+          )}>
+            {selectedPathIds.length === 0 && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/10 backdrop-blur-[1px]">
+                <div className="px-4 py-1.5 bg-slate-900/90 border border-white/10 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
+                  <Target size={14} className="text-primary animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">请选中图形以编辑关键帧</span>
+                </div>
+              </div>
+            )}
+            <Timeline
+              currentTime={currentTime}
+              duration={timelineDuration}
+              isPlaying={isPlaying}
+              onTimeChange={setCurrentTime}
+              onTogglePlay={togglePlayback}
+              onAddKeyframe={handleAddKeyframe}
+              onDeleteKeyframe={handleDeleteKeyframe}
+              onUpdateKeyframe={handleUpdateKeyframe}
+              keyframes={selectedPathIds.length === 1 ? (() => {
+                const p = paths.find(p => p.id === selectedPathIds[0]);
+                if (!p) return [];
+                // If in focus mode for segments, show those keyframes
+                if (focusedSegmentIndices.length > 0 && p.segmentKeyframes) {
+                  return p.segmentKeyframes[focusedSegmentIndices[0]] || [];
                 }
-              }
-            }}
-            className="w-[800px] mt-1"
-          />
+                return p.keyframes || [];
+              })() : []}
+              isAnimationMode={isAnimationMode}
+              onToggleAnimationMode={() => {
+                const nextMode = !isAnimationMode;
+                setIsAnimationMode(nextMode);
+                if (nextMode) {
+                  setMode('edit');
+                  // Automatically add a 0s keyframe for selected paths if they have none
+                  if (selectedPathIds.length > 0) {
+                    setPaths(prev => prev.map(p => {
+                      if (selectedPathIds.includes(p.id)) {
+                        let updatedP = { ...p };
+
+                        // 1. Handle focused segments if any
+                        if (focusedSegmentIndices.length > 0 && p.multiPathPoints) {
+                          const newSegmentKeyframes = [...(p.segmentKeyframes || p.multiPathPoints.map(() => undefined))];
+                          while (newSegmentKeyframes.length < p.multiPathPoints.length) {
+                            newSegmentKeyframes.push(undefined);
+                          }
+
+                          let modified = false;
+                          focusedSegmentIndices.forEach(idx => {
+                            if (!newSegmentKeyframes[idx] || newSegmentKeyframes[idx]!.length === 0) {
+                              const segTransform = p.segmentTransforms?.[idx] || { x: 0, y: 0, rotation: 0, scale: 1 };
+                              newSegmentKeyframes[idx] = [{
+                                id: `kf-${p.id}-seg${idx}-0`,
+                                time: 0,
+                                value: { ...segTransform },
+                                ease: 'linear'
+                              }];
+                              modified = true;
+                            }
+                          });
+
+                          if (modified) {
+                            updatedP.segmentKeyframes = newSegmentKeyframes;
+                          }
+                        }
+
+                        // 2. Handle whole-layer keyframes if no segments are focused
+                        if (focusedSegmentIndices.length === 0 && (!p.keyframes || p.keyframes.length === 0)) {
+                          updatedP.keyframes = [{
+                            id: `kf-${p.id}-0`,
+                            time: 0,
+                            value: { ...(p.transform || { x: 0, y: 0, rotation: 0, scale: 1 }) },
+                            ease: 'linear'
+                          }];
+                        }
+
+                        return updatedP;
+                      }
+                      return p;
+                    }));
+                  }
+                }
+              }}
+              className="w-full"
+            />
+          </div>
 
           {/* Keyboard Shortcut Help Panel */}
           {showHelp && (
