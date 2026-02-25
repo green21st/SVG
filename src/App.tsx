@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0225.1725',
+    date: '2026-02-25',
+    items: [
+      '修复合并图层拆分（Split）时的样式污染问题：确保在拆分合并图层时，所有子图形的滤镜（Filter）和交互状态从原始 Segment 数组中精确提取并隔离，防止图层间样式互串',
+      '优化拆分后的图层属性继承逻辑，实现单图层与复合图层属性的无缝转换'
+    ]
+  },
+  {
     version: 'v26.0225.1655',
     date: '2026-02-25',
     items: [
@@ -675,7 +683,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0225.1655`);
+    console.log(`Fantastic SVG v26.0225.1725`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -1191,7 +1199,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1655
+              v26.0225.1725
             </button>
           </h1>
         </div>

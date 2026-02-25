@@ -504,6 +504,8 @@ function useDraw() {
                         const tArr = p.segmentTensions?.slice(sIdx, sIdx + count);
                         const stArr = p.segmentTransforms?.slice(sIdx, sIdx + count);
                         const skArr = p.segmentKeyframes?.slice(sIdx, sIdx + count);
+                        const flArr = p.segmentFilters?.slice(sIdx, sIdx + count);
+                        const iArr = p.segmentInteractive?.slice(sIdx, sIdx + count);
 
                         newPaths.push({
                             ...p,
@@ -528,7 +530,11 @@ function useDraw() {
                             transform: (count === 1 && stArr?.[0]) ? stArr[0] : p.transform,
                             keyframes: (count === 1 && skArr?.[0]) ? skArr[0] : p.keyframes,
                             segmentTransforms: count > 1 ? stArr : undefined,
-                            segmentKeyframes: count > 1 ? skArr : undefined
+                            segmentKeyframes: count > 1 ? skArr : undefined,
+                            segmentFilters: count > 1 ? flArr : undefined,
+                            segmentInteractive: count > 1 ? iArr : undefined,
+                            filter: flArr?.[0] ?? p.filter,
+                            interactive: iArr?.[0] ?? p.interactive
                         });
 
                         sIdx += count;
