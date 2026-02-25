@@ -49,14 +49,14 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
             if (path.animation?.entries) {
                 path.animation.entries.forEach(entry => {
-                    usedAnimations.add(entry.type);
+                    if (!entry.paused) usedAnimations.add(entry.type);
                 });
             }
             if (path.segmentAnimations) {
                 path.segmentAnimations.forEach(anim => {
                     if (anim?.entries) {
                         anim.entries.forEach(entry => {
-                            usedAnimations.add(entry.type);
+                            if (!entry.paused) usedAnimations.add(entry.type);
                         });
                     }
                 });
@@ -149,6 +149,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
                         if (segAnim && segAnim.entries && segAnim.entries.length > 0) {
                             segAnim.entries.forEach(entry => {
+                                if (entry.paused) return;
                                 const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
                                 let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
                                     direction === 'forward' ? 'normal' : direction === 'alternate' ? 'alternate' : 'reverse';
@@ -249,6 +250,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                     const entries = path.animation.entries;
 
                     entries.forEach(entry => {
+                        if (entry.paused) return;
                         const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
                         let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
                             direction === 'forward' ? 'normal' :

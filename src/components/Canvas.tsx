@@ -121,6 +121,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         const groupAnimations: React.CSSProperties[] = [];
 
         anim.entries.forEach(entry => {
+            if (entry.paused) return;
+
             const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
             const baseStyle: React.CSSProperties = {
                 animationDuration: `${duration}s`,

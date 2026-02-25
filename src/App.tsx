@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Square as SquareIcon, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick, Target } from 'lucide-react';
+import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Square as SquareIcon, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick, Target, Power } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -12,6 +12,14 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  {
+    version: 'v26.0225.1745',
+    date: '2026-02-25',
+    items: [
+      '新增单条动画禁用功能：现在可以临时关闭动画面板中的单条动画记录，而无需直接删除，方便多方案对比与调试',
+      '优化动画面板 UI：禁用的动画槽位将显示为灰色，并在编辑参数行提供直观的开关控制'
+    ]
+  },
   {
     version: 'v26.0225.1740',
     date: '2026-02-25',
@@ -691,7 +699,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0225.1740`);
+    console.log(`Fantastic SVG v26.0225.1745`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -910,6 +918,7 @@ function App() {
 
               if (segAnim && segAnim.entries && segAnim.entries.length > 0) {
                 segAnim.entries.forEach(entry => {
+                  if (entry.paused) return;
                   const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
                   let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
                     direction === 'forward' ? 'normal' : direction === 'alternate' ? 'alternate' : 'reverse';
@@ -1040,6 +1049,7 @@ function App() {
           const entries = path.animation.entries;
 
           entries.forEach(entry => {
+            if (entry.paused) return;
             const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
             let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
               direction === 'forward' ? 'normal' :
@@ -1207,7 +1217,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1740
+              v26.0225.1745
             </button>
           </h1>
         </div>
@@ -1651,11 +1661,12 @@ ${pathsCode}
                           <button
                             key={entry.id}
                             onClick={() => setShowAnimPickerSlot(prev => prev === entry.id ? null : entry.id)}
-                            className={`flex-1 h-7 rounded border text-[9px] font-bold uppercase transition-all ${isSelected
-                              ? colorClass + ' ring-1 ring-current scale-[1.04]'
-                              : colorClass + ' opacity-80 hover:opacity-100'
-                              }`}
-                            title={`${entry.type} · delay ${entry.delay}s`}
+                            className={cn(
+                              "flex-1 h-7 rounded border text-[9px] font-bold uppercase transition-all",
+                              isSelected ? colorClass + ' ring-1 ring-current scale-[1.04]' : colorClass + ' opacity-80 hover:opacity-100',
+                              entry.paused && "grayscale opacity-40 border-slate-700"
+                            )}
+                            title={`${entry.type} · delay ${entry.delay}s${entry.paused ? ' (已禁用)' : ''}`}
                           >
                             {entry.type.slice(0, 3)}
                           </button>
@@ -1805,6 +1816,18 @@ ${pathsCode}
                       </div>
 
                       <div className="flex-1" />
+
+                      {/* Enable/Disable Toggle */}
+                      <button
+                        onClick={() => updateEntry(entry.id, { paused: !entry.paused })}
+                        className={cn(
+                          "p-1 rounded transition-all active:scale-95",
+                          entry.paused ? "text-slate-500 hover:bg-slate-800" : "text-emerald-400 hover:bg-emerald-500/20"
+                        )}
+                        title={entry.paused ? "启用此动画" : "禁用此动画"}
+                      >
+                        <Power size={12} />
+                      </button>
 
                       {/* Delete */}
                       <button

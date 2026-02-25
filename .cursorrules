@@ -1,0 +1,24 @@
+# Fantastic SVG AI Development Rules
+
+You are assisting with a React-based SVG Animation Editor. Follow these file-specific rules:
+
+## File Mapping
+- **UI Logic (Modes/Selection)**: Always look in `src/hooks/useDraw.ts`.
+- **Render Logic (Canvas/SVG)**: Always check `src/components/Canvas.tsx`.
+- **Animation Controls**: `App.tsx` (Middle section) for parameters, `Timeline.tsx` for visual timeline.
+- **Export/Import Parsing**: `src/utils/geometry.ts` (specifically `parseSVGToPaths`).
+- **Toolbar/Property Panels**: `src/components/Toolbar.tsx`.
+- **Layer Management**: `src/components/LayerPanel.tsx`.
+- **Styles/Filters Definitions**: `src/components/Defs.tsx`.
+
+## Coding Standards
+1. **Version Control**: Every significant change must update `CHANGELOG` in `App.tsx` (line 14 onwards) and the version string in Header (around line 1200).
+2. **Naming Convention**: Use `v26.MMDD.HHmm` for versions.
+3. **Animations**: When adding animation types, update both `Canvas.tsx` (CSS) and `App.tsx` (UI Controls).
+4. **Coordinate Space**: Always use `inverseTransformPoint` in `useDraw.ts` when handling mouse-to-object interactions to account for rotations and scaling.
+
+## Directory Structure
+- `src/hooks/`: Business logic.
+- `src/components/`: Sub-components.
+- `src/utils/`: Pure math, geometry, and serialization helpers.
+- `src/types.ts`: Core interfaces (Read this first for data structure changes).

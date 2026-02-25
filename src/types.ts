@@ -35,6 +35,8 @@ export interface AnimationEntry {
     repeatCount: number;
     degree?: number;
     amplitude?: number;
+    /** 是否禁用此条动画 */
+    paused?: boolean;
 }
 
 /** 动画设置：以 entries 数组承载多条独立动画 */
