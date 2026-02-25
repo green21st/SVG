@@ -315,7 +315,18 @@ function useDraw() {
                     const newPath: PathLayer = {
                         ...path,
                         id: `path-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                        points: path.points.map(pt => ({ x: pt.x + 20, y: pt.y + 20 }))
+                        points: path.points.map(pt => ({ x: pt.x + 20, y: pt.y + 20 })),
+                        // Sync offset for multiPathPoints (merged layers)
+                        multiPathPoints: path.multiPathPoints
+                            ? path.multiPathPoints.map(seg => seg.map(pt => ({ x: pt.x + 20, y: pt.y + 20 })))
+                            : undefined,
+                        // Sync offset for imported SVGs that use d + importedOffset for rendering
+                        importedOffsetX: path.importedOffsetX !== undefined
+                            ? path.importedOffsetX + 20
+                            : undefined,
+                        importedOffsetY: path.importedOffsetY !== undefined
+                            ? path.importedOffsetY + 20
+                            : undefined,
                     };
                     newPaths.push(newPath);
                     newIds.push(newPath.id);

@@ -13,6 +13,13 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0225.2244',
+    date: '2026-02-25',
+    items: [
+      '修复导入 SVG 复制（Ctrl+D）后包围盒与图形位置不一致的问题：复制时同步偏移 importedOffset 和 multiPathPoints，确保渲染坐标与包围盒坐标完全对齐',
+    ]
+  },
+  {
     version: 'v26.0225.1745',
     date: '2026-02-25',
     items: [
@@ -699,7 +706,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0225.1745`);
+    console.log(`Fantastic SVG v26.0225.2244`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
