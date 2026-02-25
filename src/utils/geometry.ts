@@ -275,37 +275,108 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
     const getAnimationSettings = (el: Element) => {
         let current: Element | null = el;
-        let style = '';
+        let styleStr = '';
 
         // Check element and parent <g>
         while (current && current.tagName !== 'svg') {
             const s = current.getAttribute('style');
-            if (s && s.includes('animation:')) {
-                style = s;
+            if (s && (s.includes('animation:') || s.includes('animation-name:'))) {
+                styleStr = s;
                 break;
             }
             current = current.parentElement;
         }
+        if (!styleStr) return undefined;
 
-        if (!style) return undefined;
+        // Extract shorthand or specific properties
+        const getStyleProp = (name: string) => {
+            const regex = new RegExp(`[;\\s\\{]${name}\\s*:\\s*([^;\\}]+)`, 'i');
+            // Prepend a semicolon to handle the first property if it doesn't have one
+            const match = (';' + styleStr).match(regex);
+            return match ? match[1].trim() : undefined;
+        };
 
-        const animMatch = style.match(/animation:\s*([^;]+)/);
-        if (!animMatch) return undefined;
+        const animationShorthand = getStyleProp('animation') || getStyleProp('animation-name');
 
-        const parts = animMatch[1].trim().split(/\s+/);
-        const name = parts[0].replace('Path', '');
+        if (!animationShorthand) return undefined;
+
+        // Default values
+        let name = '';
+        let duration = 2;
+        let ease = 'linear';
+        let delay = 0;
+        let repeatCount: number | 'infinite' = 'infinite';
+        let direction: 'forward' | 'reverse' | 'alternate' = 'forward';
+
+        let timeCount = 0;
+
+        if (animationShorthand) {
+            // Regex to split by spaces but ignore spaces inside parentheses (for cubic-bezier)
+            const parts = animationShorthand.match(/(?:[^\s(]+|\([^)]*\))+/g) || [];
+
+            parts.forEach(part => {
+                const partLower = part.toLowerCase();
+                if (partLower.endsWith('ms')) {
+                    const val = parseFloat(partLower) / 1000;
+                    if (timeCount === 0) duration = val; else if (timeCount === 1) delay = val;
+                    timeCount++;
+                } else if (partLower.endsWith('s')) {
+                    const val = parseFloat(partLower);
+                    if (timeCount === 0) duration = val; else if (timeCount === 1) delay = val;
+                    timeCount++;
+                } else if (['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out'].includes(partLower) || partLower.startsWith('cubic-bezier')) {
+                    ease = partLower;
+                } else if (partLower === 'infinite') {
+                    repeatCount = 'infinite';
+                } else if (['normal', 'reverse', 'alternate', 'alternate-reverse'].includes(partLower)) {
+                    if (partLower === 'reverse') direction = 'reverse';
+                    else if (partLower === 'alternate') direction = 'alternate';
+                    else direction = 'forward';
+                } else if (!isNaN(parseInt(part)) && !part.includes('(') && !part.includes(')')) {
+                    repeatCount = parseInt(part);
+                } else if (part.endsWith('Path')) {
+                    name = part.replace('Path', '');
+                } else if (name === '' && !part.startsWith('--')) {
+                    name = part;
+                }
+            });
+        }
+
+        // Overwrite with specific properties if they exist
+        const durProp = getStyleProp('animation-duration');
+        if (durProp) duration = parseFloat(durProp);
+        const easeProp = getStyleProp('animation-timing-function');
+        if (easeProp) ease = easeProp;
+        const delayProp = getStyleProp('animation-delay');
+        if (delayProp) delay = parseFloat(delayProp);
+        const iterProp = getStyleProp('animation-iteration-count');
+        if (iterProp) repeatCount = iterProp === 'infinite' ? 'infinite' : parseInt(iterProp);
+        const dirProp = getStyleProp('animation-direction');
+        if (dirProp) {
+            if (dirProp === 'reverse') direction = 'reverse';
+            else if (dirProp === 'alternate') direction = 'alternate';
+        }
+
         const validTypes = ['draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'];
-
         if (!validTypes.includes(name)) return undefined;
 
-        const duration = parseFloat(parts[1]) || 2;
-        const ease = parts[2] || 'linear';
-        const delay = parseFloat(parts[3]) || 0;
+        // Extract custom variables for amplitude and degree
+        let degree: number | undefined = undefined;
+        let amplitude: number | undefined = undefined;
 
-        let direction: 'forward' | 'reverse' | 'alternate' = 'forward';
-        // Check separate property or shorthand
-        if (style.includes('animation-direction: reverse') || parts.includes('reverse')) direction = 'reverse';
-        if (style.includes('animation-direction: alternate') || parts.includes('alternate')) direction = 'alternate';
+        const spinDeg = getStyleProp('--spin-degree');
+        const swingDeg = getStyleProp('--swing-degree');
+        if (spinDeg) degree = parseFloat(spinDeg);
+        if (swingDeg) degree = parseFloat(swingDeg);
+
+        const bounceAmp = getStyleProp('--bounce-amp');
+        if (bounceAmp) amplitude = parseFloat(bounceAmp) * 100;
+        const shakeDist = getStyleProp('--shake-dist');
+        if (shakeDist) amplitude = parseFloat(shakeDist);
+        const floatDist = getStyleProp('--float-dist');
+        if (floatDist) amplitude = Math.abs(parseFloat(floatDist));
+
+        const isInfinite = repeatCount === 'infinite' || repeatCount === -1;
 
         return {
             entries: [{
@@ -315,8 +386,10 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                 delay,
                 ease,
                 direction,
-                repeat: true,
-                repeatCount: -1
+                repeat: !isInfinite,
+                repeatCount: isInfinite ? -1 : (typeof repeatCount === 'number' ? repeatCount : 1),
+                degree,
+                amplitude
             }]
         };
     };
@@ -334,6 +407,16 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         while (current && current.tagName !== 'svg') {
             const t = current.getAttribute('transform');
             if (t) transforms.unshift(t); // Add to beginning
+
+            // Also check for style-based transform
+            const s = current.getAttribute('style');
+            if (s) {
+                const styleTransform = s.match(/transform:\s*([^;]+)/i);
+                if (styleTransform) {
+                    transforms.unshift(styleTransform[1].trim());
+                }
+            }
+
             current = current.parentElement;
         }
 
@@ -371,6 +454,28 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             x: tx * scale + offsetX,
             y: ty * scale + offsetY
         };
+    };
+
+    const getPivotData = (el: Element): { x: number, y: number, rotation: number, scale: number, px: number, py: number } | undefined => {
+        let current: Element | null = el;
+        while (current && current.tagName !== 'svg') {
+            const s = current.getAttribute('style');
+            if (s) {
+                const match = s.match(/transform-origin:\s*calc\(50%\s*\+\s*(-?\d*\.?\d+)px\)\s*calc\(50%\s*\+\s*(-?\d*\.?\d+)px\)/i);
+                if (match) {
+                    return {
+                        x: 0, y: 0, rotation: 0, scale: 1,
+                        px: parseFloat(match[1]) * scale,
+                        py: parseFloat(match[2]) * scale
+                    };
+                }
+                if (s.toLowerCase().includes('transform-origin: center')) {
+                    return { x: 0, y: 0, rotation: 0, scale: 1, px: 0, py: 0 };
+                }
+            }
+            current = current.parentElement;
+        }
+        return undefined;
     };
 
     // 2. Process Circles
@@ -414,7 +519,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             closed: true,
             symmetry: { horizontal: false, vertical: false, center: false },
             animation: getAnimationSettings(el),
-            transform: undefined,
+            filter: getStyleAttr(el, 'filter') || el.getAttribute('filter') || undefined,
+            transform: getPivotData(el),
             keyframes: []
         });
     });
@@ -484,7 +590,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
                     closed: d.toLowerCase().includes('z'),
                     symmetry: { horizontal: false, vertical: false, center: false },
                     animation: getAnimationSettings(el),
-                    transform: undefined,
+                    filter: getStyleAttr(el, 'filter') || el.getAttribute('filter') || undefined,
+                    transform: getPivotData(el),
                     keyframes: [],
                     d: hasTransform ? undefined : d,
                     importedScale: scale,
@@ -690,6 +797,60 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             points.push(transform(curX, curY, elementMatrix));
         }
         finishPath();
+    });
+
+    // 4. Process Text
+    doc.querySelectorAll('text').forEach((el, i) => {
+        const xAttr = parseFloat(el.getAttribute('x') || '0');
+        const yAttr = parseFloat(el.getAttribute('y') || '0');
+        const textStr = el.textContent || '';
+        if (!textStr.trim()) return;
+
+        const elementMatrix = getElementTransform(el);
+        const pt = transform(xAttr, yAttr, elementMatrix);
+
+        const strokeAttr = getStyleAttr(el, 'stroke');
+        const fillAttr = getStyleAttr(el, 'fill');
+        const widthAttr = getStyleAttr(el, 'stroke-width');
+
+        const hasFill = fillAttr && fillAttr !== 'none';
+        const hasStroke = strokeAttr && strokeAttr !== 'none';
+
+        let color = strokeAttr || 'none';
+        let fill = fillAttr || '#000000';
+        let width = widthAttr ? parseFloat(widthAttr) : (hasStroke ? 2 : 0);
+
+        if (!hasFill && !hasStroke) {
+            fill = '#000000';
+            color = 'none';
+            width = 0;
+        }
+
+        const fontSizeAttr = getStyleAttr(el, 'font-size') || el.getAttribute('font-size');
+        const fontSize = fontSizeAttr ? parseFloat(fontSizeAttr) : 40;
+
+        const filterAttr = getStyleAttr(el, 'filter') || el.getAttribute('filter');
+        const fontFamily = getStyleAttr(el, 'font-family') || el.getAttribute('font-family') || 'Inter, system-ui, sans-serif';
+
+        newPaths.push({
+            id: `imported-text-${Date.now()}-${i}`,
+            points: [pt], // Provide a base point
+            type: 'text',
+            text: textStr,
+            fontFamily,
+            fontSize: fontSize * scale,
+            color,
+            fill,
+            width,
+            tension: 0,
+            closed: false,
+            filter: filterAttr || undefined,
+            name: `Text: ${textStr.substring(0, 10)}...`,
+            symmetry: { horizontal: false, vertical: false, center: false },
+            animation: getAnimationSettings(el),
+            transform: getPivotData(el),
+            keyframes: []
+        });
     });
 
     return newPaths;
