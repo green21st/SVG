@@ -31,6 +31,8 @@ export interface AnimationEntry {
     delay: number;     // in seconds
     ease: string;
     direction: 'forward' | 'reverse' | 'alternate';
+    repeat: boolean;
+    repeatCount: number;
 }
 
 /** 动画设置：以 entries 数组承载多条独立动画 */

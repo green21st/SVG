@@ -149,7 +149,7 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
                         if (segAnim && segAnim.entries && segAnim.entries.length > 0) {
                             segAnim.entries.forEach(entry => {
-                                const { type, duration, delay, ease, direction = 'forward' } = entry;
+                                const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
                                 let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
                                     direction === 'forward' ? 'normal' : direction === 'alternate' ? 'alternate' : 'reverse';
 
@@ -158,7 +158,8 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                                     else if (finalDirection === 'reverse') finalDirection = 'normal';
                                 }
 
-                                let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards; `;
+                                const iterCount = repeat ? repeatCount : 'infinite';
+                                let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s ${iterCount} forwards; `;
                                 if (type === 'glow') {
                                     const glowColor = (segColor && segColor !== 'none') ? segColor : (segFill && segFill !== 'none' ? segFill : '#22d3ee');
                                     animStyle += `--glow-color: ${glowColor}; `;
@@ -208,12 +209,13 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                     const entries = path.animation.entries;
 
                     entries.forEach(entry => {
-                        const { type, duration, delay, ease, direction = 'forward' } = entry;
+                        const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
                         let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
                             direction === 'forward' ? 'normal' :
                                 direction === 'alternate' ? 'alternate' : 'reverse';
 
-                        let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
+                        const iterCount = repeat ? repeatCount : 'infinite';
+                        let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s ${iterCount} forwards;`;
                         if (type === 'glow') {
                             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
                             styleStr += ` --glow-color: ${glowColor};`;

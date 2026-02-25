@@ -307,6 +307,15 @@ const CHANGELOG = [
     items: ['新增绘图区顶点数实时统计显示，位于绘图区右上方', '优化 UI 布局，顶点数统计采用磨砂玻璃质感设计']
   },
   {
+    version: 'v26.0225.1220',
+    date: '2026-02-25',
+    items: [
+      '新增动画播放次数控制：每条动画可独立设置“循环播放 (Loop)”或“重复播放 (Repeat)”',
+      '重复播放模式下可自定义播放次数（1-100次），播放完成后动画将停止在结束状态',
+      '同步更新 Canvas 渲染引擎与 SVG 代码导出逻辑，支持 animation-iteration-count 属性'
+    ]
+  },
+  {
     version: 'v26.0225.1210',
     date: '2026-02-25',
     items: [
@@ -1029,7 +1038,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1210
+              v26.0225.1220
             </button>
           </h1>
         </div>
@@ -1496,7 +1505,8 @@ ${pathsCode}
                           type="number"
                           min={0.1} max={20} step={0.1}
                           value={entry.duration}
-                          onChange={e => updateEntry(entry.id, { duration: Math.max(0.1, parseFloat(e.target.value) || 0.1) })}
+                          onChange={e => updateEntry(entry.id, { duration: parseFloat(e.target.value) || 0 })}
+                          onBlur={e => updateEntry(entry.id, { duration: Math.max(0.1, parseFloat(e.target.value) || 0.1) })}
                           className="w-14 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
                         />
                         <span className="text-[8px] text-slate-600">s</span>
@@ -1509,7 +1519,7 @@ ${pathsCode}
                           type="number"
                           min={0} max={30} step={0.1}
                           value={entry.delay}
-                          onChange={e => updateEntry(entry.id, { delay: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          onChange={e => updateEntry(entry.id, { delay: parseFloat(e.target.value) || 0 })}
                           className="w-14 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
                         />
                         <span className="text-[8px] text-slate-600">s</span>
@@ -1539,6 +1549,33 @@ ${pathsCode}
                           <option value="reverse">Reverse</option>
                           <option value="alternate">Alternate</option>
                         </select>
+                      </div>
+
+                      {/* Repeat Controls */}
+                      <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                        <button
+                          onClick={() => updateEntry(entry.id, { repeat: !entry.repeat })}
+                          className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase transition-all border ${entry.repeat
+                            ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/50'
+                            : 'text-slate-500 border-slate-700/50 hover:text-slate-300'
+                            }`}
+                          title={entry.repeat ? '有限次数播放' : '无限循环播放'}
+                        >
+                          {entry.repeat ? 'Repeat' : 'Loop'}
+                        </button>
+                        {entry.repeat && (
+                          <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200">
+                            <input
+                              type="number"
+                              min={1} max={100} step={1}
+                              value={entry.repeatCount}
+                              onChange={e => updateEntry(entry.id, { repeatCount: parseInt(e.target.value) || 0 })}
+                              onBlur={e => updateEntry(entry.id, { repeatCount: Math.max(1, parseInt(e.target.value) || 1) })}
+                              className="w-10 bg-black/40 border border-white/10 rounded px-1 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
+                            />
+                            <span className="text-[8px] text-slate-600 uppercase">x</span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex-1" />
@@ -1573,6 +1610,8 @@ ${pathsCode}
                                 delay: 0,
                                 ease: 'ease-in-out',
                                 direction: 'forward',
+                                repeat: false,
+                                repeatCount: 1,
                               };
                               const newEntries = [...entries, newEntry].sort((a, b) => a.delay - b.delay);
                               setAnimation({ ...animation, entries: newEntries });
