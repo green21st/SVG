@@ -435,7 +435,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     <text
                         x={0}
                         y={0}
-                        fill={path.fill || path.color || '#22d3ee'}
+                        fill={(path.fill && path.fill !== 'none') ? path.fill : (path.color && path.color !== 'none' ? path.color : '#22d3ee')}
                         fillOpacity={path.fillOpacity ?? 1}
                         stroke={path.color || 'none'}
                         strokeWidth={path.width || 0}

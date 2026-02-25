@@ -2190,13 +2190,14 @@ function useDraw() {
         const initialX = centerX / 2;
         const initialY = centerY / 2;
 
+        const textFillColor = strokeColor === 'none' ? '#22d3ee' : strokeColor;
         const newPath: PathLayer = {
             id: `text-${timestamp}`,
             type: 'text',
             text: content,
             points: [{ x: initialX, y: initialY }],
-            color: strokeColor,
-            fill: strokeColor,
+            color: textFillColor,
+            fill: textFillColor,
             width: 1,
             tension: 0,
             closed: false,

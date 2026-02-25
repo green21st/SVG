@@ -219,22 +219,47 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setShowMaterialPicker(true)}
-                                        className="flex-1 h-10 rounded-lg border border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-secondary hover:text-white transition-all flex items-center justify-center gap-2 group"
-                                        title="Materials Library"
-                                    >
-                                        <Layout size={14} className="text-primary group-hover:scale-110 transition-transform" />
-                                        <span className="text-[10px] font-bold uppercase tracking-wider">Materials</span>
-                                    </button>
-                                    <button
+                                    {/* Active Style Preview Box (Red Box Position) */}
+                                    <div
                                         onClick={() => setShowStylePicker(true)}
-                                        className="flex-1 h-10 rounded-lg border border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-secondary hover:text-white transition-all flex items-center justify-center gap-2 group"
-                                        title="Style Library"
+                                        className={`w-10 h-10 rounded-lg border-2 cursor-pointer transition-all hover:border-primary/50 flex items-center justify-center relative shadow-inner overflow-hidden flex-shrink-0 group/preview ${filter !== 'none' ? 'border-primary ring-1 ring-primary/20' : 'border-slate-800 bg-slate-900/40'}`}
+                                        title="Active Style (Click to change)"
                                     >
-                                        <Sparkles size={14} className="text-amber-400 group-hover:scale-110 transition-transform" />
-                                        <span className="text-[10px] font-bold uppercase tracking-wider">Styles</span>
-                                    </button>
+                                        {filter !== 'none' ? (
+                                            <>
+                                                <div className="absolute inset-0 opacity-30 scale-150 blur-[1px]" style={{ background: UI_STYLES.find(s => s.properties.filter === filter)?.previewBackground }} />
+                                                <svg viewBox="0 0 100 100" className="w-8 h-8 relative z-10 drop-shadow-md">
+                                                    <circle cx="50" cy="50" r="35"
+                                                        fill={fillColor !== 'none' ? fillColor : '#ffffff'}
+                                                        stroke={strokeColor !== 'none' ? strokeColor : 'none'}
+                                                        strokeWidth={strokeWidth ? strokeWidth * 2 : 0}
+                                                        filter={filter}
+                                                    />
+                                                </svg>
+                                            </>
+                                        ) : (
+                                            <Sparkles size={16} className="text-slate-800 transition-colors group-hover/preview:text-slate-600" />
+                                        )}
+                                    </div>
+
+                                    <div className="flex-1 flex flex-col gap-1">
+                                        <button
+                                            onClick={() => setShowStylePicker(true)}
+                                            className="h-[19px] rounded-md border border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-secondary hover:text-white transition-all flex items-center justify-center gap-1.5 group px-2"
+                                            title="Style Library"
+                                        >
+                                            <Sparkles size={10} className="text-amber-400 group-hover:scale-110 transition-transform" />
+                                            <span className="text-[9px] font-black uppercase tracking-wider">Styles</span>
+                                        </button>
+                                        <button
+                                            onClick={() => setShowMaterialPicker(true)}
+                                            className="h-[19px] rounded-md border border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-secondary hover:text-white transition-all flex items-center justify-center gap-1.5 group px-2"
+                                            title="Materials Library"
+                                        >
+                                            <Layout size={10} className="text-primary group-hover:scale-110 transition-transform" />
+                                            <span className="text-[9px] font-black uppercase tracking-wider">Materials</span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -518,7 +543,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-3 pb-8">
                             <button
                                 onClick={() => {
                                     setFilter('none');
@@ -542,10 +567,22 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 group ${filter === style.properties.filter ? 'bg-slate-800 border-primary shadow-lg shadow-primary/20' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}
                                 >
                                     <div
-                                        className="w-full aspect-square rounded-lg border border-white/5 flex items-center justify-center overflow-hidden"
+                                        className="w-full aspect-square rounded-lg border border-white/5 flex items-center justify-center overflow-hidden transition-all group-hover:scale-105"
                                         style={{ background: style.previewBackground }}
                                     >
-                                        <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm border border-white/30" />
+                                        <svg viewBox="0 0 100 100" className="w-16 h-16 drop-shadow-xl">
+                                            <path
+                                                d="M 50 15 L 61 40 L 88 40 L 66 56 L 75 82 L 50 66 L 25 82 L 34 56 L 12 40 L 39 40 Z"
+                                                fill={style.properties.fill || 'none'}
+                                                stroke={style.properties.stroke || 'none'}
+                                                strokeWidth={style.properties.strokeWidth ? style.properties.strokeWidth * 3 : 0}
+                                                filter={style.properties.filter}
+                                                style={{
+                                                    fillOpacity: style.properties.fillOpacity,
+                                                    strokeOpacity: style.properties.strokeOpacity
+                                                }}
+                                            />
+                                        </svg>
                                     </div>
                                     <span className="text-[10px] font-bold text-white group-hover:text-primary transition-colors">
                                         {style.label}
@@ -556,6 +593,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     </div>
                 </div>
             )}
-        </div >
+        </div>
     );
 };

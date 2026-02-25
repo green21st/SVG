@@ -12,8 +12,27 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  {
+    version: 'v26.0225.1347',
+    date: '2026-02-25',
+    items: [
+      '修复文字图层默认填充：当当前描边颜色为“无 (none)”时，新建文字将自动使用青色 (#22d3ee) 作为默认填充',
+      '优化文字渲染与导出逻辑：支持自动回退至可见颜色，防止由于填充色设置为“无”导致文字导出后不可见的问题'
+    ]
+  },
+  { version: 'v26.0225.1341', date: '2026-02-25', items: ['调整布局：交换了“风格库”与“材质库”按钮的位置，使其操作更顺手'] },
+  { version: 'v26.0225.1345', date: '2026-02-25', items: ['精简主工具栏：仅在“红框位置”实时预览当前选中风格，移除冗余的快捷风格列表，保持界面清爽'] },
+  { version: 'v26.0225.1338', date: '2026-02-25', items: ['优化风格库面板：所有风格图标现在直接应用该风格滤镜，预览更直观', '主工具栏新增风格快捷切换栏，支持一键切换常用 UI 风格'] },
+  {
+    version: 'v26.0225.1305',
+    date: '2026-02-25',
+    items: [
+      '新增动画精细化控制：支持自定义旋转(Spin)和摆动(Swing)的角度',
+      '支持自定义浮动(Float)、弹跳(Bounce)和抖动(Shake)的幅度',
+      '优化动画参数调节 UI，仅在对应动画类型下显示幅度/角度选项'
+    ]
+  },
   { version: 'v26.0225.1010', date: '2026-02-25', items: ['简化编辑体验：取消包围盒与变换手柄的 CSS 预设动画跟随，使其在图形执行旋转、跳动等动画时保持静止，避免视觉干扰与操作漂移'] },
-  { version: 'v26.0225.0945', date: '2026-02-25', items: ['彻底解决旋转不同步：统一图形与控制框的动态轴心坐标，消除因关键帧偏移、双重动画叠加导致的包围盒与图形实时渲染错位问题'] },
   { version: 'v26.0225.0935', date: '2026-02-25', items: ['完美同步包围盒：修复取消选择后重选导致的控制框滞后/跳变问题，通过统一图形与手柄的动画基准点（Stable Center），确保交互反馈毫无延迟'] },
   { version: 'v26.0225.0950', date: '2026-02-25', items: ['深度同步动画与包围盒：引入稳定中心点参考机制，彻底解决在编辑模式下切换选中状态时，预设动画（旋转、跳动等）参考坐标突变导致的包围盒与图形脱节问题'] },
   { version: 'v26.0225.0930', date: '2026-02-25', items: ['紧急修复手柄失效问题：将 ID 标识重新绑定至交互热区元素，解决上一版本优化导致的变换手柄无法选中的回归 Bug'] },
@@ -305,15 +324,6 @@ const CHANGELOG = [
     version: 'v26.0215.1825',
     date: '2026-02-15',
     items: ['新增绘图区顶点数实时统计显示，位于绘图区右上方', '优化 UI 布局，顶点数统计采用磨砂玻璃质感设计']
-  },
-  {
-    version: 'v26.0225.1305',
-    date: '2026-02-25',
-    items: [
-      '新增动画精细化控制：支持自定义旋转(Spin)和摆动(Swing)的角度',
-      '支持自定义浮动(Float)、弹跳(Bounce)和抖动(Shake)的幅度',
-      '优化动画参数调节 UI，仅在对应动画类型下显示幅度/角度选项'
-    ]
   },
   {
     version: 'v26.0225.1220',
@@ -621,7 +631,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0225.1010`);
+    console.log(`Fantastic SVG v26.0225.1347`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -811,7 +821,7 @@ function App() {
           const sx = v.type === 'H' || v.type === 'C' ? -1 : 1;
           const sy = v.type === 'V' || v.type === 'C' ? -1 : 1;
           const transform = ` transform="translate(${pt.x}, ${pt.y}) scale(${sx}, ${sy}) rotate(${rotation})"`;
-          const fill = path.fill || path.color || '#22d3ee';
+          const fill = (path.fill && path.fill !== 'none') ? path.fill : (path.color && path.color !== 'none' ? path.color : '#22d3ee');
           const glowColor = (path.color && path.color !== 'none') ? path.color : (fill && fill !== 'none' ? fill : '#22d3ee');
           const glowStyle = path.animation?.entries?.some(e => e.type === 'glow') ? ` style="--glow-color: ${glowColor};"` : '';
           const textNode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
@@ -1113,7 +1123,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1305
+              v26.0225.1341
             </button>
           </h1>
         </div>
