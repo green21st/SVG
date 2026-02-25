@@ -73,11 +73,11 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
             draw: '@keyframes drawPath { to { stroke-dashoffset: 0; } }',
             pulse: '@keyframes pulsePath { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }',
             float: '@keyframes floatPath { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -10px)); } }',
-            spin: '@keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }',
-            bounce: '@keyframes bouncePath { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.15, 0.85); } 60% { transform: scale(0.9, 1.1); } 80% { transform: scale(1.05, 0.95); } }',
+            spin: '@keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(var(--spin-degree, 360deg)); } }',
+            bounce: '@keyframes bouncePath { 0%, 100% { transform: scale(1); } 40% { transform: scale(calc(1 + var(--bounce-amp, 0.15)), calc(1 - var(--bounce-amp, 0.15))); } 60% { transform: scale(calc(1 - var(--bounce-amp, 0.15) * 0.6), calc(1 + var(--bounce-amp, 0.15) * 0.6)); } 80% { transform: scale(calc(1 + var(--bounce-amp, 0.15) * 0.3), calc(1 - var(--bounce-amp, 0.15) * 0.3)); } }',
             glow: '@keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color)) brightness(1.5); } }',
-            shake: '@keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }',
-            swing: '@keyframes swingPath { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }',
+            shake: '@keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(calc(-1 * var(--shake-dist, 4px))); } 75% { transform: translateX(var(--shake-dist, 4px)); } }',
+            swing: '@keyframes swingPath { 0%, 100% { transform: rotate(calc(-1 * var(--swing-degree, 10deg))); } 50% { transform: rotate(var(--swing-degree, 10deg)); } }',
             tada: '@keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }'
         };
 
@@ -160,6 +160,47 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
 
                                 const iterCount = repeat ? repeatCount : 'infinite';
                                 let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s ${iterCount} forwards; `;
+
+                                // Handle Symmetry Direction Flip
+                                if ((type === 'spin' || type === 'swing' || type === 'shake') && (v.type === 'H' || v.type === 'V' || v.type === 'C')) {
+                                    const flipH = v.type === 'H' || v.type === 'C';
+                                    const flipV = v.type === 'V' || v.type === 'C';
+
+                                    if (type === 'spin' || type === 'swing') {
+                                        // Rotation flips on any single axis flip
+                                        if (flipH !== flipV) {
+                                            if (finalDirection === 'normal') finalDirection = 'reverse';
+                                            else if (finalDirection === 'reverse') finalDirection = 'normal';
+                                            else if (finalDirection === 'alternate') finalDirection = 'alternate-reverse';
+                                            else if (finalDirection === 'alternate-reverse') finalDirection = 'alternate';
+                                        }
+                                    } else if (type === 'shake') {
+                                        // Shake (X-axis) flips on Horizontal flip
+                                        if (flipH) {
+                                            if (finalDirection === 'normal') finalDirection = 'reverse';
+                                            else if (finalDirection === 'reverse') finalDirection = 'normal';
+                                        }
+                                    }
+                                }
+
+                                // Custom Variables
+                                if ((type === 'spin' || type === 'swing') && entry.degree !== undefined) {
+                                    const varName = type === 'spin' ? '--spin-degree' : '--swing-degree';
+                                    animStyle += `${varName}: ${entry.degree}deg; `;
+                                }
+                                if (type === 'float') {
+                                    const baseAmp = entry.amplitude ?? 10;
+                                    const isFlipped = v.type === 'V' || v.type === 'C';
+                                    const dist = isFlipped ? baseAmp : -baseAmp;
+                                    animStyle += `--float-dist: ${dist}px; `;
+                                }
+                                if (type === 'bounce' && entry.amplitude !== undefined) {
+                                    animStyle += `--bounce-amp: ${entry.amplitude / 100}; `;
+                                }
+                                if (type === 'shake' && entry.amplitude !== undefined) {
+                                    animStyle += `--shake-dist: ${entry.amplitude}px; `;
+                                }
+
                                 if (type === 'glow') {
                                     const glowColor = (segColor && segColor !== 'none') ? segColor : (segFill && segFill !== 'none' ? segFill : '#22d3ee');
                                     animStyle += `--glow-color: ${glowColor}; `;
@@ -167,7 +208,6 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                                 if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
                                 if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
                                 if (['spin', 'bounce', 'swing', 'tada'].includes(type)) animStyle += 'transform-origin: center; transform-box: fill-box; ';
-                                if (type === 'float' && (v.type === 'V' || v.type === 'C')) animStyle += '--float-dist: 10px; ';
 
                                 animWrapperStart += `<g style="${animStyle}">`;
                                 animWrapperEnd = `</g>` + animWrapperEnd;
@@ -215,27 +255,55 @@ export const CodePanel: React.FC<CodePanelProps> = ({ paths, tension, isDragging
                                 direction === 'alternate' ? 'alternate' : 'reverse';
 
                         const iterCount = repeat ? repeatCount : 'infinite';
-                        let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s ${iterCount} forwards;`;
+                        let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s ${iterCount} forwards; `;
+
                         if (type === 'glow') {
                             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
                             styleStr += ` --glow-color: ${glowColor};`;
                         }
 
-                        // Replicate Canvas.tsx logic for variants
-                        if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
-                            if (finalDirection === 'normal') finalDirection = 'reverse';
-                            else if (finalDirection === 'reverse') finalDirection = 'normal';
+                        // Handle Symmetry Direction Flip
+                        if ((type === 'spin' || type === 'swing' || type === 'shake') && (v.type === 'H' || v.type === 'V' || v.type === 'C')) {
+                            const flipH = v.type === 'H' || v.type === 'C';
+                            const flipV = v.type === 'V' || v.type === 'C';
+
+                            if (type === 'spin' || type === 'swing') {
+                                if (flipH !== flipV) {
+                                    if (finalDirection === 'normal') finalDirection = 'reverse';
+                                    else if (finalDirection === 'reverse') finalDirection = 'normal';
+                                    else if (finalDirection === 'alternate') finalDirection = 'alternate-reverse';
+                                    else if (finalDirection === 'alternate-reverse') finalDirection = 'alternate';
+                                }
+                            } else if (type === 'shake') {
+                                if (flipH) {
+                                    if (finalDirection === 'normal') finalDirection = 'reverse';
+                                    else if (finalDirection === 'reverse') finalDirection = 'normal';
+                                }
+                            }
                         }
 
-                        if (finalDirection === 'reverse') styleStr += ' animation-direction: reverse;';
-                        if (finalDirection === 'alternate') styleStr += ' animation-direction: alternate;';
+                        // Custom Variables
+                        if ((type === 'spin' || type === 'swing') && entry.degree !== undefined) {
+                            const varName = type === 'spin' ? '--spin-degree' : '--swing-degree';
+                            styleStr += `${varName}: ${entry.degree}deg; `;
+                        }
+                        if (type === 'float') {
+                            const baseAmp = entry.amplitude ?? 10;
+                            const isFlipped = v.type === 'V' || v.type === 'C';
+                            const dist = isFlipped ? baseAmp : -baseAmp;
+                            styleStr += `--float-dist: ${dist}px; `;
+                        }
+                        if (type === 'bounce' && entry.amplitude !== undefined) {
+                            styleStr += `--bounce-amp: ${entry.amplitude / 100}; `;
+                        }
+                        if (type === 'shake' && entry.amplitude !== undefined) {
+                            styleStr += `--shake-dist: ${entry.amplitude}px; `;
+                        }
+
+                        if (finalDirection !== 'normal') styleStr += `animation-direction: ${finalDirection}; `;
 
                         if (type === 'draw') styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
                         if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') styleStr += ' transform-origin: center; transform-box: fill-box;';
-
-                        if (type === 'float' && (v.type === 'V' || v.type === 'C')) {
-                            styleStr += ' --float-dist: 10px;';
-                        }
 
                         finalCode = `<g style="${styleStr}">${finalCode}</g>`;
                     });

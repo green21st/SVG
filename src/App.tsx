@@ -307,6 +307,15 @@ const CHANGELOG = [
     items: ['新增绘图区顶点数实时统计显示，位于绘图区右上方', '优化 UI 布局，顶点数统计采用磨砂玻璃质感设计']
   },
   {
+    version: 'v26.0225.1305',
+    date: '2026-02-25',
+    items: [
+      '新增动画精细化控制：支持自定义旋转(Spin)和摆动(Swing)的角度',
+      '支持自定义浮动(Float)、弹跳(Bounce)和抖动(Shake)的幅度',
+      '优化动画参数调节 UI，仅在对应动画类型下显示幅度/角度选项'
+    ]
+  },
+  {
     version: 'v26.0225.1220',
     date: '2026-02-25',
     items: [
@@ -733,11 +742,11 @@ function App() {
       draw: '@keyframes drawPath { to { stroke-dashoffset: 0; } }',
       pulse: '@keyframes pulsePath { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }',
       float: '@keyframes floatPath { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(var(--float-dist, -10px)); } }',
-      spin: '@keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }',
-      bounce: '@keyframes bouncePath { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.15, 0.85); } 60% { transform: scale(0.9, 1.1); } 80% { transform: scale(1.05, 0.95); } }',
+      spin: '@keyframes spinPath { from { transform: rotate(0deg); } to { transform: rotate(var(--spin-degree, 360deg)); } }',
+      bounce: '@keyframes bouncePath { 0%, 100% { transform: scale(1); } 40% { transform: scale(calc(1 + var(--bounce-amp, 0.15)), calc(1 - var(--bounce-amp, 0.15))); } 60% { transform: scale(calc(1 - var(--bounce-amp, 0.15) * 0.6), calc(1 + var(--bounce-amp, 0.15) * 0.6)); } 80% { transform: scale(calc(1 + var(--bounce-amp, 0.15) * 0.3), calc(1 - var(--bounce-amp, 0.15) * 0.3)); } }',
       glow: '@keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color, #22d3ee)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color, #22d3ee)) brightness(1.6); } }',
-      shake: '@keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }',
-      swing: '@keyframes swingPath { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }',
+      shake: '@keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(calc(-1 * var(--shake-dist, 4px))); } 75% { transform: translateX(var(--shake-dist, 4px)); } }',
+      swing: '@keyframes swingPath { 0%, 100% { transform: rotate(calc(-1 * var(--swing-degree, 10deg))); } 50% { transform: rotate(var(--swing-degree, 10deg)); } }',
       tada: '@keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }'
     };
 
@@ -830,18 +839,55 @@ function App() {
 
               if (segAnim && segAnim.entries && segAnim.entries.length > 0) {
                 segAnim.entries.forEach(entry => {
-                  const { type, duration, delay, ease, direction = 'forward' } = entry;
-                  let finalDirection = direction === 'forward' ? 'normal' : direction === 'alternate' ? 'alternate' : 'reverse';
-                  if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
-                    if (finalDirection === 'normal') finalDirection = 'reverse';
-                    else if (finalDirection === 'reverse') finalDirection = 'normal';
+                  const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
+                  let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
+                    direction === 'forward' ? 'normal' : direction === 'alternate' ? 'alternate' : 'reverse';
+
+                  const iterCount = repeat ? repeatCount : 'infinite';
+                  let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s ${iterCount} forwards; `;
+
+                  // Handle Symmetry Direction Flip
+                  if ((type === 'spin' || type === 'swing' || type === 'shake') && (v.type === 'H' || v.type === 'V' || v.type === 'C')) {
+                    const flipH = v.type === 'H' || v.type === 'C';
+                    const flipV = v.type === 'V' || v.type === 'C';
+                    if (type === 'spin' || type === 'swing') {
+                      if (flipH !== flipV) {
+                        if (finalDirection === 'normal') finalDirection = 'reverse';
+                        else if (finalDirection === 'reverse') finalDirection = 'normal';
+                        else if (finalDirection === 'alternate') finalDirection = 'alternate-reverse';
+                        else if (finalDirection === 'alternate-reverse') finalDirection = 'alternate';
+                      }
+                    } else if (type === 'shake') {
+                      if (flipH) {
+                        if (finalDirection === 'normal') finalDirection = 'reverse';
+                        else if (finalDirection === 'reverse') finalDirection = 'normal';
+                      }
+                    }
                   }
 
-                  let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards; `;
                   if (type === 'glow') {
                     const glowColor = (segColor && segColor !== 'none') ? segColor : (segFill && segFill !== 'none' ? segFill : '#22d3ee');
                     animStyle += `--glow-color: ${glowColor}; `;
                   }
+
+                  // Custom Variables
+                  if ((type === 'spin' || type === 'swing') && entry.degree !== undefined) {
+                    const varName = type === 'spin' ? '--spin-degree' : '--swing-degree';
+                    animStyle += `${varName}: ${entry.degree}deg; `;
+                  }
+                  if (type === 'float') {
+                    const baseAmp = entry.amplitude ?? 10;
+                    const isFlipped = v.type === 'V' || v.type === 'C';
+                    const dist = isFlipped ? baseAmp : -baseAmp;
+                    animStyle += `--float-dist: ${dist}px; `;
+                  }
+                  if (type === 'bounce' && entry.amplitude !== undefined) {
+                    animStyle += `--bounce-amp: ${entry.amplitude / 100}; `;
+                  }
+                  if (type === 'shake' && entry.amplitude !== undefined) {
+                    animStyle += `--shake-dist: ${entry.amplitude}px; `;
+                  }
+
                   if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
                   if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
                   if (['spin', 'bounce', 'swing', 'tada'].includes(type)) {
@@ -850,7 +896,6 @@ function App() {
                     const py = segTrans?.py || 0;
                     animStyle += `transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box; `;
                   }
-                  if (type === 'float' && (v.type === 'V' || v.type === 'C')) animStyle += '--float-dist: 10px; ';
 
                   animWrapperStart += `<g style="${animStyle}">`;
                   animWrapperEnd = `</g>` + animWrapperEnd;
@@ -901,34 +946,64 @@ function App() {
           const entries = path.animation.entries;
 
           entries.forEach(entry => {
-            const { type, duration, delay, ease, direction = 'forward' } = entry;
+            const { type, duration, delay, ease, direction = 'forward', repeat = false, repeatCount = 1 } = entry;
             let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
               direction === 'forward' ? 'normal' :
                 direction === 'alternate' ? 'alternate' : 'reverse';
 
-            let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
+            const iterCount = repeat ? repeatCount : 'infinite';
+            let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s ${iterCount} forwards; `;
+
             if (type === 'glow') {
               const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
               styleStr += ` --glow-color: ${glowColor};`;
             }
 
-            if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
-              if (finalDirection === 'normal') finalDirection = 'reverse';
-              else if (finalDirection === 'reverse') finalDirection = 'normal';
+            // Handle Symmetry Direction Flip
+            if ((type === 'spin' || type === 'swing' || type === 'shake') && (v.type === 'H' || v.type === 'V' || v.type === 'C')) {
+              const flipH = v.type === 'H' || v.type === 'C';
+              const flipV = v.type === 'V' || v.type === 'C';
+
+              if (type === 'spin' || type === 'swing') {
+                if (flipH !== flipV) {
+                  if (finalDirection === 'normal') finalDirection = 'reverse';
+                  else if (finalDirection === 'reverse') finalDirection = 'normal';
+                  else if (finalDirection === 'alternate') finalDirection = 'alternate-reverse';
+                  else if (finalDirection === 'alternate-reverse') finalDirection = 'alternate';
+                }
+              } else if (type === 'shake') {
+                if (flipH) {
+                  if (finalDirection === 'normal') finalDirection = 'reverse';
+                  else if (finalDirection === 'reverse') finalDirection = 'normal';
+                }
+              }
             }
 
-            if (finalDirection === 'reverse') styleStr += ' animation-direction: reverse;';
-            if (finalDirection === 'alternate') styleStr += ' animation-direction: alternate;';
+            // Custom Variables
+            if ((type === 'spin' || type === 'swing') && entry.degree !== undefined) {
+              const varName = type === 'spin' ? '--spin-degree' : '--swing-degree';
+              styleStr += ` ${varName}: ${entry.degree}deg;`;
+            }
+            if (type === 'float') {
+              const baseAmp = entry.amplitude ?? 10;
+              const isFlipped = v.type === 'V' || v.type === 'C';
+              const dist = isFlipped ? baseAmp : -baseAmp;
+              styleStr += ` --float-dist: ${dist}px;`;
+            }
+            if (type === 'bounce' && entry.amplitude !== undefined) {
+              styleStr += ` --bounce-amp: ${entry.amplitude / 100};`;
+            }
+            if (type === 'shake' && entry.amplitude !== undefined) {
+              styleStr += ` --shake-dist: ${entry.amplitude}px;`;
+            }
+
+            if (finalDirection !== 'normal') styleStr += ` animation-direction: ${finalDirection};`;
 
             if (type === 'draw') styleStr += ' stroke-dasharray: 1000; stroke-dashoffset: 1000;';
             if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') {
               const px = path.transform?.px || 0;
               const py = path.transform?.py || 0;
               styleStr += ` transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box;`;
-            }
-
-            if (type === 'float' && (v.type === 'V' || v.type === 'C')) {
-              styleStr += ' --float-dist: 10px;';
             }
 
             finalCode = `<g style="${styleStr}">${finalCode}</g>`;
@@ -1038,7 +1113,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1220
+              v26.0225.1305
             </button>
           </h1>
         </div>
@@ -1551,6 +1626,35 @@ ${pathsCode}
                         </select>
                       </div>
 
+                      {/* Degree (for Spin & Swing) */}
+                      {(entry.type === 'spin' || entry.type === 'swing') && (
+                        <div className="flex items-center gap-1.5 shrink-0 animate-in fade-in zoom-in-95 duration-200">
+                          <span className="text-[8px] font-bold text-slate-500 uppercase">Deg</span>
+                          <input
+                            type="number"
+                            step={1}
+                            value={entry.degree ?? (entry.type === 'spin' ? 360 : 10)}
+                            onChange={e => updateEntry(entry.id, { degree: parseInt(e.target.value) || 0 })}
+                            className="w-12 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
+                          />
+                          <span className="text-[8px] text-slate-600">°</span>
+                        </div>
+                      )}
+
+                      {/* Amplitude (for Float, Bounce, Shake) */}
+                      {(entry.type === 'float' || entry.type === 'bounce' || entry.type === 'shake') && (
+                        <div className="flex items-center gap-1.5 shrink-0 animate-in fade-in zoom-in-95 duration-200">
+                          <span className="text-[8px] font-bold text-slate-500 uppercase">Amp</span>
+                          <input
+                            type="number"
+                            step={1}
+                            value={entry.amplitude ?? (entry.type === 'float' ? 10 : entry.type === 'bounce' ? 15 : 4)}
+                            onChange={e => updateEntry(entry.id, { amplitude: parseInt(e.target.value) || 0 })}
+                            className="w-12 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
+                          />
+                          <span className="text-[8px] text-slate-600">px</span>
+                        </div>
+                      )}
                       {/* Repeat Controls */}
                       <div className="flex items-center gap-1.5 shrink-0 ml-1">
                         <button
@@ -1594,8 +1698,7 @@ ${pathsCode}
 
                 {/* Animation Type Picker Popup */}
                 {showAnimPicker && (
-                  <div className="border-t border-white/5 px-3 py-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-2">选择动画类型</div>
+                  <div className="border-t border-white/5 px-3 py-2 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="grid grid-cols-9 gap-1.5">
                       {ANIM_TYPES.map(type => {
                         const colorClass = ANIM_COLORS[type] || '';
@@ -1612,6 +1715,8 @@ ${pathsCode}
                                 direction: 'forward',
                                 repeat: false,
                                 repeatCount: 1,
+                                degree: type === 'spin' ? 360 : type === 'swing' ? 10 : undefined,
+                                amplitude: type === 'float' ? 10 : type === 'bounce' ? 15 : type === 'shake' ? 4 : undefined,
                               };
                               const newEntries = [...entries, newEntry].sort((a, b) => a.delay - b.delay);
                               setAnimation({ ...animation, entries: newEntries });
@@ -1811,51 +1916,53 @@ ${pathsCode}
       </main>
 
       {/* Changelog Modal */}
-      {showChangelog && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-slate-800/50">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                更新日志
-              </h2>
-              <button
-                onClick={() => setShowChangelog(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all"
-              >
-                <X size={20} />
-              </button>
-            </div>
+      {
+        showChangelog && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-slate-800/50">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                  更新日志
+                </h2>
+                <button
+                  onClick={() => setShowChangelog(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
-            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6 custom-scrollbar">
-              {CHANGELOG.map((log) => (
-                <div key={log.version} className="relative pl-6 border-l-2 border-primary/20 hover:border-primary/50 transition-colors">
-                  <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
-                  <div className="flex items-baseline justify-between mb-2">
-                    <span className="text-sm font-black text-white font-mono">{log.version}</span>
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{log.date}</span>
+              <div className="p-6 max-h-[60vh] overflow-y-auto space-y-6 custom-scrollbar">
+                {CHANGELOG.map((log) => (
+                  <div key={log.version} className="relative pl-6 border-l-2 border-primary/20 hover:border-primary/50 transition-colors">
+                    <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                    <div className="flex items-baseline justify-between mb-2">
+                      <span className="text-sm font-black text-white font-mono">{log.version}</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{log.date}</span>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {log.items.map((item, idx) => (
+                        <li key={idx} className="text-xs text-slate-300 flex items-start gap-2 leading-relaxed">
+                          <span className="mt-1.5 w-1 h-1 rounded-full bg-white/20 shrink-0" />
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <ul className="space-y-1.5">
-                    {log.items.map((item, idx) => (
-                      <li key={idx} className="text-xs text-slate-300 flex items-start gap-2 leading-relaxed">
-                        <span className="mt-1.5 w-1 h-1 rounded-full bg-white/20 shrink-0" />
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            <div className="px-6 py-4 bg-slate-800/30 border-t border-white/5 text-center">
-              <p className="text-[10px] text-slate-500 font-medium tracking-wide">
-                感谢使用 Fantastic SVG · 祝您创作愉快
-              </p>
+              <div className="px-6 py-4 bg-slate-800/30 border-t border-white/5 text-center">
+                <p className="text-[10px] text-slate-500 font-medium tracking-wide">
+                  感谢使用 Fantastic SVG · 祝您创作愉快
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }
 

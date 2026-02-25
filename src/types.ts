@@ -33,6 +33,8 @@ export interface AnimationEntry {
     direction: 'forward' | 'reverse' | 'alternate';
     repeat: boolean;
     repeatCount: number;
+    degree?: number;
+    amplitude?: number;
 }
 
 /** 动画设置：以 entries 数组承载多条独立动画 */

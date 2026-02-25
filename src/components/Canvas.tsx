@@ -155,23 +155,34 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     break;
                 case 'float': {
                     const floatStyle = { ...baseStyle, animationName: 'floatPath', animationDirection: finalDirection };
-                    if (variantType === 'V' || variantType === 'C') {
-                        // @ts-ignore
-                        floatStyle['--float-dist'] = '10px';
-                    }
+                    let dist = entry.amplitude ?? (variantType === 'V' || variantType === 'C' ? 10 : -10);
+                    // @ts-ignore
+                    floatStyle['--float-dist'] = `${dist}px`;
                     groupAnimations.push(floatStyle);
                     break;
                 }
-                case 'spin':
+                case 'spin': {
                     if (variantType === 'H' || variantType === 'V') {
                         if (finalDirection === 'normal') finalDirection = 'reverse';
                         else if (finalDirection === 'reverse') finalDirection = 'normal';
                     }
-                    groupAnimations.push({ ...baseStyle, animationName: 'spinPath', transformOrigin: tOrigin, animationDirection: finalDirection });
+                    const spinStyle = { ...baseStyle, animationName: 'spinPath', transformOrigin: tOrigin, animationDirection: finalDirection };
+                    if (entry.degree !== undefined) {
+                        // @ts-ignore
+                        spinStyle['--spin-degree'] = `${entry.degree}deg`;
+                    }
+                    groupAnimations.push(spinStyle);
                     break;
-                case 'bounce':
-                    groupAnimations.push({ ...baseStyle, animationName: 'bouncePath', transformOrigin: tOrigin, animationDirection: finalDirection });
+                }
+                case 'bounce': {
+                    const bounceStyle = { ...baseStyle, animationName: 'bouncePath', transformOrigin: tOrigin, animationDirection: finalDirection };
+                    if (entry.amplitude !== undefined) {
+                        // @ts-ignore
+                        bounceStyle['--bounce-amp'] = entry.amplitude / 100; // Expected entry.amplitude is like 15 for 0.15 offset
+                    }
+                    groupAnimations.push(bounceStyle);
                     break;
+                }
                 case 'glow': {
                     const glowStyle = { ...baseStyle, animationName: 'glowPath', animationDirection: finalDirection };
                     // @ts-ignore
@@ -179,12 +190,24 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     groupAnimations.push(glowStyle);
                     break;
                 }
-                case 'shake':
-                    groupAnimations.push({ ...baseStyle, animationName: 'shakePath', animationDirection: finalDirection });
+                case 'shake': {
+                    const shakeStyle = { ...baseStyle, animationName: 'shakePath', animationDirection: finalDirection };
+                    if (entry.amplitude !== undefined) {
+                        // @ts-ignore
+                        shakeStyle['--shake-dist'] = `${entry.amplitude}px`;
+                    }
+                    groupAnimations.push(shakeStyle);
                     break;
-                case 'swing':
-                    groupAnimations.push({ ...baseStyle, animationName: 'swingPath', transformOrigin: tOrigin, animationDirection: finalDirection });
+                }
+                case 'swing': {
+                    const swingStyle = { ...baseStyle, animationName: 'swingPath', transformOrigin: tOrigin, animationDirection: finalDirection };
+                    if (entry.degree !== undefined) {
+                        // @ts-ignore
+                        swingStyle['--swing-degree'] = `${entry.degree}deg`;
+                    }
+                    groupAnimations.push(swingStyle);
                     break;
+                }
                 case 'tada':
                     groupAnimations.push({ ...baseStyle, animationName: 'tadaPath', transformOrigin: tOrigin, animationDirection: finalDirection });
                     break;
@@ -252,13 +275,13 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     }
                     @keyframes spinPath {
                         from { transform: rotate(0deg); }
-                        to { transform: rotate(360deg); }
+                        to { transform: rotate(var(--spin-degree, 360deg)); }
                     }
                     @keyframes bouncePath {
                         0%, 100% { transform: scale(1); }
-                        40% { transform: scale(1.15, 0.85); }
-                        60% { transform: scale(0.9, 1.1); }
-                        80% { transform: scale(1.05, 0.95); }
+                        40% { transform: scale(calc(1 + var(--bounce-amp, 0.15)), calc(1 - var(--bounce-amp, 0.15))); }
+                        60% { transform: scale(calc(1 - var(--bounce-amp, 0.15) * 0.6), calc(1 + var(--bounce-amp, 0.15) * 0.6)); }
+                        80% { transform: scale(calc(1 + var(--bounce-amp, 0.15) * 0.3), calc(1 - var(--bounce-amp, 0.15) * 0.3)); }
                     }
                     @keyframes glowPath {
                         0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color)) brightness(1); }
@@ -266,12 +289,12 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     }
                     @keyframes shakePath {
                         0%, 100% { transform: translateX(0); }
-                        25% { transform: translateX(-4px); }
-                        75% { transform: translateX(4px); }
+                        25% { transform: translateX(calc(-1 * var(--shake-dist, 4px))); }
+                        75% { transform: translateX(var(--shake-dist, 4px)); }
                     }
                     @keyframes swingPath {
-                        0%, 100% { transform: rotate(-10deg); }
-                        50% { transform: rotate(10deg); }
+                        0%, 100% { transform: rotate(calc(-1 * var(--swing-degree, 10deg))); }
+                        50% { transform: rotate(var(--swing-degree, 10deg)); }
                     }
                     @keyframes tadaPath {
                         0% { transform: scale(1); }
