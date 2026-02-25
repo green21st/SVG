@@ -33,11 +33,7 @@ function useDraw() {
     const [fillOpacity, setFillOpacity] = useState<number>(1);
     const [fontFamily, setFontFamily] = useState<string>('Inter, system-ui, sans-serif');
     const [animation, setAnimation] = useState<AnimationSettings>({
-        types: [],
-        duration: 2,
-        delay: 0,
-        ease: 'ease-in-out',
-        direction: 'forward'
+        entries: []
     });
     const [filter, setFilter] = useState<string>('none');
     const [interactive, setInteractive] = useState<boolean>(false);
@@ -280,11 +276,7 @@ function useDraw() {
                 setFilter(prev => prev !== targetFilter ? targetFilter : prev);
 
                 const targetAnimation = (hasFocusedSegment ? path.segmentAnimations?.[segmentIndex] : undefined) || path.animation || {
-                    types: [],
-                    duration: 2,
-                    delay: 0,
-                    ease: 'ease-in-out',
-                    direction: 'forward'
+                    entries: []
                 };
 
                 setAnimation(prev => {
@@ -412,10 +404,11 @@ function useDraw() {
             p.segmentWidths || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.width) : [p.width])
         );
         // Each sub-path retains its own animation; the whole-layer animation is reset on merge.
+        const emptyAnim: AnimationSettings = { entries: [] };
         const segmentAnimations = sortedSelected.flatMap(p =>
             p.segmentAnimations || (p.multiPathPoints
-                ? Array(p.multiPathPoints.length).fill(p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' })
-                : [p.animation || { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' }])
+                ? Array(p.multiPathPoints.length).fill(p.animation || emptyAnim)
+                : [p.animation || emptyAnim])
         );
 
         const segmentClosed = sortedSelected.flatMap(p =>
@@ -462,7 +455,7 @@ function useDraw() {
             segmentKeyframes,
             segmentTransforms,
             // Reset whole-layer animation on merge — sub-paths keep their own via segmentAnimations
-            animation: { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' } as AnimationSettings,
+            animation: { entries: [] } as AnimationSettings,
             keyframes: [],
             transform: { x: 0, y: 0, rotation: 0, scale: 1 },
         };
@@ -681,7 +674,7 @@ function useDraw() {
         setIsInteracting(!commit);
         setAnimation(anim);
         updateSelectedPathProperty(p => {
-            const defaultAnim: AnimationSettings = { types: [], duration: 2, delay: 0, ease: 'linear', direction: 'forward' };
+            const defaultAnim: AnimationSettings = { entries: [] };
             if (p.multiPathPoints) {
                 if (focusedSegmentIndices.length > 0) {
                     // Focus mode: only update the focused segments' animations

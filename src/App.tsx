@@ -307,6 +307,19 @@ const CHANGELOG = [
     items: ['新增绘图区顶点数实时统计显示，位于绘图区右上方', '优化 UI 布局，顶点数统计采用磨砂玻璃质感设计']
   },
   {
+    version: 'v26.0225.1210',
+    date: '2026-02-25',
+    items: [
+      '重构动画面板：全新多动画 Slot 设计，支持最多9条独立动画',
+      '每条动画独立拥有 duration、delay、ease、direction 参数',
+      '点击 + 号弹出选择面板，选择动画类型后自动填入按 delay 排序的空位',
+      '点击已填充 Slot 展开参数调节行，支持实时修改；修改 delay 后 slot 自动重新排序',
+      'OFF 按钮：一键暂停所有动画（保留 entries 参数不丢失）',
+      'AnimationSettings 数据结构完全重构：用 entries: AnimationEntry[] 替代原有 types[] + 共享参数',
+      '同步更新 SVG 导出逻辑与 Canvas 渲染逻辑'
+    ]
+  },
+  {
     version: 'v26.0215.1805',
     date: '2026-02-15',
     items: ['新增图层批量操作功能：多选图层后点击任意锁定、可见性或删除按钮即可应用至所有选中项', '图层面板新增“全选”与“取消全选”便捷按钮']
@@ -567,6 +580,8 @@ function App() {
   /* Animation Control */
   const [animationPaused, setAnimationPaused] = React.useState(false);
   const [animationResetKey, setAnimationResetKey] = React.useState(0);
+  const [showAnimPicker, setShowAnimPicker] = useState(false);
+  const [showAnimPickerSlot, setShowAnimPickerSlot] = useState<string | null>(null);
   const [topTextInput, setTopTextInput] = useState('');
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const zoomTimeoutRef = useRef<any>(null);
@@ -688,16 +703,16 @@ function App() {
     // Collect all used animation types
     const usedAnimations = new Set<string>();
     paths.filter(p => p.visible !== false).forEach(path => {
-      if (path.animation?.types) {
-        path.animation.types.forEach(type => {
-          if (type !== 'none') usedAnimations.add(type);
+      if (path.animation?.entries) {
+        path.animation.entries.forEach(entry => {
+          usedAnimations.add(entry.type);
         });
       }
       if (path.segmentAnimations) {
         path.segmentAnimations.forEach(anim => {
-          if (anim?.types) {
-            anim.types.forEach(type => {
-              if (type !== 'none') usedAnimations.add(type);
+          if (anim?.entries) {
+            anim.entries.forEach(entry => {
+              usedAnimations.add(entry.type);
             });
           }
         });
@@ -780,7 +795,7 @@ function App() {
           const transform = ` transform="translate(${pt.x}, ${pt.y}) scale(${sx}, ${sy}) rotate(${rotation})"`;
           const fill = path.fill || path.color || '#22d3ee';
           const glowColor = (path.color && path.color !== 'none') ? path.color : (fill && fill !== 'none' ? fill : '#22d3ee');
-          const glowStyle = path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : '';
+          const glowStyle = path.animation?.entries?.some(e => e.type === 'glow') ? ` style="--glow-color: ${glowColor};"` : '';
           const textNode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
           finalCode = path.interactive ? `<g class="interactive-ui">${textNode}</g>` : textNode;
         } else {
@@ -804,9 +819,9 @@ function App() {
               let animWrapperStart = '';
               let animWrapperEnd = '';
 
-              if (segAnim && segAnim.types && segAnim.types.length > 0) {
-                const { types, duration, delay, ease, direction = 'forward' } = segAnim;
-                types.filter(t => t !== 'none').forEach(type => {
+              if (segAnim && segAnim.entries && segAnim.entries.length > 0) {
+                segAnim.entries.forEach(entry => {
+                  const { type, duration, delay, ease, direction = 'forward' } = entry;
                   let finalDirection = direction === 'forward' ? 'normal' : direction === 'alternate' ? 'alternate' : 'reverse';
                   if (type === 'spin' && (v.type === 'H' || v.type === 'V')) {
                     if (finalDirection === 'normal') finalDirection = 'reverse';
@@ -814,13 +829,14 @@ function App() {
                   }
 
                   let animStyle = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards; `;
-                  if (type.includes('glow')) {
+                  if (type === 'glow') {
                     const glowColor = (segColor && segColor !== 'none') ? segColor : (segFill && segFill !== 'none' ? segFill : '#22d3ee');
                     animStyle += `--glow-color: ${glowColor}; `;
                   }
                   if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
                   if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
                   if (['spin', 'bounce', 'swing', 'tada'].includes(type)) {
+                    const segTrans = path.segmentTransforms?.[firstSIdx];
                     const px = segTrans?.px || 0;
                     const py = segTrans?.py || 0;
                     animStyle += `transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box; `;
@@ -866,21 +882,23 @@ function App() {
             const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
             const filterAttr = path.filter && path.filter !== 'none' ? ` filter="${path.filter}"` : '';
-            const pathNode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${path.animation?.types.includes('glow') ? ` style="--glow-color: ${glowColor};"` : ''}${filterAttr} />`;
+            const hasGlowAnim = path.animation?.entries?.some(e => e.type === 'glow') ?? false;
+            const pathNode = `\t<path d="${d}" stroke="${path.color || 'none'}" stroke-opacity="${sOp}" stroke-width="${path.width ?? 2}" fill="${path.fill || 'none'}" fill-opacity="${fOp}" stroke-linecap="round" stroke-linejoin="round"${hasGlowAnim ? ` style="--glow-color: ${glowColor};"` : ''}${filterAttr} />`;
             finalCode = path.interactive ? `<g class="interactive-ui">${pathNode}</g>` : pathNode;
           }
         }
 
-        if (path.animation && path.animation.types.length > 0) {
-          const { types, duration, delay, ease, direction = 'forward' } = path.animation;
+        if (path.animation && path.animation.entries && path.animation.entries.length > 0) {
+          const entries = path.animation.entries;
 
-          types.filter(t => t !== 'none').forEach(type => {
+          entries.forEach(entry => {
+            const { type, duration, delay, ease, direction = 'forward' } = entry;
             let finalDirection: 'normal' | 'reverse' | 'alternate' | 'alternate-reverse' =
               direction === 'forward' ? 'normal' :
                 direction === 'alternate' ? 'alternate' : 'reverse';
 
             let styleStr = `animation: ${type}Path ${duration}s ${ease} ${delay}s infinite forwards;`;
-            if (path.animation?.types.includes('glow')) {
+            if (type === 'glow') {
               const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
               styleStr += ` --glow-color: ${glowColor};`;
             }
@@ -1011,7 +1029,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1010
+              v26.0225.1210
             </button>
           </h1>
         </div>
@@ -1335,127 +1353,244 @@ ${pathsCode}
             </div>
           </div>
 
-          {/* Animation Controls Panel - Compact Version */}
-          <div className="w-[800px] mt-2 p-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden">
-            <div className="flex items-center gap-3">
-              {/* Animation Play/Pause Toggle */}
-              <div className="flex items-center gap-2 border-r border-white/5 pr-4">
-                <button
-                  onClick={() => setAnimationPaused(!animationPaused)}
-                  className={`p-1.5 rounded-md transition-all hover:scale-110 active:scale-95 ${animationPaused
-                    ? 'bg-amber-500/20 text-amber-400'
-                    : 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
-                    }`}
-                  title={animationPaused ? '播放动画' : '暂停动画'}
-                >
-                  {animationPaused ? (
-                    <Play className="w-3.5 h-3.5" fill="currentColor" />
-                  ) : (
-                    <Pause className="w-3.5 h-3.5" fill="currentColor" />
-                  )}
-                </button>
-                <button
-                  onClick={() => {
-                    setAnimationResetKey(prev => prev + 1);
-                    setAnimationPaused(true);
-                  }}
-                  className="p-1.5 rounded-md transition-all hover:scale-110 active:scale-95 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
-                  title="停止动画"
-                >
-                  <SquareIcon className="w-3.5 h-3.5" fill="currentColor" />
-                </button>
-                <div className="grid grid-cols-5 bg-black/40 rounded-lg p-0.5 border border-white/5 gap-0.5">
-                  {(['none', 'draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'] as const).map((type) => (
+          {/* Animation Controls Panel - Multi-Slot Version */}
+          {(() => {
+            const ANIM_TYPES: import('./types').AnimationType[] = ['draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'];
+            const ANIM_COLORS: Record<string, string> = {
+              draw: 'text-cyan-400 bg-cyan-500/20 border-cyan-500/40',
+              pulse: 'text-violet-400 bg-violet-500/20 border-violet-500/40',
+              float: 'text-sky-400 bg-sky-500/20 border-sky-500/40',
+              spin: 'text-blue-400 bg-blue-500/20 border-blue-500/40',
+              bounce: 'text-green-400 bg-green-500/20 border-green-500/40',
+              glow: 'text-amber-400 bg-amber-500/20 border-amber-500/40',
+              shake: 'text-red-400 bg-red-500/20 border-red-500/40',
+              swing: 'text-pink-400 bg-pink-500/20 border-pink-500/40',
+              tada: 'text-orange-400 bg-orange-500/20 border-orange-500/40',
+            };
+            const EASE_OPTIONS = [
+              { value: 'linear', label: 'Linear' },
+              { value: 'ease', label: 'Ease' },
+              { value: 'ease-in-out', label: 'Smooth' },
+              { value: 'cubic-bezier(0.34, 1.56, 0.64, 1)', label: 'Elastic' },
+            ];
+
+            const entries = animation.entries ?? [];
+            const sortedEntries = [...entries].sort((a, b) => a.delay - b.delay);
+            const isAnimOff = animation.paused === true;
+            const canAddMore = sortedEntries.length < 9;
+
+            const updateEntry = (id: string, patch: Partial<import('./types').AnimationEntry>) => {
+              const newEntries = entries.map(e => e.id === id ? { ...e, ...patch } : e)
+                .sort((a, b) => a.delay - b.delay);
+              setAnimation({ ...animation, entries: newEntries });
+            };
+
+            const removeEntry = (id: string) => {
+              const newEntries = entries.filter(e => e.id !== id);
+              setAnimation({ ...animation, entries: newEntries });
+            };
+
+            return (
+              <div className="w-[800px] mt-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden">
+                {/* Top Row: controls */}
+                <div className="flex items-center gap-2 p-2">
+                  {/* Play/Stop */}
+                  <div className="flex items-center gap-1.5 border-r border-white/5 pr-3">
                     <button
-                      key={type}
-                      onClick={() => {
-                        if (type === 'none') {
-                          setAnimation({ ...animation, types: [] });
-                        } else {
-                          const newTypes = animation.types.includes(type)
-                            ? animation.types.filter(t => t !== type)
-                            : [...animation.types, type];
-                          setAnimation({ ...animation, types: newTypes });
-                        }
-                      }}
-                      className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase transition-all ${(type === 'none' && animation.types.length === 0) || (type !== 'none' && animation.types.includes(type))
-                        ? 'bg-indigo-500 text-white' : 'text-slate-400 hover:text-white'
+                      onClick={() => setAnimationPaused(!animationPaused)}
+                      className={`p-1.5 rounded-md transition-all hover:scale-110 active:scale-95 ${animationPaused
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30'
                         }`}
+                      title={animationPaused ? '播放动画' : '暂停动画'}
                     >
-                      {type === 'none' ? 'OFF' : type}
+                      {animationPaused ? (
+                        <Play className="w-3.5 h-3.5" fill="currentColor" />
+                      ) : (
+                        <Pause className="w-3.5 h-3.5" fill="currentColor" />
+                      )}
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              {animation.types.length > 0 && (
-                <div className="flex-1 grid grid-cols-5 gap-2 animate-in fade-in slide-in-from-left-2 duration-300 items-center">
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
-                      <span>Time</span>
-                      <span className="text-indigo-400">{animation.duration}s</span>
-                    </div>
-                    <input
-                      type="range" min="0.5" max="10" step="0.1" value={animation.duration}
-                      onChange={(e) => setAnimation({ ...animation, duration: parseFloat(e.target.value) })}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
-                      <span>Delay</span>
-                      <span className="text-indigo-400">{animation.delay}s</span>
-                    </div>
-                    <input
-                      type="range" min="0" max="5" step="0.1" value={animation.delay}
-                      onChange={(e) => setAnimation({ ...animation, delay: parseFloat(e.target.value) })}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
-                      <span>Ease</span>
-                    </div>
-                    <select
-                      value={animation.ease}
-                      onChange={(e) => setAnimation({ ...animation, ease: e.target.value })}
-                      className="bg-black/40 border border-white/5 rounded px-1.5 py-0.5 text-[9px] text-white focus:outline-none"
+                    <button
+                      onClick={() => {
+                        setAnimationResetKey(prev => prev + 1);
+                        setAnimationPaused(true);
+                      }}
+                      className="p-1.5 rounded-md transition-all hover:scale-110 active:scale-95 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
+                      title="停止动画"
                     >
-                      <option value="linear">Linear</option>
-                      <option value="ease">Ease</option>
-                      <option value="ease-in-out">Smooth</option>
-                      <option value="cubic-bezier(0.34, 1.56, 0.64, 1)">Elastic</option>
-                    </select>
+                      <SquareIcon className="w-3.5 h-3.5" fill="currentColor" />
+                    </button>
                   </div>
 
-                  <div className="flex flex-col gap-0.5 col-span-1">
-                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
-                      <span>Direction</span>
-                    </div>
-                    <div className="flex bg-black/40 rounded p-0.5 border border-white/5">
-                      {(['forward', 'reverse', 'alternate'] as const).map((dir) => (
-                        <button
-                          key={dir}
-                          onClick={() => setAnimation({ ...animation, direction: dir })}
-                          className={`flex-1 py-0.5 rounded text-[9px] font-medium transition-all ${animation.direction === dir ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}
+                  {/* OFF Button */}
+                  <button
+                    onClick={() => setAnimation({ ...animation, paused: !isAnimOff })}
+                    className={`px-2 py-1 rounded text-[9px] font-bold uppercase transition-all border ${isAnimOff
+                      ? 'bg-slate-700 text-white border-slate-600'
+                      : 'text-slate-500 border-slate-700/50 hover:text-white hover:border-slate-600'
+                      }`}
+                    title={isAnimOff ? '动画已关闭，点击开启' : '关闭动画（保留参数）'}
+                  >
+                    OFF
+                  </button>
+
+                  {/* 9 Slots */}
+                  <div className="flex gap-1 flex-1">
+                    {Array.from({ length: 9 }).map((_, i) => {
+                      const entry = sortedEntries[i];
+                      const isSelected = entry && showAnimPickerSlot === entry.id;
+                      if (entry) {
+                        const colorClass = ANIM_COLORS[entry.type] || 'text-slate-400 bg-slate-700/40 border-slate-600/40';
+                        return (
+                          <button
+                            key={entry.id}
+                            onClick={() => setShowAnimPickerSlot(prev => prev === entry.id ? null : entry.id)}
+                            className={`flex-1 h-7 rounded border text-[9px] font-bold uppercase transition-all ${isSelected
+                              ? colorClass + ' ring-1 ring-current scale-[1.04]'
+                              : colorClass + ' opacity-80 hover:opacity-100'
+                              }`}
+                            title={`${entry.type} · delay ${entry.delay}s`}
+                          >
+                            {entry.type.slice(0, 3)}
+                          </button>
+                        );
+                      }
+                      // Empty slot
+                      return (
+                        <div key={`empty-${i}`} className="flex-1 h-7 rounded border border-dashed border-slate-700/40 bg-slate-800/20" />
+                      );
+                    })}
+                  </div>
+
+                  {/* Add Button */}
+                  <button
+                    onClick={() => setShowAnimPicker(p => !p)}
+                    disabled={!canAddMore}
+                    className={`w-7 h-7 rounded border flex items-center justify-center text-xs font-bold transition-all ${canAddMore
+                      ? 'border-indigo-500/50 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:scale-110 active:scale-95'
+                      : 'border-slate-700/40 bg-slate-800/20 text-slate-600 cursor-not-allowed'
+                      }`}
+                    title={canAddMore ? '添加动画' : '已达最大数量（9条）'}
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Params Row: when a slot is selected */}
+                {showAnimPickerSlot && (() => {
+                  const entry = entries.find(e => e.id === showAnimPickerSlot);
+                  if (!entry) return null;
+                  const colorClass = ANIM_COLORS[entry.type] || '';
+                  return (
+                    <div className="border-t border-white/5 px-3 py-2 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                      {/* Type Badge */}
+                      <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${colorClass} shrink-0`}>
+                        {entry.type}
+                      </div>
+                      <div className="w-px h-4 bg-white/10 shrink-0" />
+
+                      {/* Duration */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[8px] font-bold text-slate-500 uppercase">Dur</span>
+                        <input
+                          type="number"
+                          min={0.1} max={20} step={0.1}
+                          value={entry.duration}
+                          onChange={e => updateEntry(entry.id, { duration: Math.max(0.1, parseFloat(e.target.value) || 0.1) })}
+                          className="w-14 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
+                        />
+                        <span className="text-[8px] text-slate-600">s</span>
+                      </div>
+
+                      {/* Delay */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[8px] font-bold text-slate-500 uppercase">Delay</span>
+                        <input
+                          type="number"
+                          min={0} max={30} step={0.1}
+                          value={entry.delay}
+                          onChange={e => updateEntry(entry.id, { delay: Math.max(0, parseFloat(e.target.value) || 0) })}
+                          className="w-14 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
+                        />
+                        <span className="text-[8px] text-slate-600">s</span>
+                      </div>
+
+                      {/* Ease */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[8px] font-bold text-slate-500 uppercase">Ease</span>
+                        <select
+                          value={entry.ease}
+                          onChange={e => updateEntry(entry.id, { ease: e.target.value })}
+                          className="bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[9px] text-white focus:outline-none focus:border-indigo-500/50"
                         >
-                          {dir.charAt(0).toUpperCase()}
-                        </button>
-                      ))}
+                          {EASE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      </div>
+
+                      {/* Direction */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[8px] font-bold text-slate-500 uppercase">Dir</span>
+                        <select
+                          value={entry.direction}
+                          onChange={e => updateEntry(entry.id, { direction: e.target.value as any })}
+                          className="bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[9px] text-white focus:outline-none focus:border-indigo-500/50"
+                        >
+                          <option value="forward">Forward</option>
+                          <option value="reverse">Reverse</option>
+                          <option value="alternate">Alternate</option>
+                        </select>
+                      </div>
+
+                      <div className="flex-1" />
+
+                      {/* Delete */}
+                      <button
+                        onClick={() => { removeEntry(entry.id); setShowAnimPickerSlot(null); }}
+                        className="p-1 rounded text-rose-400 hover:bg-rose-500/20 transition-all active:scale-95"
+                        title="删除此动画"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {/* Animation Type Picker Popup */}
+                {showAnimPicker && (
+                  <div className="border-t border-white/5 px-3 py-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="text-[8px] font-black uppercase text-slate-500 tracking-widest mb-2">选择动画类型</div>
+                    <div className="grid grid-cols-9 gap-1.5">
+                      {ANIM_TYPES.map(type => {
+                        const colorClass = ANIM_COLORS[type] || '';
+                        return (
+                          <button
+                            key={type}
+                            onClick={() => {
+                              const newEntry: import('./types').AnimationEntry = {
+                                id: `anim-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                                type,
+                                duration: 2,
+                                delay: 0,
+                                ease: 'ease-in-out',
+                                direction: 'forward',
+                              };
+                              const newEntries = [...entries, newEntry].sort((a, b) => a.delay - b.delay);
+                              setAnimation({ ...animation, entries: newEntries });
+                              setShowAnimPicker(false);
+                              setShowAnimPickerSlot(newEntry.id);
+                            }}
+                            className={`py-1 rounded border text-[9px] font-bold uppercase transition-all hover:scale-105 active:scale-95 ${colorClass}`}
+                          >
+                            {type}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
-              )}
-
-              {animation.types.length === 0 && (
-                <div className="flex-1 text-[10px] text-slate-600 font-medium italic">
-                  Select an effect to unlock motion controls
-                </div>
-              )}
-            </div>
-          </div>
+                )}
+              </div>
+            );
+          })()}
 
           <Timeline
             currentTime={currentTime}

@@ -108,15 +108,19 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         originX?: number,
         originY?: number
     ) => {
-        if (!anim || !anim.types || anim.types.length === 0) {
+        if (!anim || !anim.entries || anim.entries.length === 0) {
+            return { pathStyles: {}, groupAnimations: [] };
+        }
+        // Respect the OFF toggle (paused flag on AnimationSettings)
+        if (anim.paused) {
             return { pathStyles: {}, groupAnimations: [] };
         }
 
-        const { types, duration, delay, ease, direction = 'forward' } = anim;
         let pathStyles: React.CSSProperties = {};
         const groupAnimations: React.CSSProperties[] = [];
 
-        types.filter(t => t !== 'none').forEach(type => {
+        anim.entries.forEach(entry => {
+            const { type, duration, delay, ease, direction = 'forward' } = entry;
             const baseStyle: React.CSSProperties = {
                 animationDuration: `${duration}s`,
                 animationDelay: `${delay}s`,
@@ -149,7 +153,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 case 'pulse':
                     groupAnimations.push({ ...baseStyle, animationName: 'pulsePath', animationDirection: finalDirection });
                     break;
-                case 'float':
+                case 'float': {
                     const floatStyle = { ...baseStyle, animationName: 'floatPath', animationDirection: finalDirection };
                     if (variantType === 'V' || variantType === 'C') {
                         // @ts-ignore
@@ -157,6 +161,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                     }
                     groupAnimations.push(floatStyle);
                     break;
+                }
                 case 'spin':
                     if (variantType === 'H' || variantType === 'V') {
                         if (finalDirection === 'normal') finalDirection = 'reverse';
@@ -167,12 +172,13 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 case 'bounce':
                     groupAnimations.push({ ...baseStyle, animationName: 'bouncePath', transformOrigin: tOrigin, animationDirection: finalDirection });
                     break;
-                case 'glow':
+                case 'glow': {
                     const glowStyle = { ...baseStyle, animationName: 'glowPath', animationDirection: finalDirection };
                     // @ts-ignore
                     glowStyle['--glow-color'] = color;
                     groupAnimations.push(glowStyle);
                     break;
+                }
                 case 'shake':
                     groupAnimations.push({ ...baseStyle, animationName: 'shakePath', animationDirection: finalDirection });
                     break;
@@ -801,6 +807,7 @@ interface CanvasProps {
     isVertexEditEnabled: boolean;
     onPointerUp: () => void;
     canvasBgColor?: string;
+    animationResetKey?: number;
 }
 
 const Canvas: React.FC<CanvasProps> = ({

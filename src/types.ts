@@ -21,6 +21,25 @@ export interface AnimationKeyframe {
     ease: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
 }
 
+export type AnimationType = 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';
+
+/** 单条动画记录，每条动画独立拥有完整参数 */
+export interface AnimationEntry {
+    id: string;
+    type: AnimationType;
+    duration: number;  // in seconds
+    delay: number;     // in seconds
+    ease: string;
+    direction: 'forward' | 'reverse' | 'alternate';
+}
+
+/** 动画设置：以 entries 数组承载多条独立动画 */
+export interface AnimationSettings {
+    entries: AnimationEntry[];
+    /** 是否暂停（仅用于 OFF 按钮状态） */
+    paused?: boolean;
+}
+
 export interface PathLayer {
     id: string;
     points: Point[];
@@ -61,16 +80,6 @@ export interface PathLayer {
     segmentFilters?: string[];
     interactive?: boolean;
     segmentInteractive?: boolean[];
-}
-
-export type AnimationType = 'none' | 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';
-
-export interface AnimationSettings {
-    types: AnimationType[];
-    duration: number; // in seconds
-    delay: number; // in seconds
-    ease: string;
-    direction?: 'forward' | 'reverse' | 'alternate';
 }
 
 export interface SymmetrySettings {
