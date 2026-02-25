@@ -441,8 +441,8 @@ function useDraw() {
             if (p.multiPathPoints) {
                 return p.segmentTransforms || p.multiPathPoints.map(() => undefined);
             }
-            const t = p.transform;
-            return [t && (t.x !== 0 || t.y !== 0 || t.rotation !== 0 || (t.scale ?? 1) !== 1) ? t : undefined];
+            // Always return the transform to preserve px/py (pivot point) and other states
+            return [p.transform || { x: 0, y: 0, rotation: 0, scale: 1 }];
         });
 
         const mergedPath: PathLayer = {
@@ -499,6 +499,8 @@ function useDraw() {
                         const aArr = p.segmentAnimations?.slice(sIdx, sIdx + count);
                         const clArr = p.segmentClosed?.slice(sIdx, sIdx + count);
                         const tArr = p.segmentTensions?.slice(sIdx, sIdx + count);
+                        const stArr = p.segmentTransforms?.slice(sIdx, sIdx + count);
+                        const skArr = p.segmentKeyframes?.slice(sIdx, sIdx + count);
 
                         newPaths.push({
                             ...p,
@@ -519,7 +521,11 @@ function useDraw() {
                             width: wArr?.[0] ?? p.width,
                             animation: aArr?.[0] ?? p.animation,
                             closed: clArr?.[0] ?? p.closed,
-                            tension: tArr?.[0] ?? p.tension
+                            tension: tArr?.[0] ?? p.tension,
+                            transform: (count === 1 && stArr?.[0]) ? stArr[0] : p.transform,
+                            keyframes: (count === 1 && skArr?.[0]) ? skArr[0] : p.keyframes,
+                            segmentTransforms: count > 1 ? stArr : undefined,
+                            segmentKeyframes: count > 1 ? skArr : undefined
                         });
 
                         sIdx += count;
@@ -873,6 +879,9 @@ function useDraw() {
                 const rect = canvasRef.current!.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
+                const svgPt = getPointFromEvent(e) || { x: mouseX, y: mouseY };
+                const svgX = svgPt.x;
+                const svgY = svgPt.y;
 
                 setTransformPivot(pivot);
                 setTransformHandle(handleType);
@@ -913,7 +922,7 @@ function useDraw() {
 
                 if (handleType === 'rotate') {
                     setTransformMode('rotate');
-                    const startAngle = Math.atan2(mouseY - pivot.y, mouseX - pivot.x);
+                    const startAngle = Math.atan2(svgY - pivot.y, svgX - pivot.x);
                     setInitialAngle(startAngle);
                     setRotationStartAngle(startAngle);
                     setCurrentRotationDelta(0);
@@ -921,7 +930,7 @@ function useDraw() {
                     setTransformMode('pivot');
                 } else {
                     setTransformMode('scale');
-                    setInitialDist(Math.sqrt(Math.pow(mouseX - pivot.x, 2) + Math.pow(mouseY - pivot.y, 2)));
+                    setInitialDist(Math.sqrt(Math.pow(svgX - pivot.x, 2) + Math.pow(svgY - pivot.y, 2)));
                 }
 
                 dragStartPathsRef.current = JSON.parse(JSON.stringify(paths));
@@ -1492,13 +1501,13 @@ function useDraw() {
                                             newSegTransform.y = initialSegTransform.y + dy;
                                             setCurrentTranslationDelta({ x: dx, y: dy });
                                         } else if (transformMode === 'rotate' && transformPivot) {
-                                            const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
+                                            const currentAngle = Math.atan2(point.y - transformPivot.y, point.x - transformPivot.x);
                                             let deltaDegrees = ((currentAngle - initialAngle) * 180) / Math.PI;
                                             if (isShiftPressed) deltaDegrees = Math.round(deltaDegrees / 15) * 15;
                                             newSegTransform.rotation = initialSegTransform.rotation + deltaDegrees;
                                             setCurrentRotationDelta(deltaDegrees);
                                         } else if (transformMode === 'scale' && transformPivot) {
-                                            const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
+                                            const currentDist = Math.sqrt(Math.pow(point.x - transformPivot.x, 2) + Math.pow(point.y - transformPivot.y, 2));
                                             const scaleFactor = currentDist / initialDist;
                                             newSegTransform.scale = initialSegTransform.scale * scaleFactor;
                                             setCurrentScaleFactor(scaleFactor);
@@ -1562,7 +1571,7 @@ function useDraw() {
                                     newTransform.y = initialTransform.y + dy;
                                     setCurrentTranslationDelta({ x: dx, y: dy });
                                 } else if (transformMode === 'rotate' && transformPivot) {
-                                    const currentAngle = Math.atan2(mouseY - transformPivot.y, mouseX - transformPivot.x);
+                                    const currentAngle = Math.atan2(point.y - transformPivot.y, point.x - transformPivot.x);
                                     let deltaDegrees = ((currentAngle - initialAngle) * 180) / Math.PI;
                                     if (isShiftPressed) {
                                         deltaDegrees = Math.round(deltaDegrees / 15) * 15;
@@ -1570,7 +1579,7 @@ function useDraw() {
                                     newTransform.rotation = initialTransform.rotation + deltaDegrees;
                                     setCurrentRotationDelta(deltaDegrees);
                                 } else if (transformMode === 'scale' && transformPivot) {
-                                    const currentDist = Math.sqrt(Math.pow(mouseX - transformPivot.x, 2) + Math.pow(mouseY - transformPivot.y, 2));
+                                    const currentDist = Math.sqrt(Math.pow(point.x - transformPivot.x, 2) + Math.pow(point.y - transformPivot.y, 2));
                                     const scaleFactor = currentDist / initialDist;
                                     newTransform.scale = initialTransform.scale * scaleFactor;
                                     setCurrentScaleFactor(scaleFactor);

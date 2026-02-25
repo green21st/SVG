@@ -12,6 +12,14 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  { version: 'v26.0225.1010', date: '2026-02-25', items: ['简化编辑体验：取消包围盒与变换手柄的 CSS 预设动画跟随，使其在图形执行旋转、跳动等动画时保持静止，避免视觉干扰与操作漂移'] },
+  { version: 'v26.0225.0945', date: '2026-02-25', items: ['彻底解决旋转不同步：统一图形与控制框的动态轴心坐标，消除因关键帧偏移、双重动画叠加导致的包围盒与图形实时渲染错位问题'] },
+  { version: 'v26.0225.0935', date: '2026-02-25', items: ['完美同步包围盒：修复取消选择后重选导致的控制框滞后/跳变问题，通过统一图形与手柄的动画基准点（Stable Center），确保交互反馈毫无延迟'] },
+  { version: 'v26.0225.0950', date: '2026-02-25', items: ['深度同步动画与包围盒：引入稳定中心点参考机制，彻底解决在编辑模式下切换选中状态时，预设动画（旋转、跳动等）参考坐标突变导致的包围盒与图形脱节问题'] },
+  { version: 'v26.0225.0930', date: '2026-02-25', items: ['紧急修复手柄失效问题：将 ID 标识重新绑定至交互热区元素，解决上一版本优化导致的变换手柄无法选中的回归 Bug'] },
+  { version: 'v26.0225.0925', date: '2026-02-25', items: ['精准对齐变换手柄：修复旋转与缩放手柄的视觉偏移问题，确保点击判定点与图标位置完美重合，并增大盲选判定范围'] },
+  { version: 'v26.0225.0910', date: '2026-02-25', items: ['修复编辑模式变换手柄：统一鼠标点击与变换轴心的坐标空间，解决缩放或位移后旋转/等比缩动手柄失效的问题'] },
+  { version: 'v26.0225.0900', date: '2026-02-25', items: ['合并/拆分逻辑增强：合并图层或拆分图层时，完美保留子图形的独立中心点（Pivot）及关键帧动画，确保图层结构变化不影响既有动画表现'] },
   { version: 'v26.0225.0055', date: '2026-02-25', items: ['深度同步包围盒与动画：将预设动画（旋转、弹跳等）的变换坐标系统一至 SVG 绝对坐标空间，彻底解决动画过程中包围盒与图形位移不同步、中心点偏移的问题'] },
   { version: 'v26.0225.0040', date: '2026-02-25', items: ['优化 Pivot Point 交互体验：修复拖拽中心点时不跟随鼠标的偏移问题及缩放补偿，增大点击判定范围并使装饰图标忽略点击，提升精准度与易用性'] },
   { version: 'v26.0225.0020', date: '2026-02-25', items: ['根本修复 Pivot Point 旋转中心偏差问题：弃用 fill-box 相对坐标，改用 SVG viewBox 绝对坐标精准锚定旋转轴位置，确保瞄准镜所在位置与实际旋转中心完全重合'] },
@@ -579,7 +587,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0225.0055`);
+    console.log(`Fantastic SVG v26.0225.1010`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -1002,7 +1010,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.0055
+              v26.0225.1010
             </button>
           </h1>
         </div>
