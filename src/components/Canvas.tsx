@@ -214,6 +214,22 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 case 'tada':
                     groupAnimations.push({ ...baseStyle, animationName: 'tadaPath', transformOrigin: tOrigin, animationDirection: finalDirection });
                     break;
+                case 'jump': {
+                    const jumpStyle: React.CSSProperties = {
+                        ...baseStyle,
+                        animationName: 'jumpPath',
+                        animationTimingFunction: 'linear',
+                        animationDirection: finalDirection,
+                        transformOrigin: 'bottom center',
+                        transformBox: 'fill-box'
+                    };
+                    if (entry.amplitude !== undefined) {
+                        // @ts-ignore
+                        jumpStyle['--jump-h'] = `${entry.amplitude}px`;
+                    }
+                    groupAnimations.push(jumpStyle);
+                    break;
+                }
             }
         });
 
@@ -305,6 +321,29 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); }
                         40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); }
                         100% { transform: scale(1) rotate(0); }
+                    }
+                    @keyframes jumpPath {
+                        0%   { transform: translateY(0); }
+                        5%   { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.19)); }
+                        10%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.36)); }
+                        15%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.51)); }
+                        20%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.64)); }
+                        25%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.75)); }
+                        30%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.84)); }
+                        35%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.91)); }
+                        40%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.96)); }
+                        45%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.99)); }
+                        50%  { transform: translateY(calc(-1 * var(--jump-h, 80px))); }
+                        55%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.99)); }
+                        60%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.96)); }
+                        65%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.91)); }
+                        70%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.84)); }
+                        75%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.75)); }
+                        80%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.64)); }
+                        85%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.51)); }
+                        90%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.36)); }
+                        95%  { transform: translateY(calc(-1 * var(--jump-h, 80px) * 0.19)); }
+                        100% { transform: translateY(0); }
                     }
                     .interactive-ui {
                         transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);

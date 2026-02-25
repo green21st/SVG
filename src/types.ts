@@ -21,7 +21,7 @@ export interface AnimationKeyframe {
     ease: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
 }
 
-export type AnimationType = 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada';
+export type AnimationType = 'draw' | 'pulse' | 'float' | 'spin' | 'bounce' | 'glow' | 'shake' | 'swing' | 'tada' | 'jump';
 
 /** 单条动画记录，每条动画独立拥有完整参数 */
 export interface AnimationEntry {

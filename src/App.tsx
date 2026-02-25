@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0226.0727',
+    date: '2026-02-26',
+    items: [
+      '新增 Jump（重力跳跃）动画类型：基于真实抛物线物理公式 y=4h·t·(1-t) 采样 20 帧生成竖直跳跃曲线，duration 对应起跳到落地总时长',
+      '新增 --jump-h CSS 变量控制跳跃高度（默认 80px），可通过 Amp 参数调节',
+    ]
+  },
+  {
     version: 'v26.0225.2244',
     date: '2026-02-25',
     items: [
@@ -691,6 +699,24 @@ function App() {
   const [showChangelog, setShowChangelog] = useState(false);
   const [showHelp, setShowHelp] = useState(true); // Default to true for new users
   const [canvasBgColor, setCanvasBgColor] = useState<string>('transparent'); // 'transparent', '#ffffff', '#1e293b', '#050b14'
+  const [tempDuration, setTempDuration] = useState<string | null>(null);
+  const [tempDelay, setTempDelay] = useState<string | null>(null);
+
+  const parseTimeInput = (val: string, fps: number = 60) => {
+    const trimmed = val.trim().toLowerCase();
+    if (trimmed.endsWith('f')) {
+      const frames = parseFloat(trimmed.slice(0, -1));
+      return isNaN(frames) ? null : frames / fps;
+    }
+    const parsed = parseFloat(trimmed);
+    return isNaN(parsed) ? null : parsed;
+  };
+
+  // Reset temp inputs when switching slots
+  React.useEffect(() => {
+    setTempDuration(null);
+    setTempDelay(null);
+  }, [showAnimPickerSlot]);
 
   // Monitor zoom changes to show indicator
   React.useEffect(() => {
@@ -1224,7 +1250,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1745
+              v26.0226.0727
             </button>
           </h1>
         </div>
@@ -1564,7 +1590,7 @@ ${pathsCode}
 
           {/* Animation Controls Panel - Multi-Slot Version */}
           {(() => {
-            const ANIM_TYPES: import('./types').AnimationType[] = ['draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'];
+            const ANIM_TYPES: import('./types').AnimationType[] = ['draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada', 'jump'];
             const ANIM_COLORS: Record<string, string> = {
               draw: 'text-cyan-400 bg-cyan-500/20 border-cyan-500/40',
               pulse: 'text-violet-400 bg-violet-500/20 border-violet-500/40',
@@ -1575,6 +1601,7 @@ ${pathsCode}
               shake: 'text-red-400 bg-red-500/20 border-red-500/40',
               swing: 'text-pink-400 bg-pink-500/20 border-pink-500/40',
               tada: 'text-orange-400 bg-orange-500/20 border-orange-500/40',
+              jump: 'text-lime-400 bg-lime-500/20 border-lime-500/40',
             };
             const EASE_OPTIONS = [
               { value: 'linear', label: 'Linear' },
@@ -1717,11 +1744,23 @@ ${pathsCode}
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="text-[8px] font-bold text-slate-500 uppercase">Dur</span>
                         <input
-                          type="number"
-                          min={0.1} max={20} step={0.1}
-                          value={entry.duration}
-                          onChange={e => updateEntry(entry.id, { duration: parseFloat(e.target.value) || 0 })}
-                          onBlur={e => updateEntry(entry.id, { duration: Math.max(0.1, parseFloat(e.target.value) || 0.1) })}
+                          type="text"
+                          value={tempDuration !== null ? tempDuration : entry.duration}
+                          onFocus={() => setTempDuration(entry.duration.toString())}
+                          onChange={e => setTempDuration(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              const parsed = parseTimeInput(e.currentTarget.value);
+                              if (parsed !== null) updateEntry(entry.id, { duration: Math.max(0.1, parsed) });
+                              setTempDuration(null);
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          onBlur={e => {
+                            const parsed = parseTimeInput(e.target.value);
+                            if (parsed !== null) updateEntry(entry.id, { duration: Math.max(0.1, parsed) });
+                            setTempDuration(null);
+                          }}
                           className="w-14 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
                         />
                         <span className="text-[8px] text-slate-600">s</span>
@@ -1731,10 +1770,23 @@ ${pathsCode}
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="text-[8px] font-bold text-slate-500 uppercase">Delay</span>
                         <input
-                          type="number"
-                          min={0} max={30} step={0.1}
-                          value={entry.delay}
-                          onChange={e => updateEntry(entry.id, { delay: parseFloat(e.target.value) || 0 })}
+                          type="text"
+                          value={tempDelay !== null ? tempDelay : entry.delay}
+                          onFocus={() => setTempDelay(entry.delay.toString())}
+                          onChange={e => setTempDelay(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              const parsed = parseTimeInput(e.currentTarget.value);
+                              if (parsed !== null) updateEntry(entry.id, { delay: Math.max(0, parsed) });
+                              setTempDelay(null);
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          onBlur={e => {
+                            const parsed = parseTimeInput(e.target.value);
+                            if (parsed !== null) updateEntry(entry.id, { delay: Math.max(0, parsed) });
+                            setTempDelay(null);
+                          }}
                           className="w-14 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
                         />
                         <span className="text-[8px] text-slate-600">s</span>
@@ -1781,18 +1833,18 @@ ${pathsCode}
                         </div>
                       )}
 
-                      {/* Amplitude (for Float, Bounce, Shake) */}
-                      {(entry.type === 'float' || entry.type === 'bounce' || entry.type === 'shake') && (
+                      {/* Amplitude (for Float, Bounce, Shake, Jump) */}
+                      {(entry.type === 'float' || entry.type === 'bounce' || entry.type === 'shake' || entry.type === 'jump') && (
                         <div className="flex items-center gap-1.5 shrink-0 animate-in fade-in zoom-in-95 duration-200">
                           <span className="text-[8px] font-bold text-slate-500 uppercase">Amp</span>
                           <input
                             type="number"
                             step={1}
-                            value={entry.amplitude ?? (entry.type === 'float' ? 10 : entry.type === 'bounce' ? 15 : 4)}
+                            value={entry.amplitude ?? (entry.type === 'float' ? 10 : entry.type === 'bounce' ? 15 : entry.type === 'shake' ? 4 : 80)}
                             onChange={e => updateEntry(entry.id, { amplitude: parseInt(e.target.value) || 0 })}
                             className="w-12 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-indigo-300 font-mono focus:outline-none focus:border-indigo-500/50 text-center"
                           />
-                          <span className="text-[8px] text-slate-600">px</span>
+                          <span className="text-[8px] text-slate-600">{entry.type === 'jump' ? 'px' : entry.type === 'shake' ? 'px' : entry.type === 'float' ? 'px' : '%'}</span>
                         </div>
                       )}
                       {/* Repeat Controls */}
@@ -1868,7 +1920,7 @@ ${pathsCode}
                                 repeat: false,
                                 repeatCount: 1,
                                 degree: type === 'spin' ? 360 : type === 'swing' ? 10 : undefined,
-                                amplitude: type === 'float' ? 10 : type === 'bounce' ? 15 : type === 'shake' ? 4 : undefined,
+                                amplitude: type === 'float' ? 10 : type === 'bounce' ? 15 : type === 'shake' ? 4 : type === 'jump' ? 80 : undefined,
                               };
                               const newEntries = [...entries, newEntry].sort((a, b) => a.delay - b.delay);
                               setAnimation({ ...animation, entries: newEntries });
