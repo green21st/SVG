@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick } from 'lucide-react';
+import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Square as SquareIcon, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -1352,6 +1352,15 @@ ${pathsCode}
                     <Pause className="w-3.5 h-3.5" fill="currentColor" />
                   )}
                 </button>
+                <button
+                  onClick={() => {
+                    setAnimationPaused(true);
+                  }}
+                  className="p-1.5 rounded-md transition-all hover:scale-110 active:scale-95 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
+                  title="停止动画"
+                >
+                  <SquareIcon className="w-3.5 h-3.5" fill="currentColor" />
+                </button>
                 <div className="grid grid-cols-5 bg-black/40 rounded-lg p-0.5 border border-white/5 gap-0.5">
                   {(['none', 'draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'] as const).map((type) => (
                     <button
@@ -1418,7 +1427,7 @@ ${pathsCode}
                     </select>
                   </div>
 
-                  <div className="flex flex-col gap-0.5 col-span-2">
+                  <div className="flex flex-col gap-0.5 col-span-1">
                     <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
                       <span>Direction</span>
                     </div>
