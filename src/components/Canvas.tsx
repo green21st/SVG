@@ -18,9 +18,10 @@ interface PathItemProps {
     currentTime?: number;
     animationResetKey?: number;
     isVertexEditEnabled: boolean;
+    isPivotEditEnabled: boolean;
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime, animationResetKey, isVertexEditEnabled }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime, animationResetKey, isVertexEditEnabled, isPivotEditEnabled }) => {
     const selected = selectedPathIds.includes(path.id);
     // Canvas dimensions for symmetry center
     const width = 800;
@@ -452,7 +453,8 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                         style={{
                             pointerEvents: (mode === 'edit' && !path.locked) ? 'all' : 'none',
                             userSelect: 'none',
-                            ...config.pathStyles
+                            ...config.pathStyles,
+                            filter: path.filter !== 'none' ? path.filter : undefined
                         }}
                     >
                         {path.text}
@@ -709,32 +711,34 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                                                     </g>
                                                 ))}
 
-                                                {/* Pivot Point Handle */}
-                                                <g className="group pointer-events-auto cursor-move">
-                                                    <circle
-                                                        cx={box.centerX + pivotX}
-                                                        cy={box.centerY + pivotY}
-                                                        r={30}
-                                                        fill="transparent"
-                                                        data-handle="pivot"
-                                                    />
-                                                    {/* Crosshair/Target Icon for Pivot */}
-                                                    <g className={cn(
-                                                        "pointer-events-none",
-                                                        "transition-all duration-300 ease-out",
-                                                        "group-hover:scale-150 group-hover:drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]",
-                                                        isDragging && "transition-none scale-125"
-                                                    )} style={{
-                                                        transformOrigin: 'center',
-                                                        transformBox: 'fill-box',
-                                                        transform: `translate(${box.centerX + pivotX}px, ${box.centerY + pivotY}px)`
-                                                    }}>
-                                                        <circle cx={0} cy={0} r={5} fill="none" stroke="#f59e0b" strokeWidth={1} />
-                                                        <circle cx={0} cy={0} r={2} fill="#f59e0b" className={cn(isDragging && "animate-pulse")} />
-                                                        <line x1={-8} y1={0} x2={8} y2={0} stroke="#f59e0b" strokeWidth={1} />
-                                                        <line x1={0} y1={-8} x2={0} y2={8} stroke="#f59e0b" strokeWidth={1} />
+                                                {/* Pivot Point Handle - Only show and allow dragging if pivot edit is enabled */}
+                                                {isPivotEditEnabled && (
+                                                    <g className="group pointer-events-auto cursor-move">
+                                                        <circle
+                                                            cx={box.centerX + pivotX}
+                                                            cy={box.centerY + pivotY}
+                                                            r={30}
+                                                            fill="transparent"
+                                                            data-handle="pivot"
+                                                        />
+                                                        {/* Crosshair/Target Icon for Pivot */}
+                                                        <g className={cn(
+                                                            "pointer-events-none",
+                                                            "transition-all duration-300 ease-out",
+                                                            "group-hover:scale-150 group-hover:drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+                                                            isDragging && "transition-none scale-125"
+                                                        )} style={{
+                                                            transformOrigin: 'center',
+                                                            transformBox: 'fill-box',
+                                                            transform: `translate(${box.centerX + pivotX}px, ${box.centerY + pivotY}px)`
+                                                        }}>
+                                                            <circle cx={0} cy={0} r={5} fill="none" stroke="#f59e0b" strokeWidth={1} />
+                                                            <circle cx={0} cy={0} r={2} fill="#f59e0b" className={cn(isDragging && "animate-pulse")} />
+                                                            <line x1={-8} y1={0} x2={8} y2={0} stroke="#f59e0b" strokeWidth={1} />
+                                                            <line x1={0} y1={-8} x2={0} y2={8} stroke="#f59e0b" strokeWidth={1} />
+                                                        </g>
                                                     </g>
-                                                </g>
+                                                )}
                                             </g>
                                         )}
 
@@ -828,6 +832,7 @@ interface CanvasProps {
     marqueeStart: Point | null;
     marqueeEnd: Point | null;
     isVertexEditEnabled: boolean;
+    isPivotEditEnabled: boolean;
     onPointerUp: () => void;
     canvasBgColor?: string;
     animationResetKey?: number;
@@ -875,6 +880,7 @@ const Canvas: React.FC<CanvasProps> = ({
     marqueeStart,
     marqueeEnd,
     isVertexEditEnabled,
+    isPivotEditEnabled,
     onPointerUp,
     canvasBgColor = 'transparent'
 }) => {
@@ -1013,6 +1019,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             currentTime={currentTime}
                             animationResetKey={animationResetKey}
                             isVertexEditEnabled={isVertexEditEnabled}
+                            isPivotEditEnabled={isPivotEditEnabled}
                         />
                     ))}
                 </svg>

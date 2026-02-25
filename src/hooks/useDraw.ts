@@ -215,6 +215,7 @@ function useDraw() {
     const [marqueeEnd, setMarqueeEnd] = useState<Point | null>(null);
 
     const [isVertexEditEnabled, setIsVertexEditEnabled] = useState(false);
+    const [isPivotEditEnabled, setIsPivotEditEnabled] = useState(false);
 
     // Zoom and Pan State
     const [zoom, setZoom] = useState<number>(1);
@@ -2009,6 +2010,12 @@ function useDraw() {
             if (e.key === 'Shift') {
                 setIsShiftPressed(false);
             }
+            if (e.key.toLowerCase() === 'v' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) {
+                setIsVertexEditEnabled(prev => !prev);
+            }
+            if (e.key.toLowerCase() === 'c' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '')) {
+                setIsPivotEditEnabled(prev => !prev);
+            }
         };
 
         window.addEventListener('mouseup', handleUp);
@@ -2362,7 +2369,9 @@ function useDraw() {
         filter,
         setFilter: setFilterEnhanced,
         interactive,
-        setInteractive: setInteractiveEnhanced
+        setInteractive: setInteractiveEnhanced,
+        isPivotEditEnabled,
+        setIsPivotEditEnabled
     };
 }
 

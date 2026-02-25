@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Square as SquareIcon, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick } from 'lucide-react';
+import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Square as SquareIcon, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick, Target } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -12,6 +12,22 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  {
+    version: 'v26.0225.1425',
+    date: '2026-02-25',
+    items: [
+      '新增中心点（Pivot）调整开关：默认隐藏旋转轴心点，支持通过右侧面板“准星”图标切换显示，有效防止在大范围操作时误触轴心导致动画中心偏移',
+      '优化编辑模式 UI 布局：在顶点编辑按钮下方集成轴心控制开关，并适配快捷键提示'
+    ]
+  },
+  {
+    version: 'v26.0225.1405',
+    date: '2026-02-25',
+    items: [
+      '支持文字图层 3D 视觉风格：修复了文字无法应用风格库中 3D 倒角、玻璃拟态等滤镜效果的问题',
+      '同步更新文字导出逻辑：确保导出的 SVG 文字节点包含对应的 filter 滤镜属性'
+    ]
+  },
   {
     version: 'v26.0225.1347',
     date: '2026-02-25',
@@ -583,7 +599,9 @@ function App() {
     filter,
     setFilter,
     interactive,
-    setInteractive
+    setInteractive,
+    isPivotEditEnabled,
+    setIsPivotEditEnabled
   } = useDraw();
 
   const totalVertices = useMemo(() => {
@@ -631,7 +649,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0225.1347`);
+    console.log(`Fantastic SVG v26.0225.1425`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -824,7 +842,8 @@ function App() {
           const fill = (path.fill && path.fill !== 'none') ? path.fill : (path.color && path.color !== 'none' ? path.color : '#22d3ee');
           const glowColor = (path.color && path.color !== 'none') ? path.color : (fill && fill !== 'none' ? fill : '#22d3ee');
           const glowStyle = path.animation?.entries?.some(e => e.type === 'glow') ? ` style="--glow-color: ${glowColor};"` : '';
-          const textNode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}>${path.text}</text>`;
+          const filterAttr = path.filter && path.filter !== 'none' ? ` filter="${path.filter}"` : '';
+          const textNode = `\t<text x="0" y="0" fill="${fill}" fill-opacity="${fOp}" stroke="${path.color || 'none'}" stroke-width="${path.width || 0}" stroke-opacity="${sOp}" font-size="${path.fontSize || 40}" font-family="${path.fontFamily || 'Inter, system-ui, sans-serif'}" text-anchor="middle" dominant-baseline="middle"${transform}${glowStyle}${filterAttr}>${path.text}</text>`;
           finalCode = path.interactive ? `<g class="interactive-ui">${textNode}</g>` : textNode;
         } else {
           if (path.id.startsWith('merged-') && path.multiPathPoints && v.multiPoints && v.multiPoints.length > 0) {
@@ -1123,7 +1142,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1341
+              v26.0225.1425
             </button>
           </h1>
         </div>
@@ -1356,6 +1375,7 @@ ${pathsCode}
                 currentScaleFactor={currentScaleFactor}
                 currentTranslationDelta={currentTranslationDelta}
                 isVertexEditEnabled={isVertexEditEnabled}
+                isPivotEditEnabled={isPivotEditEnabled}
                 onPointerUp={handlePointerUp}
                 canvasBgColor={canvasBgColor}
               />
@@ -1396,6 +1416,19 @@ ${pathsCode}
                   title="Toggle Vertex Selection"
                 >
                   <MousePointerClick size={20} />
+                </button>
+
+                <button
+                  onClick={() => setIsPivotEditEnabled(!isPivotEditEnabled)}
+                  className={cn(
+                    "p-3 rounded-lg transition-all",
+                    isPivotEditEnabled
+                      ? "bg-indigo-500/20 text-indigo-400"
+                      : "bg-white/5 text-slate-400 hover:bg-white/10"
+                  )}
+                  title="Toggle Pivot Adjustment"
+                >
+                  <Target size={20} />
                 </button>
                 <button
                   onClick={duplicateSelectedPath}
