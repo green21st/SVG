@@ -439,6 +439,13 @@ function useDraw() {
             return [p.transform || { x: 0, y: 0, rotation: 0, scale: 1 }];
         });
 
+        const segmentFilters = sortedSelected.flatMap(p =>
+            p.segmentFilters || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.filter || 'none') : [p.filter || 'none'])
+        );
+        const segmentInteractive = sortedSelected.flatMap(p =>
+            p.segmentInteractive || (p.multiPathPoints ? Array(p.multiPathPoints.length).fill(p.interactive || false) : [p.interactive || false])
+        );
+
         const mergedPath: PathLayer = {
             ...first,
             id: `merged-${Date.now()}`,
@@ -455,6 +462,8 @@ function useDraw() {
             segmentGroupings,
             segmentKeyframes,
             segmentTransforms,
+            segmentFilters,
+            segmentInteractive,
             // Reset whole-layer animation on merge — sub-paths keep their own via segmentAnimations
             animation: { entries: [] } as AnimationSettings,
             keyframes: [],

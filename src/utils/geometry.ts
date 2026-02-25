@@ -308,11 +308,16 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         if (style.includes('animation-direction: alternate') || parts.includes('alternate')) direction = 'alternate';
 
         return {
-            types: [name] as any,
-            duration,
-            delay,
-            ease,
-            direction
+            entries: [{
+                id: `anim-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                type: name as any,
+                duration,
+                delay,
+                ease,
+                direction,
+                repeat: true,
+                repeatCount: -1
+            }]
         };
     };
 
