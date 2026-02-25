@@ -16,10 +16,11 @@ interface PathItemProps {
     focusedSegmentIndices: number[];
     isAnimationMode?: boolean;
     currentTime?: number;
+    animationResetKey?: number;
     isVertexEditEnabled: boolean;
 }
 
-const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime, isVertexEditEnabled }) => {
+const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDragging, getBoundingBox, animationPaused, focusedSegmentIndices, currentTime, animationResetKey, isVertexEditEnabled }) => {
     const selected = selectedPathIds.includes(path.id);
     // Canvas dimensions for symmetry center
     const width = 800;
@@ -310,7 +311,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
                 // Create a stable key that includes animation state
                 const animKey = (config.groupAnimations as React.CSSProperties[]).map(s => s.animationName).join('-') || 'no-group-anim';
                 const pathStyleKey = (config.pathStyles as React.CSSProperties).animationName || 'no-path-anim';
-                const fullKey = `${path.id}-v${vIdx}-${pathStyleKey}-${animKey}`;
+                const fullKey = `${path.id}-v${vIdx}-${pathStyleKey}-${animKey}-${animationResetKey}`;
 
                 const renderPathElement = (dStr: string, sIdx?: number | number[]) => {
                     const sIndices = Array.isArray(sIdx) ? sIdx : (sIdx !== undefined ? [sIdx] : []);
@@ -838,6 +839,7 @@ const Canvas: React.FC<CanvasProps> = ({
     currentTranslationDelta,
     isAnimationMode,
     currentTime,
+    animationResetKey = 0,
     shapeStartPoint,
     isShiftPressed,
     marqueeStart,
@@ -979,6 +981,7 @@ const Canvas: React.FC<CanvasProps> = ({
                             focusedSegmentIndices={focusedSegmentIndices}
                             isAnimationMode={isAnimationMode}
                             currentTime={currentTime}
+                            animationResetKey={animationResetKey}
                             isVertexEditEnabled={isVertexEditEnabled}
                         />
                     ))}

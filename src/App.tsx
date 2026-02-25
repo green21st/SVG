@@ -566,6 +566,7 @@ function App() {
 
   /* Animation Control */
   const [animationPaused, setAnimationPaused] = React.useState(false);
+  const [animationResetKey, setAnimationResetKey] = React.useState(0);
   const [topTextInput, setTopTextInput] = useState('');
   const [showZoomIndicator, setShowZoomIndicator] = useState(false);
   const zoomTimeoutRef = useRef<any>(null);
@@ -1235,6 +1236,7 @@ ${pathsCode}
                 currentRotationDelta={currentRotationDelta}
                 isAnimationMode={isAnimationMode}
                 currentTime={currentTime}
+                animationResetKey={animationResetKey}
                 marqueeStart={marqueeStart}
                 marqueeEnd={marqueeEnd}
                 shapeStartPoint={shapeStartPoint}
@@ -1354,6 +1356,7 @@ ${pathsCode}
                 </button>
                 <button
                   onClick={() => {
+                    setAnimationResetKey(prev => prev + 1);
                     setAnimationPaused(true);
                   }}
                   className="p-1.5 rounded-md transition-all hover:scale-110 active:scale-95 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
