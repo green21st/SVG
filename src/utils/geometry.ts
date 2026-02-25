@@ -478,8 +478,135 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         return undefined;
     };
 
+    // Track paths that belong to a merged layer so they are skipped in normal parsing
+    const pathsInMergedLayers = new Set<Element>();
+
+    // 1. Parse merged layers from data-layer-type="merged" groups
+    doc.querySelectorAll('g[data-layer-type="merged"]').forEach((gEl, i) => {
+        const metaB64 = gEl.getAttribute('data-layer-meta');
+        if (!metaB64) return;
+
+        let meta: any;
+        try {
+            meta = JSON.parse(decodeURIComponent(escape(atob(metaB64))));
+        } catch { return; }
+
+        // Collect all <path> children (direct and inside animation <g> wrappers)
+        const allDescendantPaths = Array.from(gEl.querySelectorAll('path'));
+        allDescendantPaths.forEach(p => pathsInMergedLayers.add(p));
+
+        // Re-parse each child path's `d` attribute into canvas points
+        const subpathSets: Point[][] = [];
+
+        allDescendantPaths.forEach(pathEl => {
+            const d = pathEl.getAttribute('d') || '';
+            if (!d) return;
+
+            let curX = 0, curY = 0;
+            let lastCPX = 0, lastCPY = 0;
+            let pts: Point[] = [];
+            const subpaths: Point[][] = [];
+
+            const pushSub = () => {
+                if (pts.length > 0) {
+                    const cleaned = pts.filter((p, idx, self) => idx === 0 || Math.abs(p.x - self[idx - 1].x) > 0.01 || Math.abs(p.y - self[idx - 1].y) > 0.01);
+                    if (cleaned.length > 2 && d.toLowerCase().includes('z')) {
+                        const f = cleaned[0], l = cleaned[cleaned.length - 1];
+                        if (Math.abs(f.x - l.x) < 0.1 && Math.abs(f.y - l.y) < 0.1) cleaned.pop();
+                    }
+                    if (cleaned.length > 0) subpaths.push(cleaned);
+                    pts = [];
+                }
+            };
+
+            const tokens = d.match(/[a-df-z]|[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/gi) || [];
+            let cmd = '', prevCmd = '';
+            for (let j = 0; j < tokens.length; j++) {
+                const t = tokens[j];
+                if (/[a-z]/i.test(t)) {
+                    if (t.toLowerCase() === 'm' && pts.length > 0) pushSub();
+                    prevCmd = cmd; cmd = t;
+                    if (cmd.toLowerCase() === 'z') pushSub();
+                    continue;
+                }
+                const val = parseFloat(t);
+                const tp = (x: number, y: number) => ({ x: x * scale + offsetX, y: y * scale + offsetY });
+                switch (cmd) {
+                    case 'M': curX = val; curY = parseFloat(tokens[++j]); lastCPX = curX; lastCPY = curY; break;
+                    case 'm': curX += val; curY += parseFloat(tokens[++j]); lastCPX = curX; lastCPY = curY; break;
+                    case 'L': curX = val; curY = parseFloat(tokens[++j]); lastCPX = curX; lastCPY = curY; break;
+                    case 'l': curX += val; curY += parseFloat(tokens[++j]); lastCPX = curX; lastCPY = curY; break;
+                    case 'H': curX = val; break;
+                    case 'h': curX += val; break;
+                    case 'V': curY = val; break;
+                    case 'v': curY += val; break;
+                    case 'C': case 'c': {
+                        const r = cmd === 'c';
+                        const x1 = r ? curX + parseFloat(tokens[j]) : parseFloat(tokens[j]);
+                        const y1 = r ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                        const x2 = r ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                        const y2 = r ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                        const x = r ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                        const y = r ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                        for (let s = 1; s < 16; s++) { const tt = s / 16, mt = 1 - tt; const bx = mt * mt * mt * curX + 3 * mt * mt * tt * x1 + 3 * mt * tt * tt * x2 + tt * tt * tt * x; const by = mt * mt * mt * curY + 3 * mt * mt * tt * y1 + 3 * mt * tt * tt * y2 + tt * tt * tt * y; pts.push(tp(bx, by)); }
+                        lastCPX = x2; lastCPY = y2; curX = x; curY = y; break;
+                    }
+                    case 'S': case 's': {
+                        const r = cmd === 's';
+                        const x2 = r ? curX + parseFloat(tokens[j]) : parseFloat(tokens[j]);
+                        const y2 = r ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                        const x = r ? curX + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                        const y = r ? curY + parseFloat(tokens[++j]) : parseFloat(tokens[++j]);
+                        const x1 = /[cs]/i.test(prevCmd) ? 2 * curX - lastCPX : curX;
+                        const y1 = /[cs]/i.test(prevCmd) ? 2 * curY - lastCPY : curY;
+                        for (let s = 1; s < 16; s++) { const tt = s / 16, mt = 1 - tt; const bx = mt * mt * mt * curX + 3 * mt * mt * tt * x1 + 3 * mt * tt * tt * x2 + tt * tt * tt * x; const by = mt * mt * mt * curY + 3 * mt * mt * tt * y1 + 3 * mt * tt * tt * y2 + tt * tt * tt * y; pts.push(tp(bx, by)); }
+                        lastCPX = x2; lastCPY = y2; curX = x; curY = y; break;
+                    }
+                }
+                if (!/[cqst]/i.test(cmd)) { lastCPX = curX; lastCPY = curY; }
+                pts.push(tp(curX, curY));
+            }
+            pushSub();
+            subpaths.forEach(s => subpathSets.push(s));
+        });
+
+        if (subpathSets.length === 0) return;
+
+        const mergedId = `merged-${Date.now()}-${i}-reimport`;
+        newPaths.push({
+            id: mergedId,
+            name: meta.name || `Merged Layer ${i + 1}`,
+            points: subpathSets[0],
+            multiPathPoints: subpathSets,
+            color: meta.segmentColors?.[0] || 'none',
+            fill: meta.segmentFills?.[0] || '#000000',
+            width: meta.segmentWidths?.[0] ?? 2,
+            tension: meta.segmentTensions?.[0] ?? 0,
+            closed: meta.segmentClosed?.[0] ?? true,
+            symmetry: { horizontal: false, vertical: false, center: false },
+            strokeOpacity: meta.strokeOpacity ?? 1,
+            fillOpacity: meta.fillOpacity ?? 1,
+            animation: meta.animation,
+            transform: meta.transform,
+            filter: meta.filter,
+            interactive: meta.interactive,
+            segmentGroupings: meta.segmentGroupings,
+            segmentColors: meta.segmentColors,
+            segmentFills: meta.segmentFills,
+            segmentWidths: meta.segmentWidths,
+            segmentClosed: meta.segmentClosed,
+            segmentTensions: meta.segmentTensions,
+            segmentFilters: meta.segmentFilters,
+            segmentAnimations: meta.segmentAnimations,
+            segmentTransforms: meta.segmentTransforms,
+            segmentInteractive: meta.segmentInteractive,
+            keyframes: [],
+        });
+    });
+
     // 2. Process Circles
     doc.querySelectorAll('circle').forEach((el, i) => {
+        if (pathsInMergedLayers.has(el)) return;
         const cx = parseFloat(el.getAttribute('cx') || '0');
         const cy = parseFloat(el.getAttribute('cy') || '0');
         const r = parseFloat(el.getAttribute('r') || '0');
@@ -527,6 +654,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
 
     // 3. Robust Path Parser
     doc.querySelectorAll('path').forEach((el, i) => {
+        if (pathsInMergedLayers.has(el)) return;
         const d = el.getAttribute('d') || '';
         const elementMatrix = getElementTransform(el);
         const hasTransform = !isIdentity(elementMatrix);

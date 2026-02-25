@@ -13,6 +13,15 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0225.1655',
+    date: '2026-02-25',
+    items: [
+      '新增合并图层 SVG 导出/导入完整往返支持：导出时将图层结构、子图案颜色、材质、动画、分组等元信息以 Base64 编码嵌入 SVG 的 data-layer-meta 属性',
+      '导入时自动识别 data-layer-type="merged" 标记，完整还原合并图层结构，所有子图案的填充、描边、滤镜、动画、旋转中心均精准恢复',
+      '不影响不含合并图层的标准 SVG 文件的正常导入兼容性'
+    ]
+  },
+  {
     version: 'v26.0225.1610',
     date: '2026-02-25',
     items: [
@@ -666,7 +675,7 @@ function App() {
   }, [zoom]);
 
   React.useEffect(() => {
-    console.log(`Fantastic SVG v26.0225.1610`);
+    console.log(`Fantastic SVG v26.0225.1655`);
     (window as any).setIsVertexEditEnabled = setIsVertexEditEnabled;
   }, [setIsVertexEditEnabled]);
 
@@ -977,7 +986,30 @@ function App() {
 
               return `${animWrapperStart}${segmentNode}${animWrapperEnd}`;
             }).join('\n');
-            finalCode = `<g>${groups}</g>`;
+
+            // Encode merged-layer metadata for round-trip import
+            const mergedMeta = {
+              id: path.id,
+              name: path.name,
+              segmentGroupings: path.segmentGroupings,
+              segmentColors: path.segmentColors,
+              segmentFills: path.segmentFills,
+              segmentWidths: path.segmentWidths,
+              segmentClosed: path.segmentClosed,
+              segmentTensions: path.segmentTensions,
+              segmentFilters: path.segmentFilters,
+              segmentAnimations: path.segmentAnimations,
+              segmentTransforms: path.segmentTransforms,
+              strokeOpacity: path.strokeOpacity,
+              fillOpacity: path.fillOpacity,
+              animation: path.animation,
+              transform: path.transform,
+              filter: path.filter,
+              interactive: path.interactive,
+              segmentInteractive: path.segmentInteractive,
+            };
+            const metaB64 = btoa(unescape(encodeURIComponent(JSON.stringify(mergedMeta))));
+            finalCode = `<g data-layer-type="merged" data-layer-meta="${metaB64}">${groups}</g>`;
           } else {
             const d = smoothPath(v.multiPoints || v.points, path.tension, path.closed);
             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
@@ -1159,7 +1191,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0225.1610
+              v26.0225.1655
             </button>
           </h1>
         </div>
