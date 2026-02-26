@@ -246,6 +246,12 @@ function useDraw() {
         };
     }, []);
 
+    useEffect(() => {
+        if (mode === 'draw' || selectedPathIds.length === 0) {
+            setAnimation({ entries: [] });
+        }
+    }, [mode, selectedPathIds.length]);
+
     // 1. Sync settings when selectedPathIds changes
     useEffect(() => {
         if (mode === 'edit' && selectedPathIds.length > 0 && !isDraggingRef.current) {
