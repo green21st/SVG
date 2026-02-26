@@ -282,9 +282,26 @@ function useDraw() {
                 setFontFamily(prev => prev !== targetFontFamily ? targetFontFamily : prev);
                 setFilter(prev => prev !== targetFilter ? targetFilter : prev);
 
-                const targetAnimation = (hasFocusedSegment ? path.segmentAnimations?.[segmentIndex] : undefined) || path.animation || {
-                    entries: []
-                };
+                // Handle animation: for multi-select, check if all selected paths have the same animation
+                let targetAnimation: AnimationSettings;
+                if (selectedPathIds.length > 1) {
+                    // Multi-select: check if all animations are identical
+                    const allAnimations = selectedPathIds.map(id => {
+                        const p = paths.find(x => x.id === id);
+                        return (hasFocusedSegment && p?.multiPathPoints ? p.segmentAnimations?.[segmentIndex] : undefined) || p?.animation || { entries: [] };
+                    });
+                    
+                    const firstAnim = JSON.stringify(allAnimations[0]);
+                    const allSame = allAnimations.every(anim => JSON.stringify(anim) === firstAnim);
+                    
+                    // If animations differ, use empty state to prevent accidental overwrite
+                    targetAnimation = allSame ? allAnimations[0] : { entries: [] };
+                } else {
+                    // Single select: use the path's animation
+                    targetAnimation = (hasFocusedSegment ? path.segmentAnimations?.[segmentIndex] : undefined) || path.animation || {
+                        entries: []
+                    };
+                }
 
                 setAnimation(prev => {
                     const s1 = JSON.stringify(prev);
@@ -706,8 +723,56 @@ function useDraw() {
     const setAnimationEnhanced = useCallback((anim: AnimationSettings, commit: boolean = true) => {
         setIsInteracting(!commit);
         setAnimation(anim);
+        
+        // For multi-select with different animations, merge new entries instead of replacing
+        if (selectedPathIds.length > 1 && commit) {
+            // Check if all selected paths have the same animation
+            const allAnimations = selectedPathIds.map(id => {
+                const path = paths.find(x => x.id === id);
+                return path?.animation || { entries: [] };
+            });
+            
+            const firstAnim = JSON.stringify(allAnimations[0]);
+            const allSame = allAnimations.every(a => JSON.stringify(a) === firstAnim);
+            
+            // If animations differ, merge new entries with existing ones for each path
+            if (!allSame) {
+                setPaths(prev => prev.map(p => {
+                    if (!selectedPathIds.includes(p.id)) return p;
+                    
+                    const defaultAnim: AnimationSettings = { entries: [] };
+                    const currentAnim = p.animation || { entries: [] };
+                    const mergedAnim = {
+                        ...anim,
+                        entries: [...(currentAnim.entries || []), ...(anim.entries || [])]
+                    };
+                    
+                    if (p.multiPathPoints) {
+                        if (focusedSegmentIndices.length > 0) {
+                            const newSegmentAnimations = [...(p.segmentAnimations || p.multiPathPoints.map(() => defaultAnim))];
+                            while (newSegmentAnimations.length < p.multiPathPoints.length) {
+                                newSegmentAnimations.push(defaultAnim);
+                            }
+                            focusedSegmentIndices.forEach(idx => {
+                                if (idx < newSegmentAnimations.length) {
+                                    newSegmentAnimations[idx] = mergedAnim;
+                                }
+                            });
+                            return { ...p, segmentAnimations: newSegmentAnimations };
+                        } else {
+                            return { ...p, animation: mergedAnim };
+                        }
+                    }
+                    return { ...p, animation: mergedAnim };
+                }));
+                return;
+            }
+        }
+        
+        // Normal case: all animations are the same or single select
         updateSelectedPathProperty(p => {
             const defaultAnim: AnimationSettings = { entries: [] };
+            
             if (p.multiPathPoints) {
                 if (focusedSegmentIndices.length > 0) {
                     // Focus mode: only update the focused segments' animations
@@ -728,7 +793,7 @@ function useDraw() {
             }
             return { ...p, animation: anim };
         }, commit);
-    }, [updateSelectedPathProperty, focusedSegmentIndices]);
+    }, [updateSelectedPathProperty, focusedSegmentIndices, selectedPathIds, paths, setPaths]);
 
 
 
