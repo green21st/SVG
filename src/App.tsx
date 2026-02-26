@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Square as SquareIcon, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick, Target, Power } from 'lucide-react';
+import { Pencil, Brush, Square, Circle as CircleIcon, Triangle, Star, Copy, Scissors, Play, Pause, Square as SquareIcon, Magnet, LayoutGrid, Undo2, Redo2, Trash2, Type, MousePointerClick, Target, Power, PenTool } from 'lucide-react';
 import useDraw from './hooks/useDraw';
 import Canvas from './components/Canvas';
 import { Toolbar } from './components/Toolbar';
@@ -12,6 +12,14 @@ import { SVG_DEF_MAP } from './utils/svgDefs';
 import { X } from 'lucide-react';
 
 const CHANGELOG = [
+  {
+    version: 'v26.0226.0735',
+    date: '2026-02-26',
+    items: [
+      '新增绘图模式状态保护：在绘图模式（Draw）下，即便选中图层也将强制禁用动画与关键帧面板，防止绘图干扰',
+      '优化面板禁用提示：为不同禁用原因（未选中 vs 绘图模式）提供不同的 UI 图标与说明文字'
+    ]
+  },
   {
     version: 'v26.0226.0727',
     date: '2026-02-26',
@@ -1639,7 +1647,7 @@ ${pathsCode}
               setAnimation({ ...animation, entries: newEntries });
             };
 
-            const isNoSelection = selectedPathIds.length === 0;
+            const isNoSelection = selectedPathIds.length === 0 || mode === 'draw';
 
             return (
               <div className={cn(
@@ -1650,8 +1658,14 @@ ${pathsCode}
                 {isNoSelection && (
                   <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/10 backdrop-blur-[1px]">
                     <div className="px-4 py-1.5 bg-slate-900/90 border border-white/10 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
-                      <MousePointerClick size={14} className="text-primary animate-pulse" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">请选中图形以编辑动画</span>
+                      {mode === 'draw' ? (
+                        <PenTool size={14} className="text-primary animate-pulse" />
+                      ) : (
+                        <MousePointerClick size={14} className="text-primary animate-pulse" />
+                      )}
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {mode === 'draw' ? '绘图模式下禁用动画编辑' : '请选中图形以编辑动画'}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1955,13 +1969,19 @@ ${pathsCode}
 
           <div className={cn(
             "w-[800px] mt-1 relative transition-all duration-300",
-            selectedPathIds.length === 0 && "opacity-40 grayscale-[0.5] pointer-events-none"
+            (selectedPathIds.length === 0 || mode === 'draw') && "opacity-40 grayscale-[0.5] pointer-events-none"
           )}>
-            {selectedPathIds.length === 0 && (
+            {(selectedPathIds.length === 0 || mode === 'draw') && (
               <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/10 backdrop-blur-[1px]">
                 <div className="px-4 py-1.5 bg-slate-900/90 border border-white/10 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
-                  <Target size={14} className="text-primary animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">请选中图形以编辑关键帧</span>
+                  {mode === 'draw' ? (
+                    <PenTool size={14} className="text-primary animate-pulse" />
+                  ) : (
+                    <Target size={14} className="text-primary animate-pulse" />
+                  )}
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    {mode === 'draw' ? '绘图模式下禁用关键帧编辑' : '请选中图形以编辑关键帧'}
+                  </span>
                 </div>
               </div>
             )}
