@@ -858,7 +858,8 @@ function App() {
       glow: '@keyframes glowPath { 0%, 100% { filter: drop-shadow(0 0 2px var(--glow-color, #22d3ee)) brightness(1); } 50% { filter: drop-shadow(0 0 12px var(--glow-color, #22d3ee)) brightness(1.6); } }',
       shake: '@keyframes shakePath { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(calc(-1 * var(--shake-dist, 4px))); } 75% { transform: translateX(var(--shake-dist, 4px)); } }',
       swing: '@keyframes swingPath { 0%, 100% { transform: rotate(calc(-1 * var(--swing-degree, 10deg))); } 50% { transform: rotate(var(--swing-degree, 10deg)); } }',
-      tada: '@keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }'
+      tada: '@keyframes tadaPath { 0% { transform: scale(1); } 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: scale(1) rotate(0); } }',
+      jump: '@keyframes jumpPath { 0% { transform: translateY(0); } 5% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.19)); } 10% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.36)); } 15% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.51)); } 20% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.64)); } 25% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.75)); } 30% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.84)); } 35% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.91)); } 40% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.96)); } 45% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.99)); } 50% { transform: translateY(calc(-1 * var(--jump-h,80px))); } 55% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.99)); } 60% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.96)); } 65% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.91)); } 70% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.84)); } 75% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.75)); } 80% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.64)); } 85% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.51)); } 90% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.36)); } 95% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.19)); } 100% { transform: translateY(0); } }'
     };
 
     let keyframes = Array.from(usedAnimations)
@@ -1000,6 +1001,9 @@ function App() {
                   if (type === 'shake' && entry.amplitude !== undefined) {
                     animStyle += `--shake-dist: ${entry.amplitude}px; `;
                   }
+                  if (type === 'jump' && entry.amplitude !== undefined) {
+                    animStyle += `--jump-h: ${entry.amplitude}px; `;
+                  }
 
                   if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
                   if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
@@ -1008,6 +1012,9 @@ function App() {
                     const px = segTrans?.px || 0;
                     const py = segTrans?.py || 0;
                     animStyle += `transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box; `;
+                  }
+                  if (type === 'jump') {
+                    animStyle += 'transform-origin: bottom center; transform-box: fill-box; ';
                   }
 
                   animWrapperStart += `<g style="${animStyle}">`;
@@ -1133,6 +1140,9 @@ function App() {
             if (type === 'shake' && entry.amplitude !== undefined) {
               styleStr += ` --shake-dist: ${entry.amplitude}px;`;
             }
+            if (type === 'jump' && entry.amplitude !== undefined) {
+              styleStr += ` --jump-h: ${entry.amplitude}px;`;
+            }
 
             if (finalDirection !== 'normal') styleStr += ` animation-direction: ${finalDirection};`;
 
@@ -1141,6 +1151,9 @@ function App() {
               const px = path.transform?.px || 0;
               const py = path.transform?.py || 0;
               styleStr += ` transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box;`;
+            }
+            if (type === 'jump') {
+              styleStr += ' transform-origin: bottom center; transform-box: fill-box;';
             }
 
             finalCode = `<g style="${styleStr}">${finalCode}</g>`;

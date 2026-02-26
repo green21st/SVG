@@ -1,0 +1,9 @@
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+    </defs>
+    <style>
+        /* Animation Keyframes */
+        @keyframes jumpPath { 0% { transform: translateY(0); } 5% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.19)); } 10% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.36)); } 15% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.51)); } 20% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.64)); } 25% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.75)); } 30% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.84)); } 35% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.91)); } 40% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.96)); } 45% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.99)); } 50% { transform: translateY(calc(-1 * var(--jump-h,80px))); } 55% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.99)); } 60% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.96)); } 65% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.91)); } 70% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.84)); } 75% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.75)); } 80% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.64)); } 85% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.51)); } 90% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.36)); } 95% { transform: translateY(calc(-1 * var(--jump-h,80px) * 0.19)); } 100% { transform: translateY(0); } }
+    </style>
+    <path d="M 300 300 C 350 250, 450 250, 500 300" stroke="#ff0000" stroke-width="4" fill="none" stroke-opacity="1" fill-opacity="1" stroke-linecap="round" stroke-linejoin="round" style="animation: jumpPath 2s linear 0s infinite forwards; --jump-h: 150px; transform-origin: bottom center; transform-box: fill-box;" />
+</svg>

@@ -357,7 +357,7 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
             else if (dirProp === 'alternate') direction = 'alternate';
         }
 
-        const validTypes = ['draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada'];
+        const validTypes = ['draw', 'pulse', 'float', 'spin', 'bounce', 'glow', 'shake', 'swing', 'tada', 'jump'];
         if (!validTypes.includes(name)) return undefined;
 
         // Extract custom variables for amplitude and degree
@@ -375,6 +375,8 @@ export const parseSVGToPaths = (svgString: string): PathLayer[] => {
         if (shakeDist) amplitude = parseFloat(shakeDist);
         const floatDist = getStyleProp('--float-dist');
         if (floatDist) amplitude = Math.abs(parseFloat(floatDist));
+        const jumpHeight = getStyleProp('--jump-h');
+        if (jumpHeight) amplitude = parseFloat(jumpHeight);
 
         const isInfinite = repeatCount === 'infinite' || repeatCount === -1;
 
