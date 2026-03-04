@@ -28,6 +28,21 @@ export const SVG_DEF_MAP: Record<string, string> = {
         <stop offset="51%" stop-color="#666666" />
         <stop offset="100%" stop-color="#888888" />
       </linearGradient>`,
+  'metal-iridescent': `<linearGradient id="metal-iridescent" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#ffb7ff" />
+        <stop offset="20%" stop-color="#b7ffff" />
+        <stop offset="40%" stop-color="#ffffb7" />
+        <stop offset="60%" stop-color="#b7ffb7" />
+        <stop offset="80%" stop-color="#b7b7ff" />
+        <stop offset="100%" stop-color="#ffb7b7" />
+      </linearGradient>`,
+  'metal-liquid': `<linearGradient id="metal-liquid" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#777" />
+        <stop offset="45%" stop-color="#eee" />
+        <stop offset="50%" stop-color="#fff" />
+        <stop offset="55%" stop-color="#eee" />
+        <stop offset="100%" stop-color="#777" />
+      </linearGradient>`,
 
   // CRYSTAL & GLASS
   'crystal-blue': `<linearGradient id="crystal-blue" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -55,6 +70,17 @@ export const SVG_DEF_MAP: Record<string, string> = {
           <stop offset="0%" stop-color="#ff9999" />
           <stop offset="20%" stop-color="#ff0000" />
           <stop offset="100%" stop-color="#660000" />
+      </radialGradient>`,
+  '3d-void': `<radialGradient id="3d-void" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#000" />
+        <stop offset="85%" stop-color="#000" />
+        <stop offset="90%" stop-color="#3300ff" />
+        <stop offset="100%" stop-color="#00ffff" />
+      </radialGradient>`,
+  '3d-emerald': `<radialGradient id="3d-emerald" cx="35%" cy="35%" r="60%" fx="30%" fy="30%">
+          <stop offset="0%" stop-color="#ccffcc" />
+          <stop offset="40%" stop-color="#10b981" />
+          <stop offset="100%" stop-color="#064e3b" />
       </radialGradient>`,
 
   // GRADIENTS
@@ -94,6 +120,21 @@ export const SVG_DEF_MAP: Record<string, string> = {
           <stop offset="83%" stop-color="indigo" />
           <stop offset="100%" stop-color="violet" />
       </linearGradient>`,
+  'gradient-aurora': `<linearGradient id="gradient-aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#11998e" />
+        <stop offset="50%" stop-color="#38ef7d" />
+        <stop offset="100%" stop-color="#00d2ff" />
+      </linearGradient>`,
+  'gradient-cyber': `<linearGradient id="gradient-cyber" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#00ffff" />
+        <stop offset="49.9%" stop-color="#00ffff" />
+        <stop offset="50.1%" stop-color="#ff00ff" />
+        <stop offset="100%" stop-color="#ff00ff" />
+      </linearGradient>`,
+  'gradient-deep-space': `<radialGradient id="gradient-deep-space" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#434343" />
+        <stop offset="100%" stop-color="#000000" />
+      </radialGradient>`,
 
   // PATTERNS
   'pattern-grid': `<pattern id="pattern-grid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -205,6 +246,42 @@ export const SVG_DEF_MAP: Record<string, string> = {
       </filter>`,
   'filter-pixel': `<filter id="filter-pixel" x="0%" y="0%" width="100%" height="100%">
         <feMorphology operator="dilate" radius="1" />
+      </filter>`,
+  'filter-ultra-chrome': `<filter id="filter-ultra-chrome" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur" />
+        <feSpecularLighting in="blur" surfaceScale="5" specularConstant="1" specularExponent="30" lighting-color="#ffffff" result="spec">
+          <fePointLight x="-5000" y="-10000" z="20000" />
+        </feSpecularLighting>
+        <feComposite in="spec" in2="SourceAlpha" operator="in" />
+        <feComposite in="SourceGraphic" in2="spec" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" />
+      </filter>`,
+  'filter-iridescent': `<filter id="filter-iridescent" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
+        <feSpecularLighting in="blur" surfaceScale="5" specularConstant="1" specularExponent="20" lighting-color="#ff00ff" result="spec1">
+          <fePointLight x="5000" y="-10000" z="20000" />
+        </feSpecularLighting>
+        <feSpecularLighting in="blur" surfaceScale="5" specularConstant="1" specularExponent="20" lighting-color="#00ffff" result="spec2">
+          <fePointLight x="-5000" y="-10000" z="20000" />
+        </feSpecularLighting>
+        <feComposite in="spec1" in2="spec2" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="combinedSpec" />
+        <feComposite in="combinedSpec" in2="SourceAlpha" operator="in" />
+        <feComposite in="SourceGraphic" in2="combinedSpec" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" />
+      </filter>`,
+  'filter-aurora-glow': `<filter id="filter-aurora-glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur" />
+        <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0" result="greenBlur" />
+        <feOffset dx="10" dy="10" in="greenBlur" result="offsetBlur" />
+        <feMerge>
+          <feMergeNode in="offsetBlur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>`,
+  'filter-float': `<filter id="filter-float" x="-20%" y="-20%" width="140%" height="160%">
+        <feDropShadow dx="0" dy="10" stdDeviation="8" flood-opacity="0.2" />
+      </filter>`,
+  'filter-hologram': `<filter id="filter-hologram" x="-10%" y="-10%" width="120%" height="120%">
+        <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 6 0 0  0 0 0 0.5 0" />
+        <feGaussianBlur stdDeviation="1" />
       </filter>`
 };
 

@@ -99,5 +99,58 @@ export const UI_STYLES: UIStyle[] = [
             strokeWidth: 3,
             filter: 'url(#filter-pixel)'
         }
+    },
+    {
+        label: 'Ultra Chrome',
+        id: 'ultra-chrome',
+        previewBackground: 'linear-gradient(135deg, #777, #fff, #777)',
+        properties: {
+            fill: 'url(#metal-liquid)',
+            stroke: 'none',
+            filter: 'url(#filter-ultra-chrome)'
+        }
+    },
+    {
+        label: 'Void Core',
+        id: 'void-core',
+        previewBackground: 'radial-gradient(circle, #000 70%, #3300ff 100%)',
+        properties: {
+            fill: 'url(#3d-void)',
+            stroke: '#00ffff',
+            strokeWidth: 1.5,
+            filter: 'url(#filter-neon)'
+        }
+    },
+    {
+        label: 'Aurora Flow',
+        id: 'aurora',
+        previewBackground: 'linear-gradient(135deg, #11998e, #38ef7d)',
+        properties: {
+            fill: 'url(#gradient-aurora)',
+            stroke: 'none',
+            filter: 'url(#filter-aurora-glow)'
+        }
+    },
+    {
+        label: 'Cyber Pulse',
+        id: 'cyber',
+        previewBackground: 'linear-gradient(90deg, #00ffff 50%, #ff00ff 50%)',
+        properties: {
+            fill: 'url(#gradient-cyber)',
+            stroke: '#fff',
+            strokeWidth: 2,
+            filter: 'url(#filter-neon)'
+        }
+    },
+    {
+        label: 'Carbon Tech',
+        id: 'carbon-tech',
+        previewBackground: '#111',
+        properties: {
+            fill: 'url(#pattern-carbon)',
+            stroke: '#444',
+            strokeWidth: 1,
+            filter: 'url(#filter-3d-bevel)'
+        }
     }
 ];

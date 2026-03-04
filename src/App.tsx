@@ -13,6 +13,15 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0304.1445',
+    date: '2026-03-04',
+    items: [
+      '新增多款资深设计师级精美样式：包含金属幻彩、极光渐变、深渊黑洞、赛博脉冲等大师级配色',
+      '引入高级材质滤镜：新增“流体汞”、“超强铬金属”、“全息幻彩”等具有深度视觉表现力的滤镜组合',
+      '扩展图案纹理库：增加高级碳纤维、流金木纹及科技感蜂巢纹路，显著提升作品质感'
+    ]
+  },
+  {
     version: 'v26.0304.1305',
     date: '2026-03-04',
     items: [
@@ -1321,7 +1330,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0304.1305
+              v26.0304.1445
             </button>
           </h1>
         </div>
