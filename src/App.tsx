@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0304.1245',
+    date: '2026-03-04',
+    items: [
+      '优化对称图形动画轴心点：副本现在以各自的几何中心为动画基准，完美实现“自转”对称效果，解决了副本绕原图形公转的问题',
+      '同步 SVG 导出兼容性：导出的原生 SVG 动画现在能正确还原镜像后的轴心偏移，确保导出预览与编辑器体验一致'
+    ]
+  },
+  {
     version: 'v26.0304.1220',
     date: '2026-03-04',
     items: [
@@ -1031,11 +1039,16 @@ function App() {
 
                   if (finalDirection !== 'normal') animStyle += `animation-direction: ${finalDirection}; `;
                   if (type === 'draw') animStyle += 'stroke-dasharray: 1000; stroke-dashoffset: 1000; ';
-                  if (['spin', 'bounce', 'swing', 'tada'].includes(type)) {
+                  if (['spin', 'bounce', 'swing', 'tada', 'jump'].includes(type)) {
                     const segTrans = path.segmentTransforms?.[firstSIdx];
                     const px = segTrans?.px || 0;
                     const py = segTrans?.py || 0;
-                    animStyle += `transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box; `;
+
+                    // Flip pivot signs for symmetry variants
+                    const vPx = (v.type === 'H' || v.type === 'C') ? -px : px;
+                    const vPy = (v.type === 'V' || v.type === 'C') ? -py : py;
+
+                    animStyle += `transform-origin: calc(50% + ${vPx}px) calc(50% + ${vPy}px); transform-box: fill-box; `;
                   }
                   if (type === 'jump') {
                     animStyle += 'transform-origin: bottom center; transform-box: fill-box; ';
@@ -1174,7 +1187,12 @@ function App() {
             if (type === 'spin' || type === 'bounce' || type === 'swing' || type === 'tada') {
               const px = path.transform?.px || 0;
               const py = path.transform?.py || 0;
-              styleStr += ` transform-origin: calc(50% + ${px}px) calc(50% + ${py}px); transform-box: fill-box;`;
+
+              // Flip pivot signs for symmetry variants
+              const vPx = (v.type === 'H' || v.type === 'C') ? -px : px;
+              const vPy = (v.type === 'V' || v.type === 'C') ? -py : py;
+
+              styleStr += ` transform-origin: calc(50% + ${vPx}px) calc(50% + ${vPy}px); transform-box: fill-box;`;
             }
             if (type === 'jump') {
               styleStr += ' transform-origin: bottom center; transform-box: fill-box;';
@@ -1287,7 +1305,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0304.1220
+              v26.0304.1245
             </button>
           </h1>
         </div>

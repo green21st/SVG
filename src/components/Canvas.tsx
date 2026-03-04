@@ -240,13 +240,22 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         return variants.map(v => {
             const { px = 0, py = 0 } = currentTransform ?? path.transform ?? { px: 0, py: 0 };
             const glowColor = (path.color && path.color !== 'none') ? path.color : (path.fill && path.fill !== 'none' ? path.fill : '#22d3ee');
+
+            // Calculate variant-specific bounding box to get its own center
+            // v.points is already transformed/mirrored by applySymmetry
+            const vBox = v.points.length > 0 ? getBoundingBox(v.points) : layerBox;
+
+            // Adjust pivot offset signs based on symmetry type for "self-centered" rotation
+            const vPx = (v.type === 'H' || v.type === 'C') ? -px : px;
+            const vPy = (v.type === 'V' || v.type === 'C') ? -py : py;
+
             const { pathStyles, groupAnimations } = getStylesForAnimation(
                 path.animation,
                 glowColor,
                 v.type,
                 isDragging || animationPaused,
-                layerBox.centerX + px,
-                layerBox.centerY + py
+                vBox.centerX + vPx,
+                vBox.centerY + vPy
             );
 
             return {
@@ -267,6 +276,7 @@ const PathItem = React.memo<PathItemProps>(({ path, selectedPathIds, mode, isDra
         animationPaused,
         currentTransform,
         layerBox,
+        getBoundingBox, // Add dependencies
         path.segmentAnimations,
         path.segmentColors,
         path.segmentFills,
