@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0304.1255',
+    date: '2026-03-04',
+    items: [
+      '优化动画面板播放控制：暂停、播放及停止按钮现已设为全局始终可用，不再受图层选中状态限制',
+      '提升交互逻辑一致性：确保在未选中任何图形或处于绘图模式时，依然可以随时控制画布动画的全局状态'
+    ]
+  },
+  {
     version: 'v26.0304.1245',
     date: '2026-03-04',
     items: [
@@ -1305,7 +1313,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0304.1245
+              v26.0304.1255
             </button>
           </h1>
         </div>
@@ -1686,11 +1694,10 @@ ${pathsCode}
             return (
               <div className={cn(
                 "w-[800px] mt-2 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden relative transition-all duration-300",
-                isNoSelection && "opacity-40 grayscale-[0.5] pointer-events-none"
               )}>
-                {/* Disabled Overlay */}
+                {/* Disabled Overlay - Only covering non-control area */}
                 {isNoSelection && (
-                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/10 backdrop-blur-[1px]">
+                  <div className="absolute top-0 bottom-0 right-0 left-[72px] z-50 flex items-center justify-center bg-slate-950/10 backdrop-blur-[1px] rounded-r-xl">
                     <div className="px-4 py-1.5 bg-slate-900/90 border border-white/10 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in zoom-in-95 duration-300">
                       {mode === 'draw' ? (
                         <PenTool size={14} className="text-primary animate-pulse" />
@@ -1733,59 +1740,62 @@ ${pathsCode}
                     </button>
                   </div>
 
-                  {/* OFF Button */}
-                  <button
-                    onClick={() => setAnimation({ ...animation, paused: !isAnimOff })}
-                    className={`px-2 py-1 rounded text-[9px] font-bold uppercase transition-all border ${isAnimOff
-                      ? 'bg-slate-700 text-white border-slate-600'
-                      : 'text-slate-500 border-slate-700/50 hover:text-white hover:border-slate-600'
-                      }`}
-                    title={isAnimOff ? '动画已关闭，点击开启' : '关闭动画（保留参数）'}
-                  >
-                    OFF
-                  </button>
+                  {/* These other parts are conditionally dimmed */}
+                  <div className={cn("flex flex-1 items-center gap-2", isNoSelection && "opacity-40 grayscale-[0.5] pointer-events-none")}>
+                    {/* OFF Button */}
+                    <button
+                      onClick={() => setAnimation({ ...animation, paused: !isAnimOff })}
+                      className={`px-2 py-1 rounded text-[9px] font-bold uppercase transition-all border ${isAnimOff
+                        ? 'bg-slate-700 text-white border-slate-600'
+                        : 'text-slate-500 border-slate-700/50 hover:text-white hover:border-slate-600'
+                        }`}
+                      title={isAnimOff ? '动画已关闭，点击开启' : '关闭动画（保留参数）'}
+                    >
+                      OFF
+                    </button>
 
-                  {/* 9 Slots */}
-                  <div className="flex gap-1 flex-1">
-                    {Array.from({ length: 9 }).map((_, i) => {
-                      const entry = sortedEntries[i];
-                      const isSelected = entry && showAnimPickerSlot === entry.id;
-                      if (entry) {
-                        const colorClass = ANIM_COLORS[entry.type] || 'text-slate-400 bg-slate-700/40 border-slate-600/40';
+                    {/* 9 Slots */}
+                    <div className="flex gap-1 flex-1">
+                      {Array.from({ length: 9 }).map((_, i) => {
+                        const entry = sortedEntries[i];
+                        const isSelected = entry && showAnimPickerSlot === entry.id;
+                        if (entry) {
+                          const colorClass = ANIM_COLORS[entry.type] || 'text-slate-400 bg-slate-700/40 border-slate-600/40';
+                          return (
+                            <button
+                              key={entry.id}
+                              onClick={() => setShowAnimPickerSlot(prev => prev === entry.id ? null : entry.id)}
+                              className={cn(
+                                "flex-1 h-7 rounded border text-[9px] font-bold uppercase transition-all",
+                                isSelected ? colorClass + ' ring-1 ring-current scale-[1.04]' : colorClass + ' opacity-80 hover:opacity-100',
+                                entry.paused && "grayscale opacity-40 border-slate-700"
+                              )}
+                              title={`${entry.type} · delay ${entry.delay}s${entry.paused ? ' (已禁用)' : ''}`}
+                            >
+                              {entry.type.slice(0, 3)}
+                            </button>
+                          );
+                        }
+                        // Empty slot
                         return (
-                          <button
-                            key={entry.id}
-                            onClick={() => setShowAnimPickerSlot(prev => prev === entry.id ? null : entry.id)}
-                            className={cn(
-                              "flex-1 h-7 rounded border text-[9px] font-bold uppercase transition-all",
-                              isSelected ? colorClass + ' ring-1 ring-current scale-[1.04]' : colorClass + ' opacity-80 hover:opacity-100',
-                              entry.paused && "grayscale opacity-40 border-slate-700"
-                            )}
-                            title={`${entry.type} · delay ${entry.delay}s${entry.paused ? ' (已禁用)' : ''}`}
-                          >
-                            {entry.type.slice(0, 3)}
-                          </button>
+                          <div key={`empty-${i}`} className="flex-1 h-7 rounded border border-dashed border-slate-700/40 bg-slate-800/20" />
                         );
-                      }
-                      // Empty slot
-                      return (
-                        <div key={`empty-${i}`} className="flex-1 h-7 rounded border border-dashed border-slate-700/40 bg-slate-800/20" />
-                      );
-                    })}
-                  </div>
+                      })}
+                    </div>
 
-                  {/* Add Button */}
-                  <button
-                    onClick={() => setShowAnimPicker(p => !p)}
-                    disabled={!canAddMore}
-                    className={`w-7 h-7 rounded border flex items-center justify-center text-xs font-bold transition-all ${canAddMore
-                      ? 'border-indigo-500/50 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:scale-110 active:scale-95'
-                      : 'border-slate-700/40 bg-slate-800/20 text-slate-600 cursor-not-allowed'
-                      }`}
-                    title={canAddMore ? '添加动画' : '已达最大数量（9条）'}
-                  >
-                    +
-                  </button>
+                    {/* Add Button */}
+                    <button
+                      onClick={() => setShowAnimPicker(p => !p)}
+                      disabled={!canAddMore}
+                      className={`w-7 h-7 rounded border flex items-center justify-center text-xs font-bold transition-all ${canAddMore
+                        ? 'border-indigo-500/50 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 hover:scale-110 active:scale-95'
+                        : 'border-slate-700/40 bg-slate-800/20 text-slate-600 cursor-not-allowed'
+                        }`}
+                      title={canAddMore ? '添加动画' : '已达最大数量（9条）'}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
                 {/* Params Row: when a slot is selected */}
@@ -1794,7 +1804,10 @@ ${pathsCode}
                   if (!entry) return null;
                   const colorClass = ANIM_COLORS[entry.type] || '';
                   return (
-                    <div className="border-t border-white/5 px-3 py-2 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className={cn(
+                      "border-t border-white/5 px-3 py-2 flex items-center gap-3 animate-in fade-in slide-in-from-top-1 duration-200",
+                      isNoSelection && "opacity-40 grayscale-[0.5] pointer-events-none"
+                    )}>
                       {/* Type Badge */}
                       <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase border ${colorClass} shrink-0`}>
                         {entry.type}
