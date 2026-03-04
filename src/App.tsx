@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0304.1305',
+    date: '2026-03-04',
+    items: [
+      '修复多选图形时动画属性同步逻辑：现在支持在不同动画方案的图形间，对公有动画条目进行批量参数调节',
+      '优化动画智能合并算法：在多选模式下修改、添加动画时，系统将自动识别条目 ID 避免重复追加，解决了多选编辑时参数面板意外消失的问题'
+    ]
+  },
+  {
     version: 'v26.0304.1255',
     date: '2026-03-04',
     items: [
@@ -1313,7 +1321,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0304.1255
+              v26.0304.1305
             </button>
           </h1>
         </div>

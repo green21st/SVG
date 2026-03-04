@@ -294,8 +294,16 @@ function useDraw() {
                     const firstAnim = JSON.stringify(allAnimations[0]);
                     const allSame = allAnimations.every(anim => JSON.stringify(anim) === firstAnim);
 
-                    // If animations differ, use empty state to prevent accidental overwrite
-                    targetAnimation = allSame ? allAnimations[0] : { entries: [] };
+                    if (allSame) {
+                        targetAnimation = allAnimations[0];
+                    } else {
+                        // Mixed selection: only show common animations (shared by all selected paths)
+                        const firstEntries = allAnimations[0].entries || [];
+                        const commonEntries = firstEntries.filter(e1 =>
+                            allAnimations.every(anim => (anim.entries || []).some(e2 => e2.id === e1.id))
+                        );
+                        targetAnimation = { ...allAnimations[0], entries: commonEntries };
+                    }
                 } else {
                     // Single select: use the path's animation
                     targetAnimation = (hasFocusedSegment ? path.segmentAnimations?.[segmentIndex] : undefined) || path.animation || {
@@ -768,9 +776,20 @@ function useDraw() {
 
                     const defaultAnim: AnimationSettings = { entries: [] };
                     const currentAnim = p.animation || { entries: [] };
+
+                    // Merge by ID: if entry already exists in currentAnim, update it; otherwise append.
+                    const mergedEntries = JSON.parse(JSON.stringify(currentAnim.entries || []));
+                    (anim.entries || []).forEach((newE: import('../types').AnimationEntry) => {
+                        const existingIdx = mergedEntries.findIndex((e: any) => e.id === newE.id);
+                        if (existingIdx !== -1) {
+                            mergedEntries[existingIdx] = newE;
+                        } else {
+                            mergedEntries.push(newE);
+                        }
+                    });
                     const mergedAnim = {
                         ...anim,
-                        entries: [...(currentAnim.entries || []), ...(anim.entries || [])]
+                        entries: mergedEntries
                     };
 
                     if (p.multiPathPoints) {
