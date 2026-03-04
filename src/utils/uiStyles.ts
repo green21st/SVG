@@ -152,5 +152,93 @@ export const UI_STYLES: UIStyle[] = [
             strokeWidth: 1,
             filter: 'url(#filter-3d-bevel)'
         }
+    },
+    {
+        label: 'Liquid Metal',
+        id: 'liquid-metal',
+        previewBackground: 'linear-gradient(135deg, #c0c0c0, #ffffff, #808080)',
+        properties: {
+            fill: 'url(#gradient-liquid-metal)',
+            stroke: 'none',
+            filter: 'url(#filter-liquid-metal)'
+        }
+    },
+    {
+        label: 'Plasma Energy',
+        id: 'plasma',
+        previewBackground: 'linear-gradient(90deg, #ff00ff, #00ffff, #ffff00)',
+        properties: {
+            fill: 'url(#gradient-plasma)',
+            stroke: '#ff00ff',
+            strokeWidth: 1.5,
+            filter: 'url(#filter-plasma)'
+        }
+    },
+    {
+        label: 'Frosted Glass',
+        id: 'frosted-glass',
+        previewBackground: 'linear-gradient(135deg, rgba(232,244,248,0.8), rgba(176,212,227,0.6))',
+        properties: {
+            fill: 'url(#pattern-frosted)',
+            stroke: 'rgba(176,212,227,0.8)',
+            strokeWidth: 1,
+            filter: 'url(#filter-frosted-glass)',
+            fillOpacity: 0.7
+        }
+    },
+    {
+        label: 'Lava Flow',
+        id: 'lava-flow',
+        previewBackground: 'linear-gradient(135deg, #ff0000, #ff6600, #ffcc00)',
+        properties: {
+            fill: 'url(#gradient-lava)',
+            stroke: '#ff0000',
+            strokeWidth: 1,
+            filter: 'url(#filter-lava)'
+        }
+    },
+    {
+        label: 'Quantum Entanglement',
+        id: 'quantum',
+        previewBackground: 'linear-gradient(90deg, #00ff00, #00ffff, #ff00ff, #ffff00)',
+        properties: {
+            fill: 'url(#gradient-quantum)',
+            stroke: '#00ff00',
+            strokeWidth: 1.5,
+            filter: 'url(#filter-quantum)'
+        }
+    },
+    {
+        label: 'Silk Fabric',
+        id: 'silk',
+        previewBackground: 'linear-gradient(135deg, #e6d5c3, #f5e6d3, #d4c4b0)',
+        properties: {
+            fill: 'url(#gradient-silk)',
+            stroke: '#d4c4b0',
+            strokeWidth: 0.5,
+            filter: 'url(#filter-silk)',
+            fillOpacity: 0.95
+        }
+    },
+    {
+        label: 'Cosmic Dust',
+        id: 'cosmic-dust',
+        previewBackground: 'radial-gradient(circle, #ffffff, #9933ff, #3300ff, #000000)',
+        properties: {
+            fill: 'url(#gradient-cosmic)',
+            stroke: '#9933ff',
+            strokeWidth: 1,
+            filter: 'url(#filter-cosmic)'
+        }
+    },
+    {
+        label: 'Liquid Rainbow',
+        id: 'liquid-rainbow',
+        previewBackground: 'linear-gradient(90deg, #ff0080, #ff8c00, #40e0d0, #0080ff, #ff00ff)',
+        properties: {
+            fill: 'url(#gradient-liquid-rainbow)',
+            stroke: 'none',
+            filter: 'url(#filter-liquid-rainbow)'
+        }
     }
 ];

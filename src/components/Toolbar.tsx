@@ -476,9 +476,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                         { label: 'Grid', value: 'url(#pattern-grid)', background: 'repeating-linear-gradient(0deg, transparent, transparent 19px, #334155 20px), repeating-linear-gradient(90deg, #1e293b, #1e293b 19px, #334155 20px)' },
                                         { label: 'Dots', value: 'url(#pattern-dots)', background: 'radial-gradient(#cbd5e1 1px, transparent 1px), #f8fafc', backgroundSize: '4px 4px' },
                                         { label: 'Marble', value: 'url(#pattern-marble)', background: '#f5f5f5' },
-                                        { label: 'Wood', value: 'url(#pattern-wood)', background: '#8B4513' },
-                                        { label: 'Brushed', value: 'url(#pattern-brushed)', background: '#999' },
-                                        { label: 'Honey', value: 'url(#pattern-honeycomb)', background: '#ffcc00' },
+                                        { label: 'Diamond', value: 'url(#pattern-diamond)', background: 'linear-gradient(135deg, #f0f0f0, #e0e0e0)' },
+                                        { label: 'Hologram', value: 'url(#pattern-hologram-grid)', background: 'linear-gradient(135deg, #e0f7ff, #b3e5fc)' },
+                                    ]
+                                },
+                                {
+                                    category: 'Premium Gradients',
+                                    items: [
+                                        { label: 'Pearl', value: 'url(#gradient-pearl)', background: 'radial-gradient(circle, #ffffff, #f0f8ff, #e6f2ff)' },
+                                        { label: 'Obsidian', value: 'url(#gradient-obsidian)', background: 'linear-gradient(135deg, #1a1a2e, #0f0f1e, #16213e)' },
+                                        { label: 'Aurora', value: 'url(#gradient-aurora-borealis)', background: 'linear-gradient(90deg, #00ff88, #00ffff, #0088ff, #ff00ff)' },
+                                        { label: 'Sunset', value: 'url(#gradient-sunset-fire)', background: 'linear-gradient(135deg, #ff6b35, #f7931e, #fdb833)' },
+                                        { label: 'Ocean', value: 'url(#gradient-deep-ocean)', background: 'linear-gradient(135deg, #001a4d, #003d99, #0066cc)' },
+                                        { label: 'Rose Gold', value: 'url(#gradient-rose-gold)', background: 'linear-gradient(135deg, #f4a460, #daa520, #cd853f)' },
+                                        { label: 'Mint', value: 'url(#gradient-mint-cream)', background: 'linear-gradient(135deg, #98ff98, #b0ffb0, #90ee90)' },
+                                        { label: 'Purple', value: 'url(#gradient-midnight-purple)', background: 'linear-gradient(135deg, #2d1b69, #5a3a9e, #8b5fbf)' },
                                     ]
                                 }
                             ].map((cat) => (
