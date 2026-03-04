@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Point, PathLayer, SymmetrySettings, AnimationSettings, Transform, AnimationKeyframe } from '../types';
-import { distToSegment, simplifyPath, smoothPath } from '../utils/geometry';
+import { distToSegment, simplifyPath, smoothPath, applySymmetry } from '../utils/geometry';
 import { interpolateTransform } from '../utils/animation';
 import useHistory from './useHistory';
 
@@ -290,10 +290,10 @@ function useDraw() {
                         const p = paths.find(x => x.id === id);
                         return (hasFocusedSegment && p?.multiPathPoints ? p.segmentAnimations?.[segmentIndex] : undefined) || p?.animation || { entries: [] };
                     });
-                    
+
                     const firstAnim = JSON.stringify(allAnimations[0]);
                     const allSame = allAnimations.every(anim => JSON.stringify(anim) === firstAnim);
-                    
+
                     // If animations differ, use empty state to prevent accidental overwrite
                     targetAnimation = allSame ? allAnimations[0] : { entries: [] };
                 } else {
@@ -521,58 +521,84 @@ function useDraw() {
         setPaths(prev => {
             const newPaths: PathLayer[] = [];
             let splitOccurred = false;
+            // 默认画布坐标中心
+            const centerX = 400;
+            const centerY = 300;
 
             prev.forEach(p => {
-                if (selectedPathIds.includes(p.id) && p.multiPathPoints && p.multiPathPoints.length > 1) {
-                    splitOccurred = true;
-                    const groupings = p.segmentGroupings || p.multiPathPoints.map(() => 1);
-                    let sIdx = 0;
+                const hasSymmetry = p.symmetry.horizontal || p.symmetry.vertical || p.symmetry.center;
+                if (selectedPathIds.includes(p.id)) {
+                    if (hasSymmetry) {
+                        splitOccurred = true;
+                        // 获取所有对称变体
+                        const variants = applySymmetry(p.multiPathPoints || p.points, p.symmetry, centerX, centerY);
 
-                    groupings.forEach((count, gIdx) => {
-                        const segs = p.multiPathPoints!.slice(sIdx, sIdx + count);
-                        const cArr = p.segmentColors?.slice(sIdx, sIdx + count);
-                        const fArr = p.segmentFills?.slice(sIdx, sIdx + count);
-                        const wArr = p.segmentWidths?.slice(sIdx, sIdx + count);
-                        const aArr = p.segmentAnimations?.slice(sIdx, sIdx + count);
-                        const clArr = p.segmentClosed?.slice(sIdx, sIdx + count);
-                        const tArr = p.segmentTensions?.slice(sIdx, sIdx + count);
-                        const stArr = p.segmentTransforms?.slice(sIdx, sIdx + count);
-                        const skArr = p.segmentKeyframes?.slice(sIdx, sIdx + count);
-                        const flArr = p.segmentFilters?.slice(sIdx, sIdx + count);
-                        const iArr = p.segmentInteractive?.slice(sIdx, sIdx + count);
-
-                        newPaths.push({
-                            ...p,
-                            id: `split-${p.id}-${gIdx}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-                            name: `${p.name} (Part ${gIdx + 1})`,
-                            points: segs[0],
-                            multiPathPoints: count > 1 ? segs : undefined,
-                            segmentColors: count > 1 ? cArr : undefined,
-                            segmentFills: count > 1 ? fArr : undefined,
-                            segmentWidths: count > 1 ? wArr : undefined,
-                            segmentAnimations: count > 1 ? aArr : undefined,
-                            segmentClosed: count > 1 ? clArr : undefined,
-                            segmentTensions: count > 1 ? tArr : undefined,
-                            segmentGroupings: undefined,
-                            d: undefined,
-                            color: cArr?.[0] ?? p.color,
-                            fill: fArr?.[0] ?? p.fill,
-                            width: wArr?.[0] ?? p.width,
-                            animation: aArr?.[0] ?? p.animation,
-                            closed: clArr?.[0] ?? p.closed,
-                            tension: tArr?.[0] ?? p.tension,
-                            transform: (count === 1 && stArr?.[0]) ? stArr[0] : p.transform,
-                            keyframes: (count === 1 && skArr?.[0]) ? skArr[0] : p.keyframes,
-                            segmentTransforms: count > 1 ? stArr : undefined,
-                            segmentKeyframes: count > 1 ? skArr : undefined,
-                            segmentFilters: count > 1 ? flArr : undefined,
-                            segmentInteractive: count > 1 ? iArr : undefined,
-                            filter: flArr?.[0] ?? p.filter,
-                            interactive: iArr?.[0] ?? p.interactive
+                        variants.forEach((v, vIdx) => {
+                            newPaths.push({
+                                ...p,
+                                id: `sym-split-${p.id}-${v.type}-${Date.now()}-${vIdx}`,
+                                name: `${p.name || 'Layer'} (${v.type})`,
+                                points: v.points,
+                                multiPathPoints: v.multiPoints,
+                                symmetry: { horizontal: false, vertical: false, center: false },
+                                // 移除特定于合并图层的元数据，或者根据需要保留
+                                segmentGroupings: undefined,
+                                d: undefined, // 重新生成
+                            });
                         });
+                    } else if (p.multiPathPoints && p.multiPathPoints.length > 1) {
+                        splitOccurred = true;
+                        const groupings = p.segmentGroupings || p.multiPathPoints.map(() => 1);
+                        let sIdx = 0;
 
-                        sIdx += count;
-                    });
+                        groupings.forEach((count, gIdx) => {
+                            const segs = p.multiPathPoints!.slice(sIdx, sIdx + count);
+                            const cArr = p.segmentColors?.slice(sIdx, sIdx + count);
+                            const fArr = p.segmentFills?.slice(sIdx, sIdx + count);
+                            const wArr = p.segmentWidths?.slice(sIdx, sIdx + count);
+                            const aArr = p.segmentAnimations?.slice(sIdx, sIdx + count);
+                            const clArr = p.segmentClosed?.slice(sIdx, sIdx + count);
+                            const tArr = p.segmentTensions?.slice(sIdx, sIdx + count);
+                            const stArr = p.segmentTransforms?.slice(sIdx, sIdx + count);
+                            const skArr = p.segmentKeyframes?.slice(sIdx, sIdx + count);
+                            const flArr = p.segmentFilters?.slice(sIdx, sIdx + count);
+                            const iArr = p.segmentInteractive?.slice(sIdx, sIdx + count);
+
+                            newPaths.push({
+                                ...p,
+                                id: `split-${p.id}-${gIdx}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                                name: `${p.name} (Part ${gIdx + 1})`,
+                                points: segs[0],
+                                multiPathPoints: count > 1 ? segs : undefined,
+                                segmentColors: count > 1 ? cArr : undefined,
+                                segmentFills: count > 1 ? fArr : undefined,
+                                segmentWidths: count > 1 ? wArr : undefined,
+                                segmentAnimations: count > 1 ? aArr : undefined,
+                                segmentClosed: count > 1 ? clArr : undefined,
+                                segmentTensions: count > 1 ? tArr : undefined,
+                                segmentGroupings: undefined,
+                                d: undefined,
+                                color: cArr?.[0] ?? p.color,
+                                fill: fArr?.[0] ?? p.fill,
+                                width: wArr?.[0] ?? p.width,
+                                animation: aArr?.[0] ?? p.animation,
+                                closed: clArr?.[0] ?? p.closed,
+                                tension: tArr?.[0] ?? p.tension,
+                                transform: (count === 1 && stArr?.[0]) ? stArr[0] : p.transform,
+                                keyframes: (count === 1 && skArr?.[0]) ? skArr[0] : p.keyframes,
+                                segmentTransforms: count > 1 ? stArr : undefined,
+                                segmentKeyframes: count > 1 ? skArr : undefined,
+                                segmentFilters: count > 1 ? flArr : undefined,
+                                segmentInteractive: count > 1 ? iArr : undefined,
+                                filter: flArr?.[0] ?? p.filter,
+                                interactive: iArr?.[0] ?? p.interactive
+                            });
+
+                            sIdx += count;
+                        });
+                    } else {
+                        newPaths.push(p);
+                    }
                 } else {
                     newPaths.push(p);
                 }
@@ -723,7 +749,7 @@ function useDraw() {
     const setAnimationEnhanced = useCallback((anim: AnimationSettings, commit: boolean = true) => {
         setIsInteracting(!commit);
         setAnimation(anim);
-        
+
         // For multi-select with different animations, merge new entries instead of replacing
         if (selectedPathIds.length > 1 && commit) {
             // Check if all selected paths have the same animation
@@ -731,22 +757,22 @@ function useDraw() {
                 const path = paths.find(x => x.id === id);
                 return path?.animation || { entries: [] };
             });
-            
+
             const firstAnim = JSON.stringify(allAnimations[0]);
             const allSame = allAnimations.every(a => JSON.stringify(a) === firstAnim);
-            
+
             // If animations differ, merge new entries with existing ones for each path
             if (!allSame) {
                 setPaths(prev => prev.map(p => {
                     if (!selectedPathIds.includes(p.id)) return p;
-                    
+
                     const defaultAnim: AnimationSettings = { entries: [] };
                     const currentAnim = p.animation || { entries: [] };
                     const mergedAnim = {
                         ...anim,
                         entries: [...(currentAnim.entries || []), ...(anim.entries || [])]
                     };
-                    
+
                     if (p.multiPathPoints) {
                         if (focusedSegmentIndices.length > 0) {
                             const newSegmentAnimations = [...(p.segmentAnimations || p.multiPathPoints.map(() => defaultAnim))];
@@ -768,11 +794,11 @@ function useDraw() {
                 return;
             }
         }
-        
+
         // Normal case: all animations are the same or single select
         updateSelectedPathProperty(p => {
             const defaultAnim: AnimationSettings = { entries: [] };
-            
+
             if (p.multiPathPoints) {
                 if (focusedSegmentIndices.length > 0) {
                     // Focus mode: only update the focused segments' animations

@@ -13,6 +13,14 @@ import { X } from 'lucide-react';
 
 const CHANGELOG = [
   {
+    version: 'v26.0304.1220',
+    date: '2026-03-04',
+    items: [
+      '新增对称图形拆分功能：在图层面板中选中具有对称属性的图形，点击“拆分”按钮即可将其各对称变体转换为独立的可编辑图层',
+      '优化拆分逻辑：统一管理合并图层（Merged Layer）与对称图形（Symmetry Layer）的解构，实现图形元素的精细化独立操控'
+    ]
+  },
+  {
     version: 'v26.0226.0745',
     date: '2026-02-26',
     items: [
@@ -1279,7 +1287,7 @@ ${pathsCode}
               onClick={() => setShowChangelog(true)}
               className="ml-2 text-[10px] font-mono text-slate-500 tracking-tighter align-top opacity-70 hover:opacity-100 hover:text-primary transition-all active:scale-95"
             >
-              v26.0226.0727
+              v26.0304.1220
             </button>
           </h1>
         </div>
