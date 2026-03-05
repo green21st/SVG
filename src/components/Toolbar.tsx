@@ -494,17 +494,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                     ]
                                 }
                             ].map((cat) => (
-                                <div key={cat.category} className="mb-6 last:mb-0">
-                                    <h5 className="text-[10px] font-bold text-slate-500 uppercase mb-3 ml-1 tracking-widest">{cat.category}</h5>
-                                    <div className="grid grid-cols-2 gap-3">
+                                <div key={cat.category} className="mb-4 last:mb-0">
+                                    <h5 className="text-[8px] font-bold text-slate-500 uppercase mb-2 ml-1 tracking-widest">{cat.category}</h5>
+                                    <div className="grid grid-cols-3 gap-2">
                                         {cat.items.map((item) => (
                                             <button
                                                 key={item.label}
                                                 onClick={() => { setFillColor(item.value); setShowMaterialPicker(false); }}
-                                                className={`group relative flex flex-col items-center gap-2 p-1.5 rounded-xl border transition-all ${fillColor === item.value ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)]' : 'bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5'}`}
+                                                className={`group relative flex flex-col items-center gap-1 p-1 rounded-lg border transition-all ${fillColor === item.value ? 'bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)]' : 'bg-black/40 border-white/5 hover:border-white/20 hover:bg-white/5'}`}
                                             >
-                                                <div className="w-full h-14 rounded-lg shadow-inner transition-transform group-hover:scale-[1.03]" style={{ background: item.background }} />
-                                                <span className="text-[10px] font-bold text-slate-400 group-hover:text-white truncate w-full text-center">{item.label}</span>
+                                                <div className="w-full h-8 rounded-md shadow-inner transition-transform group-hover:scale-[1.03]" style={{ background: item.background }} />
+                                                <span className="text-[7px] font-bold text-slate-400 group-hover:text-white truncate w-full text-center">{item.label}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -531,42 +531,42 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
                         {/* Interactive Toggle */}
-                        <div className="mb-4">
+                        <div className="mb-3">
                             <button
                                 onClick={() => setInteractive(!interactive)}
-                                className={`w-full p-4 rounded-xl border transition-all flex items-center justify-between group ${interactive ? 'bg-indigo-500/10 border-indigo-500/50 shadow-lg shadow-indigo-500/10' : 'bg-slate-900 border-white/5 hover:bg-slate-800'}`}
+                                className={`w-full p-2.5 rounded-lg border transition-all flex items-center justify-between group ${interactive ? 'bg-indigo-500/10 border-indigo-500/50 shadow-lg shadow-indigo-500/10' : 'bg-slate-900 border-white/5 hover:bg-slate-800'}`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-lg transition-colors ${interactive ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'}`}>
-                                        <MousePointer2 size={16} />
+                                <div className="flex items-center gap-2">
+                                    <div className={`p-1.5 rounded-md transition-colors ${interactive ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-white'}`}>
+                                        <MousePointer2 size={12} />
                                     </div>
                                     <div className="text-left">
-                                        <div className={`text-[10px] font-black uppercase tracking-tighter ${interactive ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                        <div className={`text-[8px] font-black uppercase tracking-tighter ${interactive ? 'text-indigo-400' : 'text-slate-400'}`}>
                                             Interactive UI
                                         </div>
-                                        <div className="text-[9px] text-slate-500 font-medium">Add hover & click effects</div>
+                                        <div className="text-[7px] text-slate-500 font-medium">Add hover & click effects</div>
                                     </div>
                                 </div>
-                                <div className={`w-8 h-4 rounded-full relative transition-colors ${interactive ? 'bg-indigo-500' : 'bg-slate-800'}`}>
-                                    <div className={`absolute top-1 w-2 h-2 rounded-full bg-white transition-all ${interactive ? 'right-1' : 'left-1'}`} />
+                                <div className={`w-6 h-3 rounded-full relative transition-colors ${interactive ? 'bg-indigo-500' : 'bg-slate-800'}`}>
+                                    <div className={`absolute top-0.5 w-2 h-2 rounded-full bg-white transition-all ${interactive ? 'right-0.5' : 'left-0.5'}`} />
                                 </div>
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 pb-8">
+                        <div className="grid grid-cols-3 gap-2 pb-6">
                             <button
                                 onClick={() => {
                                     setFilter('none');
                                     setShowStylePicker(false);
                                 }}
-                                className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 group ${filter === 'none' ? 'bg-slate-800 border-primary' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}
+                                className={`p-2 rounded-lg border transition-all flex flex-col items-center gap-1 group ${filter === 'none' ? 'bg-slate-800 border-primary' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}
                             >
-                                <div className="w-full aspect-square rounded-lg bg-slate-800 border border-white/5 flex items-center justify-center">
-                                    <X size={20} className="text-slate-600" />
+                                <div className="w-full h-10 rounded-md bg-slate-800 border border-white/5 flex items-center justify-center">
+                                    <X size={14} className="text-slate-600" />
                                 </div>
-                                <span className="text-[10px] font-bold text-slate-400">Default</span>
+                                <span className="text-[7px] font-bold text-slate-400">Default</span>
                             </button>
 
                             {UI_STYLES.map((style) => (
@@ -576,13 +576,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                         applyUIStyle(style);
                                         setShowStylePicker(false);
                                     }}
-                                    className={`p-3 rounded-xl border transition-all flex flex-col items-center gap-2 group ${filter === style.properties.filter ? 'bg-slate-800 border-primary shadow-lg shadow-primary/20' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}
+                                    className={`p-2 rounded-lg border transition-all flex flex-col items-center gap-1 group ${filter === style.properties.filter ? 'bg-slate-800 border-primary shadow-lg shadow-primary/20' : 'bg-slate-900/50 border-white/5 hover:bg-slate-800'}`}
                                 >
                                     <div
-                                        className="w-full aspect-square rounded-lg border border-white/5 flex items-center justify-center overflow-hidden transition-all group-hover:scale-105"
+                                        className="w-full h-10 rounded-md border border-white/5 flex items-center justify-center overflow-hidden transition-all group-hover:scale-105"
                                         style={{ background: style.previewBackground }}
                                     >
-                                        <svg viewBox="0 0 100 100" className="w-16 h-16 drop-shadow-xl">
+                                        <svg viewBox="0 0 100 100" className="w-8 h-8 drop-shadow-xl">
                                             <path
                                                 d="M 50 15 L 61 40 L 88 40 L 66 56 L 75 82 L 50 66 L 25 82 L 34 56 L 12 40 L 39 40 Z"
                                                 fill={style.properties.fill || 'none'}
@@ -596,7 +596,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                                             />
                                         </svg>
                                     </div>
-                                    <span className="text-[10px] font-bold text-white group-hover:text-primary transition-colors">
+                                    <span className="text-[7px] font-bold text-white group-hover:text-primary transition-colors truncate w-full text-center">
                                         {style.label}
                                     </span>
                                 </button>
