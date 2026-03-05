@@ -159,7 +159,7 @@ export const SVG_DEF_MAP: Record<string, string> = {
 
 
   // UI STYLE FILTERS
-  'filter-glass': `<filter id="filter-glass" x="-30%" y="-30%" width="160%" height="160%" primitiveUnits="objectBoundingBox">
+  'filter-glass': `<filter id="filter-glass" primitiveUnits="objectBoundingBox">
         <feGaussianBlur in="SourceAlpha" stdDeviation="0.02" result="blur" />
         <feSpecularLighting in="blur" surfaceScale="0.05" specularConstant="2" specularExponent="35" lighting-color="#ffffff" result="specOut">
           <fePointLight x="0.2" y="0.2" z="0.5" />
@@ -231,7 +231,7 @@ export const SVG_DEF_MAP: Record<string, string> = {
   'filter-pixel': `<filter id="filter-pixel" x="0%" y="0%" width="100%" height="100%">
         <feMorphology operator="dilate" radius="1" />
       </filter>`,
-  'filter-ultra-chrome': `<filter id="filter-ultra-chrome" x="-20%" y="-20%" width="140%" height="140%">
+  'filter-ultra-chrome': `<filter id="filter-ultra-chrome" primitiveUnits="objectBoundingBox">
         <feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur" />
         <feSpecularLighting in="blur" surfaceScale="5" specularConstant="1" specularExponent="30" lighting-color="#ffffff" result="spec">
           <fePointLight x="-5000" y="-10000" z="20000" />
@@ -525,7 +525,7 @@ export const SVG_DEF_MAP: Record<string, string> = {
         <feComposite in="SourceGraphic" in2="spec" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litPaint" />
         <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#3300ff" flood-opacity="0.5" />
       </filter>`,
-  'filter-frosted-glass': `<filter id="filter-frosted-glass" x="-30%" y="-30%" width="160%" height="160%">
+  'filter-frosted-glass': `<filter id="filter-frosted-glass" primitiveUnits="objectBoundingBox">
         <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
         <feSpecularLighting in="blur" surfaceScale="2" specularConstant="1" specularExponent="20" lighting-color="#ffffff" result="spec">
           <fePointLight x="0.3" y="0.3" z="0.3" />

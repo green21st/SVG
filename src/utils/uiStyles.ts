@@ -209,36 +209,27 @@ export const UI_STYLES: UIStyle[] = [
         }
     },
     {
-        label: 'Silk Fabric',
-        id: 'silk',
-        previewBackground: 'linear-gradient(135deg, #e6d5c3, #f5e6d3, #d4c4b0)',
+        label: 'Metallic Sphere',
+        id: 'metallic-sphere',
+        previewBackground: 'radial-gradient(circle at 35% 35%, #ffffff, #4a90e2, #1a3a52)',
         properties: {
-            fill: 'url(#gradient-silk)',
-            stroke: '#d4c4b0',
-            strokeWidth: 0.5,
-            filter: 'url(#filter-silk)',
-            fillOpacity: 0.95
+            fill: 'url(#3d-sphere)',
+            stroke: '#1a3a52',
+            strokeWidth: 1.5,
+            filter: 'url(#filter-3d-bevel)'
         }
     },
     {
-        label: 'Cosmic Dust',
-        id: 'cosmic-dust',
-        previewBackground: 'radial-gradient(circle, #ffffff, #9933ff, #3300ff, #000000)',
+        label: 'Crystalline Ice',
+        id: 'crystalline-ice',
+        previewBackground: 'linear-gradient(135deg, rgba(176,224,230,0.9), rgba(135,206,250,0.8), rgba(100,149,237,0.7))',
         properties: {
-            fill: 'url(#gradient-cosmic)',
-            stroke: '#9933ff',
-            strokeWidth: 1,
-            filter: 'url(#filter-cosmic)'
-        }
-    },
-    {
-        label: 'Liquid Rainbow',
-        id: 'liquid-rainbow',
-        previewBackground: 'linear-gradient(90deg, #ff0080, #ff8c00, #40e0d0, #0080ff, #ff00ff)',
-        properties: {
-            fill: 'url(#gradient-liquid-rainbow)',
-            stroke: 'none',
-            filter: 'url(#filter-liquid-rainbow)'
+            fill: 'url(#crystal-blue)',
+            stroke: 'rgba(100,149,237,0.8)',
+            strokeWidth: 1.5,
+            filter: 'url(#filter-glass)',
+            fillOpacity: 0.8,
+            strokeOpacity: 0.9
         }
     }
 ];
